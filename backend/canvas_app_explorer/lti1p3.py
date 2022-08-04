@@ -213,8 +213,11 @@ def launch(request: HttpRequest):
     try:
         launch_data: Dict[str, Any] = message_launch.get_launch_data()
     except LtiException as lti_exception:
+        logger.error(lti_exception)
         message = f': {lti_exception.args[0]}' if len(lti_exception.args) >= 1 else ''
-        return HttpResponseServerError(f'LTI launch error occurred{message}. Please try launching the tool again.')
+        response = HttpResponse(f'LTI launch error occurred{message}. Please try launching the tool again.')
+        response.status_code = 401
+        return response
 
     # TODO: Implement custom AUTHENTICATION_BACKEND rather than using this one
     try:
