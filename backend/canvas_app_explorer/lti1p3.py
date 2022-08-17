@@ -14,8 +14,9 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch, \
-    DjangoCacheDataStorage, DjangoDbToolConf
+from pylti1p3.contrib.django import (
+    DjangoCacheDataStorage, DjangoDbToolConf, DjangoMessageLaunch, DjangoOIDCLogin
+)
 from pylti1p3.exception import LtiException
 
 from .canvas_roles import STAFF_COURSE_ROLES
