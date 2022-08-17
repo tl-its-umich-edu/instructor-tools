@@ -20,16 +20,21 @@ from pylti1p3.exception import LtiException
 
 from .canvas_roles import STAFF_COURSE_ROLES
 
+
 logger = logging.getLogger(__name__)
 
-
-
 COURSE_MEMBERSHIP = 'http://purl.imsglobal.org/vocab/lis/v2/membership'
+TOOL_CONF = DjangoDbToolConf()
 
 CacheConfig = namedtuple('CacheConfig', ['launch_data_storage', 'cache_lifetime'])
 
-
-TOOL_CONF = DjangoDbToolConf()
+def extract_error_message(error: Exception) -> Union[str, None]:
+    """
+    Check Exception for a string message as the first position argument.
+    """
+    if len(error.args) >= 1 and isinstance(error.args[0], str):
+        return error.args[0]
+    return None
 
 # Custom LTI variable keys
 USERNAME_KEY = 'user_username'
@@ -214,8 +219,11 @@ def launch(request: HttpRequest):
         launch_data: Dict[str, Any] = message_launch.get_launch_data()
     except LtiException as lti_exception:
         logger.error(lti_exception)
-        message = f': {lti_exception.args[0]}' if len(lti_exception.args) >= 1 else ''
-        response = HttpResponse(f'LTI launch error occurred{message}. Please try launching the tool again.')
+        message = f'LTI launch error occurred. Please try launching the tool again.'
+        error_message = extract_error_message(lti_exception)
+        if error_message:
+            message += f' Error: {error_message}.'
+        response = HttpResponse(message)
         response.status_code = 401
         return response
 
@@ -223,8 +231,11 @@ def launch(request: HttpRequest):
     try:
         create_user_in_django(request, launch_data)
     except PermissionDenied as e:
-        message = f': {e.args[0]}' if len(e.args) >= 1 else ''
-        return HttpResponseForbidden('Permission denied' + message)
+        message = 'Permission denied.'
+        error_message = extract_error_message(e)
+        if error_message:
+            message += ' ' + error_message
+        return HttpResponseForbidden(message)
 
     url = reverse('home')
     return redirect(url)
