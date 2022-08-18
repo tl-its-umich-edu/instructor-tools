@@ -7,9 +7,7 @@ from django.conf import settings
 from django.contrib.auth import login as django_login
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
-from django.http import (
-    HttpRequest, HttpResponse, HttpResponseForbidden, HttpResponseServerError, JsonResponse
-)
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
