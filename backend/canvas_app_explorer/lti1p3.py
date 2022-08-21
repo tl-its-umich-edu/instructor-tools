@@ -27,6 +27,7 @@ TOOL_CONF = DjangoDbToolConf()
 
 CacheConfig = namedtuple('CacheConfig', ['launch_data_storage', 'cache_lifetime'])
 
+
 def extract_error_message(error: Exception) -> Union[str, None]:
     """
     Check Exception for a string message as the first position argument.
