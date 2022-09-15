@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    'django_mysql',
+    # 'django_mysql',
     'webpack_loader',
     'rest_framework',
     'pylti1p3.contrib.django.lti1p3_tool_config',
@@ -154,12 +154,25 @@ DEFAULT_FILE_STORAGE = 'backend.canvas_app_explorer.storage_get_file.DatabaseFil
 # So request works over the proxy
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-DB_CACHE_CONFIGS = os.getenv('DB_CACHE_CONFIGS',
-                           {'CACHE_TTL': 600, 'BACKEND': 'django_mysql.cache.MySQLCache',
-                            'LOCATION': 'canvas_app_explorer_cache',
-                            'CACHE_KEY_PREFIX': 'app_explorer',
-                            'CACHE_OPTIONS': {'COMPRESS_MIN_LENGTH': 5000, 'COMPRESS_LEVEL': 6}
-                            })
+DB_CACHE_CONFIGS = os.getenv(
+    'DB_CACHE_CONFIGS',
+    # {
+    #     'CACHE_TTL': 600,
+    #     'BACKEND': 'django_mysql.cache.MySQLCache',
+    #     'LOCATION': 'canvas_app_explorer_cache',
+    #     'CACHE_KEY_PREFIX': 'app_explorer',
+    #     'CACHE_OPTIONS': {'COMPRESS_MIN_LENGTH': 5000, 'COMPRESS_LEVEL': 6}
+    # },
+    {
+        'CACHE_TTL': 600,
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': 'redis://redis:6379/1',
+        'CACHE_KEY_PREFIX': 'app_explorer',
+        'CACHE_OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient'
+        }
+    }
+)
 
 CACHES = {
     'default': {
