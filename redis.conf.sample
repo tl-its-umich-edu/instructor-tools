@@ -1,0 +1,2 @@
+loglevel debug
+requirepass 'some password here'

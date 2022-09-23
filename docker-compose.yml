@@ -36,5 +36,7 @@ services:
     environment:
       - DEBUG=True
   redis:
-    build:
-      context: redis
+    image: redis:7
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: [ "redis-server", "--include /usr/local/etc/redis/redis.conf" ]
