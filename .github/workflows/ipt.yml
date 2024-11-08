@@ -1,4 +1,4 @@
-name: CAE Build/Release
+name: IPT Build/Release
 
 on:
   push:
