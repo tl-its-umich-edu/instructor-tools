@@ -145,7 +145,7 @@ def create_user_in_django(request: HttpRequest, message_launch: ExtendedDjangoMe
     course_roles = custom_params[COURSE_ROLES_KEY].split(',')
 
     if 'email' not in launch_data.keys():
-        logger.warn('An instructor/admin likely launched the tool using Student View (Test Student).')
+        logger.warning('An instructor/admin likely launched the tool using Student View (Test Student).')
         error_message = 'Student View is not available for Canvas App Explorer.'
         raise PermissionDenied(error_message)
 
@@ -154,7 +154,7 @@ def create_user_in_django(request: HttpRequest, message_launch: ExtendedDjangoMe
     user_is_course_staff = len(user_staff_course_roles) > 0
 
     if not user_is_course_staff:
-        logger.warn(f'User {username} does not have a staff role.')
+        logger.warning(f'User {username} does not have a staff role.')
         error_message = 'You must be an instructor in this course or an administrator to access this tool.'
         raise PermissionDenied(error_message)
 
