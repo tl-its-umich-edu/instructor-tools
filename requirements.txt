@@ -1,4 +1,4 @@
-gunicorn==22.0.0
+gunicorn==23.0.0
 mysqlclient==2.1.1
 
 # Django and related
@@ -19,11 +19,13 @@ drf-spectacular==0.22.1
 markdown==3.4.1 # Markdown support for the browsable API
 
 # LTI
-pycryptodome==3.19.1 # For generating LTI keys
-PyLTI1p3==1.12.1
+pycryptodome==3.21.0 # For generating LTI keys
+PyLTI1p3==2.0.0
 
 # Canvas
 canvasapi==3.3.0
+
+debugpy==1.8.8
 
 # Not in pypi https://github.com/Harvard-University-iCommons/django-canvas-oauth
 https://github.com/Harvard-University-iCommons/django-canvas-oauth/archive/v1.1.1.tar.gz
