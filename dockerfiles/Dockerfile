@@ -1,7 +1,7 @@
 # FROM directive instructing base image to build upon
 # This could be used as a base instead: 
 # https://hub.docker.com/r/nikolaik/python-nodejs
-FROM python:3.8-slim
+FROM python:3.10-slim-bookworm
 
 # NOTE: requirements.txt not likely to change between dev builds
 COPY requirements.txt .

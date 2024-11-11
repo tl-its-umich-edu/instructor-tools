@@ -10,6 +10,12 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    allow:
+      - dependency-type: "direct"
+    ignore:
+      - dependency-name: "django"
+        versions:
+          - "> 4.2"  # This ignores versions above 4.2, allowing only 4.2.x LTS upgrades
   # Maintain dependencies for npm
   - package-ecosystem: "npm"
     directory: "/frontend"
