@@ -16,8 +16,14 @@ updates:
       - dependency-name: "django"
         versions:
           - "> 4.2"  # This ignores versions above 4.2, allowing only 4.2.x LTS upgrades
+    groups:
+      all-python-dependencies:
+        pattern: "*"
   # Maintain dependencies for npm
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    groups:
+      all-npm-dependencies:
+        pattern: "*"
