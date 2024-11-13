@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ThemeProvider } from '@mui/material';
 
@@ -24,13 +24,14 @@ const queryClient = new QueryClient({
   }
 });
 
-ReactDOM.render(
-  (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <Home globals={globals} />
-      </ThemeProvider>
-    </QueryClientProvider>
-  ),
-  document.getElementById('react-app')
+const container = document.getElementById('react-app');
+if (container === null) throw Error('"react-app" was not found!');
+const root = createRoot(container);
+
+root.render(
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider theme={theme}>
+      <Home globals={globals} />
+    </ThemeProvider>
+  </QueryClientProvider>
 );
