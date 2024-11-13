@@ -1,6 +1,5 @@
-> [!WARNING]  
-> As of Aug 14, 2024, we have discontinued support for the Canvas App Explorer tool at University of Michigan. This GitHub repository is now archived.
- 
+# Instructor Productivity Tools
+
 ## Usage
 
 ### Development mode
