@@ -1,16 +1,30 @@
 # FROM directive instructing base image to build upon
 # This could be used as a base instead: 
 # https://hub.docker.com/r/nikolaik/python-nodejs
-FROM python:3.8-slim
+FROM python:3.10-slim-bookworm
 
 # NOTE: requirements.txt not likely to change between dev builds
 COPY requirements.txt .
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    build-essential default-libmysqlclient-dev netcat vim-tiny jq python3-dev git supervisor curl && \
+    build-essential \
+    default-libmysqlclient-dev \
+    netcat-openbsd \
+    vim-tiny \
+    jq \
+    python3-dev \
+    git \
+    supervisor \
+    curl \
+    pkg-config && \
     apt-get upgrade -y && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/*
+
+# Install MariaDB from the mariadb repository rather than using Debians 
+# https://mariadb.com/kb/en/mariadb-package-repository-setup-and-usage/
+RUN curl -LsS https://r.mariadb.com/downloads/mariadb_repo_setup | bash && \
+apt install -y --no-install-recommends libmariadb-dev
 
 RUN pip install --no-cache-dir -r requirements.txt
 

@@ -13,7 +13,8 @@ class LtiToolAdmin(admin.ModelAdmin):
         'long_description',
         'privacy_agreement',
         'support_resources',
-        'canvas_placement'
+        'canvas_placement',
+        'internal_notes'
     )
     list_display = ('name', 'canvas_id')
 

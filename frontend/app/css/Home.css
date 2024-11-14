@@ -7,6 +7,6 @@ body {
 }
 
 p {
-  display: inline;
   margin-block-start: 0em;
+  margin-bottom: 8px;
 }

@@ -199,17 +199,58 @@ LOGGING = {
             'handlers': ['console'],
             'propagate': False,
             'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+        },
+        'canvas_oauth': {
+            'handlers': ['console'],
+            'level': 'WARN'
         }
     }
 }
 
 TINYMCE_DEFAULT_CONFIG = {
-        'menubar': True,
-        "plugins": "advlist,autolink,code,lists,link,anchor,insertdatetime,media,table,paste,wordcount",
-        "toolbar": "formatselect | bold italic backcolor | "
-            "bullist numlist outdent indent | removeformat | code | help",
-        "default_link_target": "_blank",
-    }
+    'menubar': True,
+    "plugins": "advlist,autolink,code,lists,link,anchor,insertdatetime,media,table,paste,wordcount",
+    "toolbar": "bold italic backcolor | "
+        "bullist numlist outdent indent | removeformat | code | help",
+    "default_link_target": "_blank",
+    "invalid_elements": "h1, h2, h3, h4, h5, h6",
+    "invalid_styles": "color, font-family, background-color, line-height",
+
+    "style_formats": [
+        { 
+            "title": 'Inline', 
+            "items": [
+                { "title": 'Bold', "format": 'bold' },
+                { "title": 'Italic', "format": 'italic' },
+                { "title": 'Underline', "format": 'underline' },
+                { "title": 'Strikethrough', "format": 'strikethrough' },
+                { "title": 'Superscript', "format": 'superscript' },
+                { "title": 'Subscript', "format": 'subscript' },
+                { "title": 'Code', "format": 'code' }
+            ]
+        },
+        { 
+            "title": 'Blocks',  
+            "items": [
+                { "title": 'Paragraph', "format": 'p' },
+                { "title": 'Blockquote', "format": 'blockquote' },
+                { "title": 'Div', "format": 'div' },
+                { "title": 'Pre', "format": 'pre' }
+            ]
+        },
+        { 
+            "title": 'Align',  
+            "items": [
+                { "title": 'Left', "format": 'alignleft' },
+                { "title": 'Center', "format": 'aligncenter' },
+                { "title": 'Right', "format": 'alignright' },
+                { "title": 'Justify', "format": 'alignjustify' }
+            ]
+        }
+    ],
+    "block_formats": "Paragraph=p",
+    "removed_menuitems": "fontformats fontsizes lineheight forecolor backcolor",
+}
 
 # Watchman settings (https://github.com/mwarkentin/django-watchman)
 WATCHMAN_TOKENS = os.getenv('DJANGO_WATCHMAN_TOKENS', None)

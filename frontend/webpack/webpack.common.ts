@@ -15,7 +15,7 @@ const commonConfig: webpack.Configuration = {
   },
 
   plugins: [
-    new BundleTrackerPlugin({ filename: './webpack-stats.json' }),
+    new BundleTrackerPlugin({ path: frontendPath, filename: 'webpack-stats.json' }),
     new MiniCssExtractPlugin({
       filename: '[name]-[fullhash].css',
       chunkFilename: '[name]-[chunkhash].css',
