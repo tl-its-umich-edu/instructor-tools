@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import AddBox from '@mui/icons-material/AddBox';
-import { useMutation } from 'react-query';
+import { useMutation } from '@tanstack/react-query';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
