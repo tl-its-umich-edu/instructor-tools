@@ -105,7 +105,7 @@ function Home (props: HomeProps) {
         </div>
       </MainContainer>
       <Typography component='footer' sx={{ textAlign: 'center' }}>
-        Copyright © {new Date().getFullYear()} The Regents of the University of Michigan
+        Copyright © 2024 The Regents of the University of Michigan
       </Typography>
       <Snackbar open={showRefreshAlert} onClose={handleRefreshAlertClose} autoHideDuration={10000}>
         <Alert severity='info' elevation={2} onClose={handleRefreshAlertClose}>
