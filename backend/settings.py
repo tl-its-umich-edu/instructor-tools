@@ -158,7 +158,7 @@ DB_CACHE_CONFIGS = os.getenv(
     {
         'CACHE_TTL': 600,
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'redis')}:6379/1",
+        'LOCATION': os.getenv('REDIS_URL', 'redis://redis:6379/1'),
         'CACHE_KEY_PREFIX': 'app_explorer',
         'CACHE_OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
