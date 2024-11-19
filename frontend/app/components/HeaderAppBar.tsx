@@ -17,7 +17,7 @@ export default function HeaderAppBar (props: HeaderAppBarProps) {
         <Grid container direction='row' alignItems='center'>
           <Grid item sm={5} xs={6}>
             <Typography variant='h5' component='h1'>
-              Canvas App Explorer
+              Instructor Tools
             </Typography>
           </Grid>
           <Grid

@@ -1,14 +1,13 @@
 # FROM directive instructing base image to build upon
 # This could be used as a base instead: 
 # https://hub.docker.com/r/nikolaik/python-nodejs
-FROM python:3.10-slim-bookworm
+FROM python:3.10-slim
 
 # NOTE: requirements.txt not likely to change between dev builds
 COPY requirements.txt .
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
-    default-libmysqlclient-dev \
     netcat-openbsd \
     vim-tiny \
     jq \
@@ -30,7 +29,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 WORKDIR /code/frontend
 
-RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - && \
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt install -y nodejs
 
 COPY /frontend/package*.json /code/frontend
