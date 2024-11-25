@@ -35,6 +35,7 @@ services:
       - .env
     environment:
       - DEBUG=True
+      - RUN_FRONTEND=true
   redis:
     image: redis:7
     volumes:
