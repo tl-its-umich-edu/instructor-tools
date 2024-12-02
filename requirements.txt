@@ -30,4 +30,6 @@ canvasapi==3.3.0
 debugpy==1.8.8
 
 # Not in pypi https://github.com/Harvard-University-iCommons/django-canvas-oauth
+# Migrations for this are currently manually managed in backend/canvas_oauth/migrations
+# Check if any new migrations are needed or if these local ones can be dropped if ever upgrading.
 https://github.com/Harvard-University-iCommons/django-canvas-oauth/archive/v1.1.1.tar.gz
