@@ -1,6 +1,13 @@
-# FROM directive instructing base image to build upon
-# This could be used as a base instead: 
-# https://hub.docker.com/r/nikolaik/python-nodejs
+# node-build stage
+
+FROM node:20-slim AS node-build
+WORKDIR /build/
+
+COPY frontend .
+RUN npm install
+
+RUN npm run build:frontend
+
 FROM python:3.10-slim
 
 # NOTE: requirements.txt not likely to change between dev builds
@@ -27,20 +34,26 @@ apt install -y --no-install-recommends libmariadb-dev
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-WORKDIR /code/frontend
-
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt install -y nodejs
-
-COPY /frontend/package*.json /code/frontend
-RUN npm install
+apt install -y nodejs
 
 WORKDIR /code
+
+# Copy only what is needed into /code/
+COPY backend ./backend
+COPY templates ./templates
+COPY manage.py start_backend.sh ./
+
+COPY --from=node-build /build/bundles ./frontend/bundles 
+COPY --from=node-build /build/webpack-stats.json ./frontend/
+COPY --from=node-build /build/node_modules ./frontend/node_modules
+
+
 
 # Sets the local timezone of the docker image
 ARG TZ
 ENV TZ ${TZ:-America/Detroit}
-ENV RUN_FRONTEND ${RUN_FRONTEND:-false}
+ENV RUN_FRONTEND ${RUN_FRONTEND:-false} 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # EXPOSE port 5000 to allow communication to/from server
