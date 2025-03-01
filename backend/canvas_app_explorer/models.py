@@ -40,6 +40,7 @@ class LtiTool(models.Model):
     support_resources = HTMLField()
     canvas_placement = models.ManyToManyField(CanvasPlacement)
     internal_notes = HTMLField(blank=True, null=True, help_text="a place to put helpful info for admins, not visible to users")
+    is_public = models.BooleanField(default=False, help_text="true if the tool is visible to users")
 
     def __str__(self):
         return self.name
