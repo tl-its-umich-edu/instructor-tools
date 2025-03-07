@@ -13,9 +13,8 @@ updates:
     allow:
       - dependency-type: "direct"
     ignore:
-      - dependency-name: "django"
-        versions:
-          - "> 4.2"  # This ignores versions above 4.2, allowing only 4.2.x LTS upgrades
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       all-python-dependencies:
         patterns: ["*"]
@@ -27,3 +26,6 @@ updates:
     groups:
       all-npm-dependencies:
         patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
