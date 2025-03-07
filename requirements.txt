@@ -2,7 +2,7 @@ gunicorn==23.0.0
 mysqlclient==2.2.7
 
 # Django and related
-Django==4.2.16
+Django==4.2.20
 django-csp==3.8 # For Content Security Policy
 django-db-file-storage==0.5.6.1 # Support for storage in the database
 django-mysql==4.16.0
@@ -27,7 +27,7 @@ PyLTI1p3==2.0.0
 # Canvas
 canvasapi==3.3.0
 
-debugpy==1.8.12
+debugpy==1.8.13
 
 # Not in pypi https://github.com/Harvard-University-iCommons/django-canvas-oauth
 # Migrations for this are currently manually managed in backend/canvas_oauth/migrations
