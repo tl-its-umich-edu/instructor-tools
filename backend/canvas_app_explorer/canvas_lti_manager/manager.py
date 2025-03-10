@@ -70,6 +70,19 @@ class CanvasLtiManager:
                 ex_tool_tabs.append(self.create_external_tool_tab(tab))
         return ex_tool_tabs
 
+    def get_tool_sessionless_launch_url(self, tool_id: int) -> str:
+        sessionless_launch_url = ""
+        account_id = 1 # root account for now
+        account = self.canvas_api.get_account(account_id)
+        try:
+            external_tool = account.get_external_tool(tool_id)
+            sessionless_launch_url = external_tool.get_sessionless_launch_url()
+            sessionless_launch_url = sessionless_launch_url.replace(f'/accounts/${account_id}/', f'/courses/${self.course_id}/')
+        except CanvasException as error:
+            sessionless_launch_url = ""
+        return sessionless_launch_url
+
+
     def update_tool_navigation(self, canvas_id: int, is_hidden: bool) -> ExternalToolTab:
         update_params: TabUpdateParams = { 'hidden': is_hidden }
         tab_attributes: TabAttributes = {
