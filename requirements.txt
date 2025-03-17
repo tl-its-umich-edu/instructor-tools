@@ -21,7 +21,7 @@ drf-spectacular==0.28.0
 markdown==3.7 # Markdown support for the browsable API
 
 # LTI
-pycryptodome==3.21.0 # For generating LTI keys
+pycryptodome==3.22.0 # For generating LTI keys
 PyLTI1p3==2.0.0
 
 # Canvas
