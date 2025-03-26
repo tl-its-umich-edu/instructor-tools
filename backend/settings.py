@@ -69,6 +69,10 @@ MIDDLEWARE = [
     'csp.middleware.CSPMiddleware'
 ]
 
+MIGRATION_MODULES = {
+    'canvas_oauth': 'backend.canvas_oauth.migrations',
+}
+
 ROOT_URLCONF = 'backend.urls'
 
 TEMPLATES = [
