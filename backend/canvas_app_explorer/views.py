@@ -41,6 +41,13 @@ class LTIToolViewSet(viewsets.ViewSet):
         serializer = serializers.LtiToolWithNavSerializer(
             queryset, many=True, context={ 'available_tools': available_tools }
         )
+
+        # loop through the available tools and add the sessionless launch URL
+        for tool in serializer.data:
+            for available_tool in available_tools:
+                tool_id = tool['canvas_id']
+                if available_tool.id == tool_id:
+                    tool['sessionless_launch_url'] = manager.get_tool_sessionless_launch_url(tool_id)
         return Response(serializer.data)
 
     @extend_schema(
