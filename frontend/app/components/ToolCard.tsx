@@ -127,6 +127,14 @@ export default function ToolCard (props: ToolCardProps) {
           >
             {moreOrLessText}
           </Button>
+          <Button
+            href={tool.sessionless_launch_url}
+            target='_blank'
+            aria-label={`Launch ${tool.name} tool`}
+            variant='contained'>
+              Launch
+          </Button>
+
           {
             tool.navigation_enabled
               ? (

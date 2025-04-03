@@ -11,6 +11,9 @@ from canvasapi.tab import Tab
 from .data_class import ExternalToolTab
 from .exception import CanvasHTTPError
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 EXCEPTION_STATUS_MAP = {
     BadRequest: HTTPStatus.BAD_REQUEST.value,
@@ -69,6 +72,39 @@ class CanvasLtiManager:
             if 'external_tools' in tab.html_url:
                 ex_tool_tabs.append(self.create_external_tool_tab(tab))
         return ex_tool_tabs
+
+    def get_tool_sessionless_launch_url(self, tool_id: int) -> str:
+        sessionless_launch_url = ""
+        try:
+            course = self.canvas_api.get_course(self.course_id)
+            logger.info(f"Getting external tools for course {self.course_id}")
+            external_tools = course.get_external_tools(include_parents=True)
+            logger.info(f"Found external tools {external_tools}")
+
+            # Find the specific tool
+            external_tool = None
+            for tool in external_tools:
+                logger.info(f"Found tool: id={tool.id} name={tool.name}")
+                if tool.id == tool_id:
+                    external_tool = tool
+                    logger.info(f"Found tool with ID {tool_id}  {tool.parent_id}  {tool.parent_type}")
+                    try:
+                        sessionless_launch_url = tool.get_sessionless_launch_url()
+                        logger.debug(f"Generated sessionless URL for tool {tool_id}")
+                    except CanvasException as error:
+                        logger.error(f"Problem generating sessionless URL for tool {tool_id}: {error.message}{error.__cause__}")
+                    break
+            if not external_tool:
+                logger.error(f"Tool with ID {tool_id} not found in course {self.course_id}")
+                raise ResourceDoesNotExist(f"External tool {tool_id} not found")
+
+            return sessionless_launch_url
+        except CanvasException as error:
+            logger.error(f"Canvas API error: {error.message}{error.__cause__}")
+        except Exception as error:
+            logger.error(f"Unexpected error: {error.message}{error.__cause__}")
+        return sessionless_launch_url
+
 
     def update_tool_navigation(self, canvas_id: int, is_hidden: bool) -> ExternalToolTab:
         update_params: TabUpdateParams = { 'hidden': is_hidden }

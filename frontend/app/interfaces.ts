@@ -24,8 +24,9 @@ interface Tool {
   main_image_alt_text: string | null,
   privacy_agreement: string,
   canvas_placement_expanded: CanvasPlacement[],
-  support_resources: string
-  navigation_enabled: boolean
+  support_resources: string,
+  navigation_enabled: boolean,
+  sessionless_launch_url: string,
 }
 
 export type { Globals, Tool, User };
