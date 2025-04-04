@@ -48,7 +48,8 @@ COPY --from=node-build /build/bundles ./frontend/bundles
 COPY --from=node-build /build/webpack-stats.json ./frontend/
 COPY --from=node-build /build/node_modules ./frontend/node_modules
 
-
+# Collect the static files in the backend for prod
+RUN python manage.py collectstatic --verbosity 0 --noinput
 
 # Sets the local timezone of the docker image
 ARG TZ
