@@ -22,6 +22,7 @@ services:
       dockerfile: Dockerfile
       args:
         TZ: ${TZ}
+        RUN_FRONTEND: true
     volumes:
       # Mount only the needed directories for local development
       - ./frontend/app:/code/frontend/app

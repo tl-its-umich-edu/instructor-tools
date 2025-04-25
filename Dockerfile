@@ -48,13 +48,21 @@ COPY --from=node-build /build/bundles ./frontend/bundles
 COPY --from=node-build /build/webpack-stats.json ./frontend/
 COPY --from=node-build /build/node_modules ./frontend/node_modules
 
-# Collect the static files in the backend for prod
-RUN python manage.py collectstatic --verbosity 0 --noinput
-
 # Sets the local timezone of the docker image
 ARG TZ
 ENV TZ ${TZ:-America/Detroit}
+# By default run a build that won't have a running frontend process (only used in dev)
+ARG RUN_FRONTEND
 ENV RUN_FRONTEND ${RUN_FRONTEND:-false} 
+
+# Run collectstatic *only* if RUN_FRONTEND is not true
+RUN if [ "$RUN_FRONTEND" != "true" ]; then \
+      echo "Running collectstatic during build..."; \
+      python manage.py collectstatic --noinput; \
+    else \
+      echo "Skipping collectstatic (RUN_FRONTEND=$RUN_FRONTEND)"; \
+    fi
+
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # EXPOSE port 5000 to allow communication to/from server
