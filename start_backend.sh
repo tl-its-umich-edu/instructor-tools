@@ -18,7 +18,7 @@ if [ -z "${GUNICORN_TIMEOUT}" ]; then
 fi
 
 if [ -z "${DB_HOST}" ]; then
-    DB_HOST=canvas_app_explorer_mysql
+    DB_HOST=instructor_tools_mysql
 fi
 
 if [ -z "${DB_PORT}" ]; then

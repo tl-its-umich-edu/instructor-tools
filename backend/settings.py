@@ -103,7 +103,7 @@ DATABASES = {
         'NAME': os.getenv('DB_NAME', 'canvas_app_explorer_local'),
         'USER': os.getenv('DB_USER', 'cae_user'),
         'PASSWORD': os.getenv('DB_PASSWORD', 'cae_pw'),
-        'HOST': os.getenv('DB_HOST', 'canvas_app_explorer_mysql'),
+        'HOST': os.getenv('DB_HOST', 'instructor_tools_mysql'),
         'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {'charset': 'utf8mb4'},
         'TEST': {

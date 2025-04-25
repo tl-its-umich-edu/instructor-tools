@@ -5,7 +5,7 @@ services:
     command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci', '--socket=/tmp/mysql.sock']
     environment:
       - MYSQL_ROOT_PASSWORD=cae_root_pw
-      - MYSQL_HOST=canvas_app_explorer_mysql
+      - MYSQL_HOST=instructor_tools_mysql
       - MYSQL_TCP_PORT=3306
       - MYSQL_DATABASE=canvas_app_explorer_local
       - MYSQL_USER=cae_user
@@ -15,7 +15,7 @@ services:
     volumes:
       - ./.data/mysql:/var/lib/mysql
       - ./mysql:/docker-entrypoint-initdb.d:ro
-    container_name: canvas_app_explorer_mysql
+    container_name: instructor_tools_mysql
   web:
     build:
       context: .
@@ -26,11 +26,10 @@ services:
       # Mount only the needed directories for local development
       - ./frontend/app:/code/frontend/app
       - ./backend:/code/backend
-      - ${HOME}/mylasecrets:/secrets
     ports:
       - "5000:5000"
       - "5020:5020"
-    container_name: canvas_app_explorer
+    container_name: instructor_tools
     env_file:
       - .env
     environment:
