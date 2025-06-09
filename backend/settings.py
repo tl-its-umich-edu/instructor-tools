@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'tinymce',
     'canvas_oauth.apps.CanvasOAuthConfig',
     'drf_spectacular',
-    'watchman'
+    'watchman',
+    "pinax.eventlog",
 ]
 
 MIDDLEWARE = [

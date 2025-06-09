@@ -74,4 +74,33 @@ async function updateToolNav (data: UpdateToolNavData): Promise<void> {
   return;
 }
 
-export { getTools, updateToolNav };
+async function logToolEvent(action: string, toolName: string, extraData = {}): Promise<void> {
+  const csrfToken = getCSRFToken();
+  if (!csrfToken) {
+    console.error('CSRF token not found');
+    return;
+  }
+
+  const url = `${API_BASE}/tool-events/`;
+  const requestInit: RequestInit = {
+    method: 'POST',
+    credentials: 'include', // Add this to include cookies
+    headers: {
+      ...BASE_MUTATION_HEADERS,
+      'X-CSRFToken': csrfToken
+    },
+    body: JSON.stringify({
+      action,
+      tool_name: toolName,
+      extra_data: extraData
+    })
+  };
+
+  const response = await fetch(url, requestInit);
+  if (!response.ok) {
+    console.error(response);
+    throw new Error(await createErrorMessage(response));
+  }
+}
+
+export { getTools, updateToolNav, logToolEvent};

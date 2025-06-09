@@ -17,6 +17,8 @@ import { updateToolNav } from '../api';
 import constants from '../constants';
 import { Tool } from '../interfaces';
 
+import { logToolEvent } from '../api';
+
 const TOOL_IN_MENU_TEXT = `Tool in ${constants.toolMenuName}`;
 
 interface ToolCardProps {
@@ -25,6 +27,32 @@ interface ToolCardProps {
 }
 
 export default function ToolCard (props: ToolCardProps) {
+
+  const handleMoreInfoClick = (tool: Tool) => {
+    setShowMoreInfo(!showMoreInfo);
+    logToolEvent(
+      showMoreInfo ? 'tool_info_collapse' : 'tool_info_expand',
+      tool.name,
+      { tool_canvas_id: tool.canvas_id}
+    ).catch(console.error);
+  };
+
+  const handleLaunchClick = (tool: Tool) => {
+    logToolEvent('tool_launch', tool.name, {
+      launch_url: tool.launch_url
+    }).catch(console.error);
+    window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleToolNavUpdate = (navEnabled: boolean, tool:Tool) => {
+    logToolEvent(
+      navEnabled ? 'tool_nav_enable' : 'tool_nav_disable',
+      tool.name,
+      { tool_canvas_id: tool.canvas_id }
+    ).catch(console.error);
+    doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled });
+  };
+
   const { tool, onToolUpdate } = props;
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
@@ -120,7 +148,7 @@ export default function ToolCard (props: ToolCardProps) {
           aria-busy={updateToolNavLoading}
         >
           <Button
-            onClick={() => setShowMoreInfo(!showMoreInfo)}
+            onClick={() => handleMoreInfoClick(tool)}
             aria-expanded={showMoreInfo}
             aria-label={`Show ${moreOrLessText} Info`}
             startIcon={!showMoreInfo ? <ExpandMoreIcon /> : <ExpandLessIcon />}
@@ -130,21 +158,20 @@ export default function ToolCard (props: ToolCardProps) {
           {
             tool.launch_url != null
               ? (
-                <LaunchToolButton
-                onClick={() => window.open(tool.launch_url, '_blank', 'noopener,noreferrer')}
+                <LaunchToolButton onClick={() =>handleLaunchClick(tool)}
                 />
               ) : (
               tool.navigation_enabled
                 ? (
                   <RemoveToolButton
                     disabled={updateToolNavLoading}
-                    onClick={() => doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled: false })}
+                    onClick={() => handleToolNavUpdate(false, tool)}
                   />
                 )
                 : (
                   <AddToolButton
                     disabled={updateToolNavLoading}
-                    onClick={() => doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled: true })}
+                    onClick={() => handleToolNavUpdate(true, tool)}
                   />
                 )
               )

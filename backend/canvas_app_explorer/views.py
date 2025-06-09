@@ -12,6 +12,8 @@ from backend.canvas_app_explorer import models, serializers
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.canvas_lti_manager.exception import CanvasHTTPError
 
+from pinax.eventlog.models import log as eventlog
+
 logger = logging.getLogger(__name__)
 
 MANAGER_FACTORY = DjangoCourseLtiManagerFactory(f'https://{settings.CANVAS_OAUTH_CANVAS_DOMAIN}')
@@ -71,3 +73,22 @@ class LTIToolViewSet(viewsets.ViewSet):
             logger.error(error)
             return Response(data=error.to_dict(), status=error.status_code)
         return Response(status=status.HTTP_200_OK)
+
+class ToolEventViewSet(viewsets.ViewSet):
+    authentication_classes = [authentication.SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request):
+        action = request.data.get('action')
+        tool_name = request.data.get('tool_name')
+        extra_data = request.data.get('extra_data', {})
+
+        eventlog(
+            user=request.user,
+            action=action,
+            extra={
+                'tool_name': tool_name,
+                **extra_data
+            }
+        )
+        return Response(status=status.HTTP_201_CREATED)

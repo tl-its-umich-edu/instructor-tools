@@ -30,6 +30,7 @@ from . import views
 # This is for Django Rest Framework
 router = routers.DefaultRouter()
 router.register(r'lti_tools', canvas_app_explorer_views.LTIToolViewSet, basename='ltitool')
+router.register(r'tool-events', canvas_app_explorer_views.ToolEventViewSet, basename='tool-events')
 
 # Deny all access to the admin login page
 admin.site.login = user_passes_test(False, admin.site.login)
