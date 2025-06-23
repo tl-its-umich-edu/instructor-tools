@@ -18,7 +18,7 @@ whitenoise==6.9.0 # For serving static files
 djangorestframework==3.16.0
 django-filter==25.1 # Filtering support
 drf-spectacular==0.28.0
-markdown==3.8 # Markdown support for the browsable API
+markdown==3.8.2 # Markdown support for the browsable API
 
 # LTI
 pycryptodome==3.23.0 # For generating LTI keys
