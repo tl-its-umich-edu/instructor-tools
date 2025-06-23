@@ -295,7 +295,8 @@ if CSRF_COOKIE_SECURE:
 # Set CSP_FRAME_SRC to the your Canvas domains
 CSP_FRAME_ANCESTORS = ["'self'",] + os.getenv('CSP_FRAME_ANCESTORS', '').split(',')
 # This is currently unsafe-inline because of PyLTI scripts. This may be fixed in the future.
-CSP_SCRIPT_SRC = ["'self'", "https:", "'unsafe-inline'"]
+CSP_SCRIPT_SRC = ["'self'", "https:", "'unsafe-inline'",]
+CSP_CONNECT_SRC = ["'self'", ] + os.getenv('CSP_CONNECT_SRC', '').split(',')
 CSP_IMG_SRC = ["'self'", "data:"]
 CSP_FONT_SRC = ["'self'"]
 # Allow inline styles. There are a few styles that come up in the report so it seems easier to just allow unsafe-inline here.
