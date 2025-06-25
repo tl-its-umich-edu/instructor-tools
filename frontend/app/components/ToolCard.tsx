@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
+import ReactGA from 'react-ga4';
 import AddBox from '@mui/icons-material/AddBox';
 import { useMutation } from '@tanstack/react-query';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
@@ -16,6 +17,7 @@ import { AddToolButton, RemoveToolButton, LaunchToolButton } from './toolButtons
 import { updateToolNav } from '../api';
 import constants from '../constants';
 import { Tool } from '../interfaces';
+import { AnalyticsConsentContext } from '../context';
 
 const TOOL_IN_MENU_TEXT = `Tool in ${constants.toolMenuName}`;
 
@@ -26,6 +28,45 @@ interface ToolCardProps {
 
 export default function ToolCard (props: ToolCardProps) {
   const { tool, onToolUpdate } = props;
+
+  // ToolCard action handlers with google analytics tracking
+  const analyticsConsentContext = useContext(AnalyticsConsentContext);
+  const sendAnalyticsEvent = async (category: string, action: string, label: string, value: number) => {
+    if (analyticsConsentContext && analyticsConsentContext.analyticsConsentGiven) {
+      await ReactGA.event({category, action, label, value});
+    }
+  };
+  const handleMoreInfoClick = async (tool: Tool) => {
+    try {
+      if (!showMoreInfo) { // On opening more info
+        await sendAnalyticsEvent('Tool Info', 'More Info Clicked', tool.name, tool.canvas_id);
+      }
+      setShowMoreInfo(!showMoreInfo);
+    } catch (error) {
+      console.error('Error handling more info click:', error);
+    }
+  };
+  const handleLaunchClick = async (tool: Tool) => {
+    try {
+      await sendAnalyticsEvent('Tool Launch', 'Launch Tool', tool.name, tool.canvas_id);
+      window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Error opening tool launch URL:', error);
+    }
+  };
+  const handleUpdateToolNav = async (tool: Tool, navEnabled: boolean) => {
+    try {
+      if (navEnabled) {
+        await sendAnalyticsEvent('Tool Navigation', 'Add Tool to Navigation', tool.name, tool.canvas_id);
+      } else {
+        await sendAnalyticsEvent('Tool Navigation', 'Remove Tool from Navigation', tool.name, tool.canvas_id);
+      }
+      doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled });
+    } catch (error) {
+      console.error('Error updating tool navigation:', error);
+    }
+  };
+        
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [screenshotDialogOpen, setScreenshotDialogOpen] = useState(false);
@@ -120,7 +161,7 @@ export default function ToolCard (props: ToolCardProps) {
           aria-busy={updateToolNavLoading}
         >
           <Button
-            onClick={() => setShowMoreInfo(!showMoreInfo)}
+            onClick={() => handleMoreInfoClick(tool)}
             aria-expanded={showMoreInfo}
             aria-label={`Show ${moreOrLessText} Info`}
             startIcon={!showMoreInfo ? <ExpandMoreIcon /> : <ExpandLessIcon />}
@@ -131,22 +172,22 @@ export default function ToolCard (props: ToolCardProps) {
             tool.launch_url != null
               ? (
                 <LaunchToolButton
-                onClick={() => window.open(tool.launch_url, '_blank', 'noopener,noreferrer')}
+                  onClick={() => handleLaunchClick(tool)}
                 />
               ) : (
-              tool.navigation_enabled
-                ? (
-                  <RemoveToolButton
-                    disabled={updateToolNavLoading}
-                    onClick={() => doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled: false })}
-                  />
-                )
-                : (
-                  <AddToolButton
-                    disabled={updateToolNavLoading}
-                    onClick={() => doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled: true })}
-                  />
-                )
+                tool.navigation_enabled
+                  ? (
+                    <RemoveToolButton
+                      disabled={updateToolNavLoading}
+                      onClick={() => handleUpdateToolNav(tool, false)}
+                    />
+                  )
+                  : (
+                    <AddToolButton
+                      disabled={updateToolNavLoading}
+                      onClick={() => handleUpdateToolNav(tool, true)}
+                    />
+                  )
               )
           }
           {
