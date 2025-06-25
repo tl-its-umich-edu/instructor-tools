@@ -29,42 +29,44 @@ interface ToolCardProps {
 export default function ToolCard (props: ToolCardProps) {
   const { tool, onToolUpdate } = props;
 
-  // Google Analytics handlers
+  // ToolCard action handlers with google analytics tracking
   const analyticsConsentContext = useContext(AnalyticsConsentContext);
+  const sendAnalyticsEvent = async (category: string, action: string, label: string, value: number) => {
+    if (analyticsConsentContext && analyticsConsentContext.analyticsConsentGiven) {
+      await ReactGA.event({category, action, label, value});
+    }
+  };
   const handleMoreInfoClick = async (tool: Tool) => {
     try {
-      if (analyticsConsentContext && analyticsConsentContext.analyticsConsentGiven) {
-        console.log('value', analyticsConsentContext.analyticsConsentGiven);
-        console.log('CONSENT GIVEN FOR MORE INFO:', tool.name);
-        ReactGA.event({
-          category: 'Tool Info',
-          action: 'More Info Clicked',
-          label: tool.name,
-          value: tool.canvas_id
-        });
+      if (!showMoreInfo) { // On opening more info
+        await sendAnalyticsEvent('Tool Info', 'More Info Clicked', tool.name, tool.canvas_id);
       }
       setShowMoreInfo(!showMoreInfo);
     } catch (error) {
       console.error('Error handling more info click:', error);
     }
   };
-  const handleLaunchClick =(tool: Tool) => {
+  const handleLaunchClick = async (tool: Tool) => {
     try {
-      if (analyticsConsentContext && analyticsConsentContext.analyticsConsentGiven) {
-        console.log('value', analyticsConsentContext.analyticsConsentGiven);
-        console.log('CONSENT GIVEN FOR LAUNCH:', tool.name);
-        ReactGA.event({
-          category: 'Tool Launch',
-          action: 'Launch Tool',
-          label: tool.name,
-          value: tool.canvas_id
-        });
-      }
+      await sendAnalyticsEvent('Tool Launch', 'Launch Tool', tool.name, tool.canvas_id);
       window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Error opening tool launch URL:', error);
     }
   };
+  const handleUpdateToolNav = async (tool: Tool, navEnabled: boolean) => {
+    try {
+      if (navEnabled) {
+        await sendAnalyticsEvent('Tool Navigation', 'Add Tool to Navigation', tool.name, tool.canvas_id);
+      } else {
+        await sendAnalyticsEvent('Tool Navigation', 'Remove Tool from Navigation', tool.name, tool.canvas_id);
+      }
+      doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled });
+    } catch (error) {
+      console.error('Error updating tool navigation:', error);
+    }
+  };
+        
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [screenshotDialogOpen, setScreenshotDialogOpen] = useState(false);
@@ -177,13 +179,13 @@ export default function ToolCard (props: ToolCardProps) {
                   ? (
                     <RemoveToolButton
                       disabled={updateToolNavLoading}
-                      onClick={() => doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled: false })}
+                      onClick={() => handleUpdateToolNav(tool, false)}
                     />
                   )
                   : (
                     <AddToolButton
                       disabled={updateToolNavLoading}
-                      onClick={() => doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled: true })}
+                      onClick={() => handleUpdateToolNav(tool, true)}
                     />
                   )
               )

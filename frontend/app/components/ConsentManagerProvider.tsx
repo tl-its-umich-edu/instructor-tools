@@ -1,30 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AnalyticsConsentContext, AnalyticsConsentContextType } from '../context';
 
+
+// Define the structure of the window.umConsentManager object
 interface ConsentChangeEvent {
   cookie : {
     categories: string[];
   }
 }
-// Define the structure of the window.umConsentManager object
-interface UmConsentManager {
+interface UmConsentCustomManager {
+  enabled: boolean;
+  alwaysShow: boolean;
+  rootDomain: string | false;
+  preferencePanel: {
+    beforeCategories: boolean; // HTML
+    afterCategories: boolean; // HTML
+  };
+}
+interface UmConsentManagerConfig {
   //callback function to handle consent changes
   onConsentChange: (event: ConsentChangeEvent) => void;
-  // other umConsentManager required properties
+  // other UmConsentManager required properties
   mode: string; // values: 'prod', 'dev'
-  customManager: {
-    enabled: boolean;
-    alwaysShow: boolean;
-    preferencePanel: {
-      beforeCategories: boolean; // HTML
-      afterCategories: boolean; // HTML
+  customManager: UmConsentCustomManager;
+  googleAnalyticsCustom: {
+    streamConfig: {
+      cookie_flags: string; // e.g., 'SameSite=None; Secure'
     };
-    googleAnalyticsCustom: {
-      streamConfig: {
-        cookie_flags: string; // e.g., 'SameSite=None; Secure'
-      };
-    }
-  };
+  }
   privacyUrl: string | false;
   googleAnalyticsID: string | false;
   cookies: {
@@ -35,7 +38,7 @@ interface UmConsentManager {
 
 declare global {
   interface Window {
-    umConsentManager: UmConsentManager;
+    umConsentManager: UmConsentManagerConfig;
   }
 }
 
@@ -45,6 +48,7 @@ interface ConsentManagerProviderProps {
   googleAnalyticsID: string;
   // Optional properties for the consent manager configuration
   alwaysShow?: boolean;
+  rootDomain?: string; // e.g., 'ngrok-free.app' for local testing
   mode?: 'prod' | 'dev';
   privacyUrl?: string | false;
 }
@@ -54,6 +58,7 @@ export function ConsentManagerProvider({
   consentManagerScriptUrl,
   googleAnalyticsID,
   alwaysShow = false,
+  rootDomain = '',
   mode = 'prod',
   privacyUrl = false
 }: ConsentManagerProviderProps) {
@@ -62,10 +67,8 @@ export function ConsentManagerProvider({
   const handleConsentChange = useCallback(({cookie}: ConsentChangeEvent) => {
     if (cookie && cookie.categories.includes('analytics')) {
       setAnalyticsConsentGiven(true);
-      console.log('callback run: Analytics consent APPROVED');
     } else {
       setAnalyticsConsentGiven(false);
-      console.log('callback run: Analytics consent DENIED');
     }
   }, []);
 
@@ -83,20 +86,21 @@ export function ConsentManagerProvider({
     }
     
     // 1. Set window.umConsentManager *before* injecting the script
-    // Ensure it's correctly typed
-    window.umConsentManager = {
+    const enabledCustomManager = alwaysShow !== false || rootDomain !== '';
+    const consentConfig: UmConsentManagerConfig = {
       onConsentChange: handleConsentChange,
       mode: mode, // default is 'prod'
       customManager: {
-        enabled: true,
+        enabled: enabledCustomManager,
         alwaysShow: alwaysShow,
+        rootDomain: enabledCustomManager ? rootDomain : false,
         preferencePanel: {
-          beforeCategories: false, 
-          afterCategories: false // HTML 
-        },
-        googleAnalyticsCustom: {
-          streamConfig: { cookie_flags: 'SameSite=None; Secure' }
+          beforeCategories: false, // HTML
+          afterCategories: false // HTML
         }
+      },
+      googleAnalyticsCustom: {
+        streamConfig: { cookie_flags: 'SameSite=None; Secure' }
       },
       privacyUrl: privacyUrl,
       googleAnalyticsID: googleAnalyticsID,
@@ -105,6 +109,7 @@ export function ConsentManagerProvider({
         analytics: [],
       }
     };
+    window.umConsentManager = consentConfig;
 
     // 2. Create & inject the script
     const script = document.createElement('script');
@@ -112,10 +117,6 @@ export function ConsentManagerProvider({
     script.async = true; // or script.defer = true
     script.id = 'um-consent-manager-script'; // Good for identification and cleanup
     
-    script.onload = () => {
-      console.log('Consent manager script loaded successfully!');
-      // The consent banner should now appear and utilize window.umConsentManager
-    };
     script.onerror = (error: Event | string) => {
       console.error('Failed to load consent manager script:', error);
     };

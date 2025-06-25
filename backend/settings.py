@@ -297,8 +297,8 @@ CSP_FRAME_ANCESTORS = ["'self'",] + os.getenv('CSP_FRAME_ANCESTORS', '').split('
 # This is currently unsafe-inline because of PyLTI scripts. This may be fixed in the future.
 CSP_SCRIPT_SRC = ["'self'", "https:", "'unsafe-inline'",]
 CSP_CONNECT_SRC = ["'self'", ] + os.getenv('CSP_CONNECT_SRC', '').split(',')
-CSP_IMG_SRC = ["'self'", "data:"]
-CSP_FONT_SRC = ["'self'"]
+CSP_IMG_SRC = ["'self'", "data:"] + os.getenv('CSP_IMG_SRC', '').split(',') 
+
 # Allow inline styles. There are a few styles that come up in the report so it seems easier to just allow unsafe-inline here.
 CSP_STYLE_SRC = ["'self'", "https:", "'unsafe-inline'"]
 
@@ -328,3 +328,7 @@ HELP_URL = os.getenv('HELP_URL', '')
 TEST_API_KEY = os.getenv('TEST_API_KEY', '')
 TEST_API_URL = os.getenv('TEST_API_URL', '')
 TEST_COURSE_ID = os.getenv('TEST_COURSE_ID', 1)
+
+# U-M Consent Manager & Google Analytics tracking
+GOOGLE_ANALYTICS_ID = os.getenv('GOOGLE_ANALYTICS_ID', '')
+UM_CONSENT_MANAGER_SCRIPT_DOMAIN = os.getenv('UM_CONSENT_MANAGER_SCRIPT_DOMAIN', 'https://umich.edu/apis/umconsentmanager/consentmanager.js')

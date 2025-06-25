@@ -7,15 +7,12 @@ import Home from './components/Home';
 import { Globals } from './interfaces';
 import theme from './theme';
 import { ConsentManagerProvider } from './components/ConsentManagerProvider';
-import constants from './constants';
 
 const globalsId = 'cae_globals';
 const globalsEl = document.getElementById(globalsId);
 if (globalsEl === null) throw Error(`"${globalsId}" was not found!`);
 if (globalsEl.textContent === null) throw Error(`No text content in "${globalsId}"!`);
 const globals: Globals = Object.freeze(JSON.parse(globalsEl.textContent));
-
-const {consentManagerScriptUrl, googleAnalyticsID} = constants;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,14 +30,14 @@ if (container === null) throw Error('"react-app" was not found!');
 const root = createRoot(container);
 
 root.render(
-  <ConsentManagerProvider
-    consentManagerScriptUrl={consentManagerScriptUrl}
-    googleAnalyticsID={googleAnalyticsID}
-  >
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
+  <QueryClientProvider client={queryClient}>
+    <ThemeProvider theme={theme}>
+      <ConsentManagerProvider
+        consentManagerScriptUrl={globals.um_consent_manager_script_domain ?? ''}
+        googleAnalyticsID={globals.google_analytics_id ?? ''}
+      >
         <Home globals={globals} />
-      </ThemeProvider>
-    </QueryClientProvider>
-  </ConsentManagerProvider>
+      </ConsentManagerProvider>
+    </ThemeProvider>
+  </QueryClientProvider>
 );
