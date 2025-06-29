@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'tinymce',
     'canvas_oauth.apps.CanvasOAuthConfig',
     'drf_spectacular',
-    'watchman'
+    'watchman',
+    'rest_framework_tracking',
 ]
 
 MIDDLEWARE = [
@@ -213,8 +214,24 @@ LOGGING = {
         'canvas_oauth': {
             'handlers': ['console'],
             'level': 'WARN'
-        }
+        },
+        'rest_framework_tracking': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },# ...existing code...
+        'django.db.backends': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
     }
+}
+
+DRF_TRACKING_LOGGING = {
+    'LOGGING_METHODS': ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    'SENSITIVE_FIELDS': {'password', 'token', 'access_token'},
+    'DATABASE_LOGGING': True,  # Enable database logging explicitly
 }
 
 TINYMCE_DEFAULT_CONFIG = {

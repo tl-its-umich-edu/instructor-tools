@@ -75,3 +75,24 @@ async function updateToolNav (data: UpdateToolNavData): Promise<void> {
 }
 
 export { getTools, updateToolNav };
+
+
+export const logUserEvent = async (eventType: string, eventData = {}) => {
+  const url = `${API_BASE}/user-events/`;
+  const response = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      ...BASE_MUTATION_HEADERS,
+      'X-CSRFToken': getCSRFToken() ?? ''
+    },
+    body: JSON.stringify({
+      event_type: eventType,
+      event_data: eventData
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(await createErrorMessage(response));
+  }
+};
