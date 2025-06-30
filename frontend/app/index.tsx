@@ -32,10 +32,7 @@ const root = createRoot(container);
 root.render(
   <QueryClientProvider client={queryClient}>
     <ThemeProvider theme={theme}>
-      <ConsentManagerProvider
-        consentManagerScriptUrl={globals.um_consent_manager_script_domain ?? ''}
-        googleAnalyticsID={globals.google_analytics_id ?? ''}
-      >
+      <ConsentManagerProvider globals = {globals}>
         <Home globals={globals} />
       </ConsentManagerProvider>
     </ThemeProvider>

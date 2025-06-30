@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AnalyticsConsentContext, AnalyticsConsentContextType } from '../context';
-
+import { Globals } from '../interfaces';
 
 // Define the structure of the window.umConsentManager object
 interface ConsentChangeEvent {
@@ -44,8 +44,7 @@ declare global {
 
 interface ConsentManagerProviderProps {
   children: React.ReactNode;
-  consentManagerScriptUrl: string;
-  googleAnalyticsID: string;
+  globals: Globals;
   // Optional properties for the consent manager configuration
   alwaysShow?: boolean;
   rootDomain?: string; // e.g., 'ngrok-free.app' for local testing
@@ -55,13 +54,18 @@ interface ConsentManagerProviderProps {
 
 export function ConsentManagerProvider({
   children,
-  consentManagerScriptUrl,
-  googleAnalyticsID,
+  globals,
   alwaysShow = false,
   rootDomain = '',
   mode = 'prod',
   privacyUrl = false
 }: ConsentManagerProviderProps) {
+  const { 
+    um_consent_manager_script_domain: consentManagerScriptUrl, 
+    google_analytics_id: googleAnalyticsID,
+    course_id
+  } = globals;
+
   const [analyticsConsentGiven, setAnalyticsConsentGiven] = useState<boolean | null>(null);
 
   const handleConsentChange = useCallback(({cookie}: ConsentChangeEvent) => {
@@ -74,11 +78,6 @@ export function ConsentManagerProvider({
 
   
   useEffect(() => {
-    // Guard against Server-Side Rendering (SSR) environments
-    if (typeof window === 'undefined') {
-      return;
-    }
-    // todo: verify settings exist
     if (!consentManagerScriptUrl || !googleAnalyticsID) {
       !googleAnalyticsID && console.warn('Google Analytics ID is not provided, analytics tracking not initialized.');
       !consentManagerScriptUrl && console.warn('Consent manager script URL is not provided, analytics tracking not initialized.');
@@ -111,7 +110,8 @@ export function ConsentManagerProvider({
     };
     window.umConsentManager = consentConfig;
 
-    // 2. Create & inject the script
+    // 2. Create & inject the script 
+    // runs cookie consent manager and initializes Google Analytics
     const script = document.createElement('script');
     script.src = consentManagerScriptUrl;
     script.async = true; // or script.defer = true
@@ -121,8 +121,8 @@ export function ConsentManagerProvider({
       console.error('Failed to load consent manager script:', error);
     };
     document.head.appendChild(script);
-
-    // 3. Cleanup function to remove the script when the component unmounts
+    
+    // 3. useEffect Cleanup function to remove the script when the component unmounts
     return () => {
       console.log('Cleaning up ConsentManagerProvider');
       const existingScript = document.getElementById('um-consent-manager-script');
@@ -131,10 +131,11 @@ export function ConsentManagerProvider({
       }
     };
 
-  }, [handleConsentChange, googleAnalyticsID, alwaysShow, consentManagerScriptUrl, mode, privacyUrl]);
+  }, [handleConsentChange, googleAnalyticsID, consentManagerScriptUrl, alwaysShow, rootDomain, mode, privacyUrl]);
 
   const contextValue: AnalyticsConsentContextType = {
-    analyticsConsentGiven: analyticsConsentGiven
+    analyticsConsentGiven: analyticsConsentGiven,
+    courseIdForEvents: course_id
   };
   
   return (

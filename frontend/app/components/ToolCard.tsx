@@ -1,5 +1,4 @@
 import React, { useContext, useState } from 'react';
-import ReactGA from 'react-ga4';
 import AddBox from '@mui/icons-material/AddBox';
 import { useMutation } from '@tanstack/react-query';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
@@ -18,6 +17,7 @@ import { updateToolNav } from '../api';
 import constants from '../constants';
 import { Tool } from '../interfaces';
 import { AnalyticsConsentContext } from '../context';
+import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 
 const TOOL_IN_MENU_TEXT = `Tool in ${constants.toolMenuName}`;
 
@@ -25,21 +25,24 @@ interface ToolCardProps {
   tool: Tool
   onToolUpdate: (tool: Tool) => void;
 }
+interface ToolCardAnalyticsParams {
+  tool_name: string;
+  tool_canvas_id: number;
+}
 
 export default function ToolCard (props: ToolCardProps) {
   const { tool, onToolUpdate } = props;
 
   // ToolCard action handlers with google analytics tracking
   const analyticsConsentContext = useContext(AnalyticsConsentContext);
-  const sendAnalyticsEvent = async (category: string, action: string, label: string, value: number) => {
-    if (analyticsConsentContext && analyticsConsentContext.analyticsConsentGiven) {
-      await ReactGA.event({category, action, label, value});
-    }
-  };
+  const { sendAnalyticsEvent } = useGoogleAnalytics<ToolCardAnalyticsParams>(analyticsConsentContext);
   const handleMoreInfoClick = async (tool: Tool) => {
     try {
       if (!showMoreInfo) { // On opening more info
-        await sendAnalyticsEvent('Tool Info', 'More Info Clicked', tool.name, tool.canvas_id);
+        sendAnalyticsEvent('More Info Clicked', {
+          tool_name: tool.name,
+          tool_canvas_id: tool.canvas_id,
+        });
       }
       setShowMoreInfo(!showMoreInfo);
     } catch (error) {
@@ -48,7 +51,10 @@ export default function ToolCard (props: ToolCardProps) {
   };
   const handleLaunchClick = async (tool: Tool) => {
     try {
-      await sendAnalyticsEvent('Tool Launch', 'Launch Tool', tool.name, tool.canvas_id);
+      sendAnalyticsEvent('Launch Tool', {
+        tool_name: tool.name,
+        tool_canvas_id: tool.canvas_id,
+      });
       window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Error opening tool launch URL:', error);
@@ -57,9 +63,15 @@ export default function ToolCard (props: ToolCardProps) {
   const handleUpdateToolNav = async (tool: Tool, navEnabled: boolean) => {
     try {
       if (navEnabled) {
-        await sendAnalyticsEvent('Tool Navigation', 'Add Tool to Navigation', tool.name, tool.canvas_id);
+        sendAnalyticsEvent('Add Tool to Navigation',{
+          tool_name: tool.name,
+          tool_canvas_id: tool.canvas_id
+        });
       } else {
-        await sendAnalyticsEvent('Tool Navigation', 'Remove Tool from Navigation', tool.name, tool.canvas_id);
+        sendAnalyticsEvent('Remove Tool from Navigation',{
+          tool_name: tool.name,
+          tool_canvas_id: tool.canvas_id
+        });
       }
       doUpdateToolNav({ canvasToolId: tool.canvas_id, navEnabled });
     } catch (error) {
