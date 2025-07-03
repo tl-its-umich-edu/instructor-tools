@@ -12,17 +12,59 @@ from backend.canvas_app_explorer import models, serializers
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.canvas_lti_manager.exception import CanvasHTTPError
 
+from rest_framework_tracking.models import APIRequestLog
+from rest_framework_tracking.mixins import LoggingMixin
+from django.utils import timezone
+from django.db import transaction
+
+
+
 logger = logging.getLogger(__name__)
 
 MANAGER_FACTORY = DjangoCourseLtiManagerFactory(f'https://{settings.CANVAS_OAUTH_CANVAS_DOMAIN}')
 
-
-class LTIToolViewSet(viewsets.ViewSet):
+class LTIToolViewSet(LoggingMixin, viewsets.ViewSet):
     """
     API endpoint that lists LTI tools available in the course context, and allows for enabling/disabling navigation.
     """
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+
+    # Customize what gets logged
+    def handle_log(self):
+        """Hook to customize the log entry"""
+        logger.info("Logging API request...")
+
+        # Extract extra_data separately since it's handled differently
+        extra_data = {
+            'custom_field': 'custom_value',
+            'course_id': self.request.session.get('course_id'),
+        }
+
+        # Get response and status_code safely
+        response = getattr(self, 'response', None)
+        status_code = response.status_code if response else None
+
+        # Update the log with standard fields
+        self.log.update({
+            'requested_at': timezone.now(),
+            'remote_addr': self.request.META.get('REMOTE_ADDR', ''),
+            'host': self.request.META.get('HTTP_HOST', ''),
+            'method': self.request.method,
+            'user_id': getattr(self.request.user, 'id', None),
+            'view': self.__class__.__name__,
+            'view_method': self.request.method,
+            'path': self.request.path,
+            'status_code': status_code
+        })
+
+        # Create and save the log entry
+        log_entry = APIRequestLog(**self.log)
+        log_entry.data = extra_data
+        log_entry.save()
+
+        logger.info(f"Logging completed for user {self.request.user.id} in course {self.request.session.get('course_id')}")
+
 
     lookup_url_kwarg = 'canvas_id'
 
