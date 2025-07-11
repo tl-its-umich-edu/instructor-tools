@@ -39,6 +39,10 @@ def extract_error_message(error: Exception) -> Union[str, None]:
 # Custom LTI variable keys
 USERNAME_KEY = 'user_username'
 COURSE_ID_KEY = 'canvas_course_id'
+COURSE_TERM_ID_KEY = 'canvas_term_id'
+COURSE_TERM_NAME_KEY = 'canvas_term_name'
+COURSE_ACCOUNT_ID_KEY = 'canvas_course_account_id'
+COURSE_ACCOUNT_NAME_KEY = 'canvas_course_account_name'
 COURSE_ROLES_KEY = 'canvas_course_roles'
 
 
@@ -149,6 +153,10 @@ def create_user_in_django(request: HttpRequest, launch_data: Dict[str, Any]):
 
     username = custom_params[USERNAME_KEY]
     course_id = custom_params[COURSE_ID_KEY]
+    term_id = custom_params[COURSE_TERM_ID_KEY] if COURSE_TERM_ID_KEY in custom_params else None
+    term_name = custom_params[COURSE_TERM_NAME_KEY] if COURSE_TERM_NAME_KEY in custom_params else None
+    account_id = custom_params[COURSE_ACCOUNT_ID_KEY] if COURSE_ACCOUNT_ID_KEY in custom_params else None
+    account_name = custom_params[COURSE_ACCOUNT_NAME_KEY] if COURSE_ACCOUNT_NAME_KEY in custom_params else None
     course_roles = custom_params[COURSE_ROLES_KEY].split(',')
 
     if 'email' not in launch_data.keys():
@@ -193,6 +201,11 @@ def create_user_in_django(request: HttpRequest, launch_data: Dict[str, Any]):
             raise LTILaunchError(f'Course ID from LTI launch cannot be converted to an integer. Value: {course_id}')
 
         request.session['course_id'] = course_id_int
+        request.session['course_name'] = course_name
+        request.session['term_id'] = term_id
+        request.session['term_name'] = term_name
+        request.session['account_id'] = account_id
+        request.session['account_name'] = account_name
     else:
         raise LTILaunchError(f'Course ID from LTI launch cannot be null.')
 

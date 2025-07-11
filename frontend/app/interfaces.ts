@@ -6,6 +6,11 @@ interface User {
 interface Globals {
   user: User | null
   course_id: number
+  course_name: string | null
+  term_id: number | null
+  term_name: string | null
+  account_id: number | null
+  account_name: string | null
   help_url: string
   google_analytics_id: string
   um_consent_manager_script_domain: string
