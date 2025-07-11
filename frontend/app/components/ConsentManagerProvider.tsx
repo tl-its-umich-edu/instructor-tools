@@ -63,7 +63,12 @@ export function ConsentManagerProvider({
   const { 
     um_consent_manager_script_domain: consentManagerScriptUrl, 
     google_analytics_id: googleAnalyticsID,
-    course_id
+    course_id,
+    course_name,
+    term_id,
+    term_name,
+    account_id,
+    account_name
   } = globals;
 
   const [analyticsConsentGiven, setAnalyticsConsentGiven] = useState<boolean | null>(null);
@@ -135,7 +140,14 @@ export function ConsentManagerProvider({
 
   const contextValue: AnalyticsConsentContextType = {
     analyticsConsentGiven: analyticsConsentGiven,
-    courseIdForEvents: course_id
+    eventInfo: {
+      courseId: course_id,
+      courseName: course_name,
+      termId: term_id,
+      termName: term_name,
+      accountId: account_id,
+      accountName: account_name
+    }
   };
   
   return (

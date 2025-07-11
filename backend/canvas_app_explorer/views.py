@@ -31,6 +31,11 @@ class LTIToolViewSet(LoggingMixin, viewsets.ViewSet):
         # save extra course_id data in the log entry
         extra_data = {
             'course_id': self.request.session.get('course_id'),
+            'course_name': self.request.session.get('course_name'),
+            'term_id': self.request.session.get('term_id'),
+            'term_name': self.request.session.get('term_name'),
+            'account_id': self.request.session.get('account_id'),
+            'account_name': self.request.session.get('account_name'),
         }
         log_entry = APIRequestLog(**self.log)
         log_entry.data = extra_data

@@ -27,6 +27,10 @@
     "user_username": "$User.username",
     "canvas_user_id": "$Canvas.user.id",
     "canvas_course_id": "$Canvas.course.id",
+    "canvas_term_id": "$Canvas.term.id",
+    "canvas_term_name": "$Canvas.term.name",
+    "canvas_course_account_id": "$Canvas.account.id",
+    "canvas_course_account_name": "$Canvas.account.name",
     "canvas_course_roles": "$Canvas.membership.roles"
   },
   "public_jwk_url": "%(base_url)s%(jwks_url_suffix)s",
