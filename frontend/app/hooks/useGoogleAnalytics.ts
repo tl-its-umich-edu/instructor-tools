@@ -17,11 +17,6 @@ export function useGoogleAnalytics<Params extends object>(
       
       if (analyticsConsentContext.analyticsConsentGiven) {
         try {
-          console.log('new event courseName', analyticsConsentContext.eventInfo.courseName);
-          console.log('new event termId', analyticsConsentContext.eventInfo.termId);
-          console.log('new event termName', analyticsConsentContext.eventInfo.termName);
-          console.log('new event accountId', analyticsConsentContext.eventInfo.accountId);
-          console.log('new event accountName', analyticsConsentContext.eventInfo.accountName);
           ReactGA.event(name, {
             ...params, 
             course_id: analyticsConsentContext.eventInfo.courseId,

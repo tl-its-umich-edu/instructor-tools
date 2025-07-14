@@ -32,7 +32,7 @@ const root = createRoot(container);
 root.render(
   <QueryClientProvider client={queryClient}>
     <ThemeProvider theme={theme}>
-      <ConsentManagerProvider globals = {globals}>
+      <ConsentManagerProvider globals={globals}>
         <Home globals={globals} />
       </ConsentManagerProvider>
     </ThemeProvider>
