@@ -33,7 +33,7 @@ class LtiToolSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.LtiTool
         fields = [
-            'name', 'canvas_id', 'logo_image', 'logo_image_alt_text', 'main_image',
+            'id', 'name', 'canvas_id', 'logo_image', 'logo_image_alt_text', 'main_image',
             'main_image_alt_text', 'short_description', 'long_description', 'privacy_agreement',
             'support_resources', 'canvas_placement_expanded', 'launch_url',
         ]
