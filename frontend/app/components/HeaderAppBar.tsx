@@ -40,6 +40,7 @@ export default function HeaderAppBar (props: HeaderAppBarProps) {
                 placeholder='Filter by name or description'
                 aria-label='Filter tools by name or description'
                 fullWidth
+                type='search'
                 onChange={(e) => props.onFilterChange(e.target.value)}
               />
             </Grid>
