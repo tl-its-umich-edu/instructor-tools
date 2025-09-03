@@ -1,6 +1,7 @@
-import React from 'react';
+import React, {useState} from 'react';
 import SearchIcon from '@mui/icons-material/Search';
-import { AppBar, Button, Grid, InputBase, Paper, Toolbar, Typography } from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import { AppBar, Button, Grid, InputBase, InputAdornment, IconButton, Paper, Toolbar, Typography } from '@mui/material';
 
 import { User } from '../interfaces';
 
@@ -11,6 +12,18 @@ interface HeaderAppBarProps {
 }
 
 export default function HeaderAppBar (props: HeaderAppBarProps) {
+  const [filterValue, setFilterValue] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterValue(e.target.value);
+    props.onFilterChange(e.target.value);
+  };
+
+  const handleClear = () => {
+    setFilterValue('');
+    props.onFilterChange('');
+  };
+
   return (
     <AppBar position='sticky'>
       <Toolbar>
@@ -40,7 +53,22 @@ export default function HeaderAppBar (props: HeaderAppBarProps) {
                 placeholder='Filter by name or description'
                 aria-label='Filter tools by name or description'
                 fullWidth
-                onChange={(e) => props.onFilterChange(e.target.value)}
+                value={filterValue}
+                onChange={handleChange}
+                endAdornment={
+                  filterValue && (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="Clear filter"
+                        onClick={handleClear}
+                        edge="end"
+                        size="small"
+                      >
+                        <ClearIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
               />
             </Grid>
           </Grid>
