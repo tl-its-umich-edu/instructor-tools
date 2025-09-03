@@ -1,6 +1,6 @@
 # node-build stage
 
-FROM node:20-slim AS node-build
+FROM node:20-bookworm-slim AS node-build
 WORKDIR /build/
 
 COPY frontend .
@@ -8,7 +8,7 @@ RUN npm install
 
 RUN npm run build:frontend
 
-FROM python:3.10-slim
+FROM python:3.10-slim-bookworm
 
 # NOTE: requirements.txt not likely to change between dev builds
 COPY requirements.txt .
