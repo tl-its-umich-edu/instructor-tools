@@ -1,7 +1,7 @@
 # Register your models here.
 
 from django.contrib import admin
-from backend.canvas_app_explorer.models import LtiTool, CanvasPlacement
+from backend.canvas_app_explorer.models import LtiTool, CanvasPlacement, ToolCategory
 
 class LtiToolAdmin(admin.ModelAdmin):
     fields = (
@@ -15,6 +15,7 @@ class LtiToolAdmin(admin.ModelAdmin):
         'privacy_agreement',
         'support_resources',
         'canvas_placement',
+        'tool_categories',
         'internal_notes',
     )
     list_display = ('name', 'canvas_id')
@@ -28,3 +29,7 @@ class CanvasPlacementAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CanvasPlacement, CanvasPlacementAdmin) 
+
+class ToolCategoryAdmin(admin.ModelAdmin):
+    pass
+admin.site.register(ToolCategory, ToolCategoryAdmin)

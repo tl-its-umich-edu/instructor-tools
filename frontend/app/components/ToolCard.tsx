@@ -230,6 +230,9 @@ export default function ToolCard (props: ToolCardProps) {
           <DataElement name='Placements'>
             {tool.canvas_placement_expanded.map(p => p.name).join(', ')}
           </DataElement>
+          <DataElement name='Categories'>
+            {tool.tool_categories_expanded.map(p=> p.category_name).join(', ')}
+          </DataElement>
           <DataElement name='Support Resources'>
             <span dangerouslySetInnerHTML={{ __html: tool.support_resources }} />
           </DataElement>

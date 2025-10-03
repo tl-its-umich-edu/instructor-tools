@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-import { Tool } from './interfaces';
+import { Tool, ToolCategory } from './interfaces';
 
 const API_BASE = '/api';
 const JSON_MIME_TYPE = 'application/json';
@@ -74,4 +74,15 @@ async function updateToolNav (data: UpdateToolNavData): Promise<void> {
   return;
 }
 
-export { getTools, updateToolNav };
+async function getCategories (): Promise<ToolCategory[]> {
+  const url = `${API_BASE}/tool_categories/`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    console.error(res);
+    throw new Error(await createErrorMessage(res));
+  }
+  const data: ToolCategory[] = await res.json();
+  return data;
+}
+
+export { getTools, updateToolNav, getCategories };

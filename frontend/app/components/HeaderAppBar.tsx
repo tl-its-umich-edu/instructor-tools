@@ -5,7 +5,7 @@ import { AppBar, Button, Grid, InputBase, Paper, Toolbar, Typography } from '@mu
 import { User } from '../interfaces';
 
 interface HeaderAppBarProps {
-  onFilterChange: (v: string) => void
+  onSearchFilterChange: (v: string) => void
   user: User | null
   helpURL: string
 }
@@ -36,12 +36,12 @@ export default function HeaderAppBar (props: HeaderAppBarProps) {
             </Grid>
             <Grid item xs>
               <InputBase
-                id='tool-filter'
+                id='tool-search-filter'
                 placeholder='Filter by name or description'
                 aria-label='Filter tools by name or description'
                 fullWidth
                 type='search'
-                onChange={(e) => props.onFilterChange(e.target.value)}
+                onChange={(e) => props.onSearchFilterChange(e.target.value)}
               />
             </Grid>
           </Grid>

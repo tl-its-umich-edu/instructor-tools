@@ -89,3 +89,12 @@ class LTIToolViewSet(LoggingMixin, viewsets.ViewSet):
             logger.error(error)
             return Response(data=error.to_dict(), status=error.status_code)
         return Response(status=status.HTTP_200_OK)
+
+class ToolCategoryViewSet(LoggingMixin, viewsets.ReadOnlyModelViewSet):
+    authentication_classes = [authentication.SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    queryset = models.ToolCategory.objects.all()
+    serializer_class = serializers.ToolCategorySerializer
+
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
