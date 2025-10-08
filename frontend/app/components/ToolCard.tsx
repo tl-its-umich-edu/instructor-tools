@@ -227,12 +227,16 @@ export default function ToolCard (props: ToolCardProps) {
           <DataElement name='Privacy Agreement'>
             <span dangerouslySetInnerHTML={{ __html: tool.privacy_agreement }} />
           </DataElement>
-          <DataElement name='Placements'>
-            {tool.canvas_placement_expanded.map(p => p.name).join(', ')}
-          </DataElement>
-          <DataElement name='Categories'>
-            {tool.tool_categories_expanded.map(p=> p.category_name).join(', ')}
-          </DataElement>
+          {tool.canvas_placement_expanded.length > 0 && (
+            <DataElement name='Placements'>
+              {tool.canvas_placement_expanded.map(p => p.name).join(', ')}
+            </DataElement>
+          )}
+          {tool.tool_categories_expanded.length > 0 && (
+            <DataElement name='Categories'>
+              {tool.tool_categories_expanded.map(p=> p.category_name).join(', ')}
+            </DataElement>
+          )}
           <DataElement name='Support Resources'>
             <span dangerouslySetInnerHTML={{ __html: tool.support_resources }} />
           </DataElement>
