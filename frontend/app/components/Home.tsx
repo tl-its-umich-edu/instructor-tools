@@ -122,11 +122,11 @@ function Home (props: HomeProps) {
           </Grid>
         </Grid>
         <CategoriesSelector 
-          categoryIdsSelected={new Set(toolFiltersState.categoryIds)}
-          onCategoryIdsSelectedChange={(categoryIds: Set<number>) => 
+          categoryIdsSelected={toolFiltersState.categoryIds}
+          onCategoryIdsSelectedChange={(categoryIds: number[]) => 
             setToolFiltersState(filters => ({
               ...filters,
-              categoryIds: Array.from(categoryIds)
+              categoryIds: categoryIds
             }))
           }
         />
