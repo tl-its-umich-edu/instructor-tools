@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@types/js-cookie": "^3.0.6",
-    "@types/node": "^22.18.8",
+    "@types/node": "^22.18.10",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
@@ -34,7 +34,7 @@
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "webpack": "^5.102.0",
+    "webpack": "^5.102.1",
     "webpack-bundle-tracker": "3.2.1",
     "webpack-cli": "^5.1.4",
     "webpack-merge": "^6.0.1"
