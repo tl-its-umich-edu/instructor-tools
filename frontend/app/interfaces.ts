@@ -20,6 +20,11 @@ interface CanvasPlacement {
   name: string
 }
 
+interface ToolCategory {
+  id: number,
+  category_name: string
+}
+
 interface Tool {
   id: number,
   name: string,
@@ -32,9 +37,15 @@ interface Tool {
   main_image_alt_text: string | null,
   privacy_agreement: string,
   canvas_placement_expanded: CanvasPlacement[],
+  tool_categories_expanded: ToolCategory[]
   support_resources: string
   navigation_enabled: boolean
   launch_url: string
 }
 
-export type { Globals, Tool, User };
+interface ToolFiltersState {
+  search: string,
+  categoryIds: number[]
+}
+
+export type { Globals, Tool, User, ToolCategory, ToolFiltersState};

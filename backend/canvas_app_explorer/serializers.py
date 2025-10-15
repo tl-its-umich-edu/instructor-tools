@@ -23,19 +23,26 @@ class CanvasPlacementSerializer(serializers.ModelSerializer):
         model = models.CanvasPlacement
         fields = '__all__'
 
+class ToolCategorySerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = models.ToolCategory
+        fields = '__all__'
+
 
 class LtiToolSerializer(serializers.ModelSerializer):
     """
     Serializer for LtiTool model, with nested CanvasPlacements
     """
     canvas_placement_expanded = CanvasPlacementSerializer(read_only=True, many=True, source='canvas_placement')
+    tool_categories_expanded = ToolCategorySerializer(read_only=True, many=True, source='tool_categories')
 
     class Meta:
         model = models.LtiTool
         fields = [
             'id', 'name', 'canvas_id', 'logo_image', 'logo_image_alt_text', 'main_image',
             'main_image_alt_text', 'short_description', 'long_description', 'privacy_agreement',
-            'support_resources', 'canvas_placement_expanded', 'launch_url',
+            'support_resources', 'canvas_placement_expanded', 'tool_categories_expanded', 'launch_url',
         ]
 
 

@@ -17,6 +17,10 @@ class CanvasPlacement(models.Model):
     def __str__(self):
         return self.name
 
+class ToolCategory(models.Model):
+    category_name = models.CharField(max_length=150)
+    def __str__(self):
+        return self.category_name
 class LogoImage(models.Model):
     bytes = models.TextField()
     filename = models.CharField(max_length=255)
@@ -38,9 +42,10 @@ class LtiTool(models.Model):
     long_description = HTMLField()
     privacy_agreement = HTMLField()
     support_resources = HTMLField()
-    canvas_placement = models.ManyToManyField(CanvasPlacement)
+    canvas_placement = models.ManyToManyField(CanvasPlacement, blank=True)
     internal_notes = HTMLField(blank=True, null=True, help_text="a place to put helpful info for admins, not visible to users")
     launch_url = models.CharField(max_length=2048, blank=True, null=True, help_text="A link that will directly be launched by clicking on this card. If this is value is set then canvas_id is ignored")
+    tool_categories = models.ManyToManyField(ToolCategory, blank=True)
 
     def __str__(self):
         return self.name
