@@ -42,7 +42,7 @@ WORKDIR /code
 # Copy only what is needed into /code/
 COPY backend ./backend
 COPY templates ./templates
-COPY manage.py start_backend.sh ./
+COPY manage.py start_backend.sh start_worker.sh ./
 
 COPY --from=node-build /build/bundles ./frontend/bundles 
 COPY --from=node-build /build/webpack-stats.json ./frontend/

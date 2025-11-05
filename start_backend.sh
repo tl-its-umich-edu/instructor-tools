@@ -68,6 +68,10 @@ else
     GUNICORN_RELOAD="--reload"
     GUNICORN_TIMEOUT=0
 fi
+
+# Signal backend is ready for qworker
+touch /tmp/backend_ready
+
 exec gunicorn backend.wsgi:application \
     --bind 0.0.0.0:${GUNICORN_PORT} \
     --workers="${GUNICORN_WORKERS}" \

@@ -74,4 +74,21 @@ async function updateToolNav (data: UpdateToolNavData): Promise<void> {
   return;
 }
 
-export { getTools, updateToolNav };
+async function updateAltTextStartSync(): Promise<void> {
+  const url = `${API_BASE}/alt-text/scan/`;
+  const requestInit: RequestInit = {
+    method: 'POST',
+    headers: {
+      ...BASE_MUTATION_HEADERS,
+      'X-CSRFTOKEN': getCSRFToken() ?? ''
+    }
+  };
+  const res = await fetch(url, requestInit);
+  if (!res.ok) {
+    console.error(res);
+    throw new Error(await createErrorMessage(res));
+  }
+  return;
+}
+
+export { getTools, updateToolNav, updateAltTextStartSync };

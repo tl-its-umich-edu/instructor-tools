@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'watchman',
     'rest_framework_tracking',
+    'django_q',
 ]
 
 MIDDLEWARE = [
@@ -349,3 +350,13 @@ TEST_COURSE_ID = os.getenv('TEST_COURSE_ID', 1)
 # U-M Consent Manager & Google Analytics tracking
 GOOGLE_ANALYTICS_ID = os.getenv('GOOGLE_ANALYTICS_ID', '')
 UM_CONSENT_MANAGER_SCRIPT_DOMAIN = os.getenv('UM_CONSENT_MANAGER_SCRIPT_DOMAIN', 'https://umich.edu/apis/umconsentmanager/consentmanager.js')
+
+#Django Q2
+Q_CLUSTER = {
+    'name': 'IT_Cluster',
+    'workers': int(os.getenv('Q_CLUSTER_WORKERS', 4)),
+    'timeout': int(os.getenv('Q_CLUSTER_TIMEOUT', 1800)), # 30 minutes
+    'retry': int(os.getenv('Q_CLUSTER_RETRY', 3600)), # 1hr
+    'bulk': int(os.getenv('Q_CLUSTER_BULK', 5)),
+    'orm': 'default'
+}

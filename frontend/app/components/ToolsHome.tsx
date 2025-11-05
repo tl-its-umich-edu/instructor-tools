@@ -8,7 +8,7 @@ import HeaderAppBar from './HeaderAppBar';
 import ToolCard from './ToolCard';
 import { getTools } from '../api';
 import constants from '../constants';
-import '../css/Home.css';
+import '../css/ToolsHome.css';
 import { Globals, Tool } from '../interfaces';
 
 const MainContainer = styled('div')(({ theme }) => ({
@@ -25,11 +25,11 @@ const filterTools = (tools: Tool[], filter: string): Tool[] => {
   );
 };
 
-interface HomeProps {
+interface ToolsHomeProps {
   globals: Globals
 }
 
-function Home (props: HomeProps) {
+function ToolsHome (props: ToolsHomeProps) {
   const { globals } = props;
 
   const [tools, setTools] = useState<undefined | Tool[]>(undefined);
@@ -116,4 +116,4 @@ function Home (props: HomeProps) {
   );
 }
 
-export default Home;
+export default ToolsHome;

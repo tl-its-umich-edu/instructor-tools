@@ -3,10 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material';
 
-import Home from './components/Home';
 import { Globals } from './interfaces';
 import theme from './theme';
 import { ConsentManagerProvider } from './components/ConsentManagerProvider';
+import App from './App';
 
 const globalsId = 'cae_globals';
 const globalsEl = document.getElementById(globalsId);
@@ -33,7 +33,7 @@ root.render(
   <QueryClientProvider client={queryClient}>
     <ThemeProvider theme={theme}>
       <ConsentManagerProvider globals={globals}>
-        <Home globals={globals} />
+        <App globals={globals} />
       </ConsentManagerProvider>
     </ThemeProvider>
   </QueryClientProvider>

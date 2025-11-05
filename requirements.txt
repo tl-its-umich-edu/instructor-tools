@@ -35,3 +35,6 @@ debugpy==1.8.16
 https://github.com/Harvard-University-iCommons/django-canvas-oauth/archive/v1.1.1.tar.gz
 
 drf-api-tracking==1.8.4 # API tracking for DRF
+
+django-q2==1.8.0
+watchfiles==1.0.5
