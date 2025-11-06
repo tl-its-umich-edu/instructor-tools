@@ -12,7 +12,7 @@ import {
 import DataElement from './DataElement';
 import ErrorsDisplay from './ErrorsDisplay';
 import ImageDialog from './ImageDialog';
-import { AddToolButton, RemoveToolButton, LaunchToolButton } from './toolButtons';
+import { AddToolButton, RemoveToolButton, LaunchToolButton, TryInternalToolButton } from './toolButtons';
 import { updateToolNav } from '../api';
 import constants from '../constants';
 import { Tool } from '../interfaces';
@@ -51,11 +51,15 @@ export default function ToolCard (props: ToolCardProps) {
   };
   const handleLaunchClick = async (tool: Tool) => {
     try {
-      sendAnalyticsEvent('Launch Tool', {
+      const urlIsAbsolute = tool.launch_url.indexOf('://') > 0 || tool.launch_url.indexOf('//') === 0;
+      const analyticsLabel = urlIsAbsolute ? 'Launch Tool' : 'Open Internal Tool';
+      sendAnalyticsEvent(analyticsLabel, {
         tool_name: tool.name,
         tool_canvas_id: tool.canvas_id,
       });
-      window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
+      if (urlIsAbsolute) {
+        window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
+      }
     } catch (error) {
       console.error('Error opening tool launch URL:', error);
     }
@@ -183,9 +187,17 @@ export default function ToolCard (props: ToolCardProps) {
           {
             tool.launch_url != null
               ? (
-                <LaunchToolButton
-                  onClick={() => handleLaunchClick(tool)}
-                />
+                (tool.launch_url.indexOf('://') > 0 || tool.launch_url.indexOf('//') === 0) 
+                  ? ( // Absolute Redirect URL (External tool)
+                    <LaunchToolButton
+                      onClick={() => handleLaunchClick(tool)}
+                    />
+                  ) : ( // Relative Redirect URL (Internal tool)
+                    <TryInternalToolButton
+                      onClick={() => handleLaunchClick(tool)}
+                      href={tool.launch_url}
+                    />
+                  )
               ) : (
                 tool.navigation_enabled
                   ? (

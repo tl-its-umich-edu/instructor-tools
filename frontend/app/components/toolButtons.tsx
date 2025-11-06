@@ -3,6 +3,7 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import LaunchIcon from '@mui/icons-material/Launch';
 import { Button, ButtonProps } from '@mui/material';
+import StartIcon from '@mui/icons-material/Start';
 
 function AddToolButton (props: ButtonProps) {
   return (
@@ -43,4 +44,17 @@ function LaunchToolButton (props: ButtonProps) {
   );
 }
 
-export { AddToolButton, RemoveToolButton, LaunchToolButton };
+function TryInternalToolButton (props: ButtonProps) {
+  return (
+    <Button
+      aria-label='Open internal tool'
+      variant='contained'
+      startIcon={<StartIcon/>}
+      {...props}
+    >
+      Try It Out
+    </Button>
+  );
+}
+
+export { AddToolButton, RemoveToolButton, LaunchToolButton, TryInternalToolButton};

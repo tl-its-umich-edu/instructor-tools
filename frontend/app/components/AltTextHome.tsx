@@ -3,6 +3,7 @@ import React from 'react';
 import usePromise from '../hooks/usePromise';
 import { updateAltTextStartSync } from '../api';
 import ErrorsDisplay from './ErrorsDisplay';
+import { ArrowBack } from '@mui/icons-material';
 
 function AltTextHome () {
   const [startSync, isStartSyncLoading, startSyncError] = usePromise(
@@ -12,9 +13,17 @@ function AltTextHome () {
   
   return (
     <Box>
+      <Button
+        variant='outlined'
+        startIcon={<ArrowBack/>}
+        href='../'
+      >
+        Go Back
+      </Button>
       <p>Alt Text Helper Home</p>
       <Button 
         onClick={() => startSync()}
+        variant='contained'
         disabled={isStartSyncLoading}
       >
         Start Sync
