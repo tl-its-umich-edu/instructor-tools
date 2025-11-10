@@ -22,7 +22,6 @@ function AltTextHome (props: AltTextHomeProps) {
     isPending: startSyncPending
   } = useMutation({
     mutationFn: async () => {
-      throw new Error('This is a simulated error!');
       const response = await updateAltTextStartSync({
         courseId: course_id
       });
