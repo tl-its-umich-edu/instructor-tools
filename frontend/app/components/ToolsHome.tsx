@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Box, Grid, LinearProgress, Snackbar, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -36,9 +36,18 @@ function ToolsHome (props: ToolsHomeProps) {
   const [searchFilter, setSearchFilter] = useState('');
   const [showRefreshAlert, setShowRefreshAlert] = useState<undefined | boolean>(undefined);
 
-  const { isLoading: getToolsLoading, error: getToolsError } = useQuery(['getTools'], getTools, {
-    onSuccess: (data) => setTools(data)
+  const { isLoading: isGetToolsLoading, error: getToolsError, data: getToolsData} = useQuery({
+    queryKey: ['getTools'], 
+    queryFn: async () => {
+      return await getTools();
+    },
   });
+
+  useEffect(() => {
+    if (getToolsData) {
+      setTools(getToolsData);
+    }
+  }, [getToolsData]);
 
   const onToolUpdate = (newTool: Tool) => {
     /*
@@ -56,7 +65,7 @@ function ToolsHome (props: ToolsHomeProps) {
 
   const handleRefreshAlertClose = () => setShowRefreshAlert(false);
 
-  const isLoading = getToolsLoading;
+  const isLoading = isGetToolsLoading;
   const errors = [getToolsError].filter(e => e !== null) as Error[];
 
   let feedbackBlock;
@@ -100,7 +109,7 @@ function ToolsHome (props: ToolsHomeProps) {
             <Typography aria-live='polite' aria-atomic>{toolNumString} tools displayed</Typography>
           </Grid>
         </Grid>
-        <div aria-describedby='tool-card-container-loading' aria-busy={getToolsLoading}>
+        <div aria-describedby='tool-card-container-loading' aria-busy={isGetToolsLoading}>
           {toolCardContainer}
         </div>
       </MainContainer>

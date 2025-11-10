@@ -17,7 +17,7 @@ function App (props: AppProps) {
           <ToolsHome {...props} />
         }/>
         <Route path='/alt-text-helper/' element={
-          <AltTextHome />
+          <AltTextHome {...props}/>
         }/>
       </Routes>
     </Router>

@@ -14,16 +14,7 @@ if (globalsEl === null) throw Error(`"${globalsId}" was not found!`);
 if (globalsEl.textContent === null) throw Error(`No text content in "${globalsId}"!`);
 const globals: Globals = Object.freeze(JSON.parse(globalsEl.textContent));
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      retryOnMount: false,
-      staleTime: Infinity
-    },
-    mutations: { retry: false }
-  }
-});
+const queryClient = new QueryClient();
 
 const container = document.getElementById('react-app');
 if (container === null) throw Error('"react-app" was not found!');

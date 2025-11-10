@@ -51,15 +51,11 @@ export default function ToolCard (props: ToolCardProps) {
   };
   const handleLaunchClick = async (tool: Tool) => {
     try {
-      const urlIsAbsolute = tool.launch_url.indexOf('://') > 0 || tool.launch_url.indexOf('//') === 0;
-      const analyticsLabel = urlIsAbsolute ? 'Launch Tool' : 'Open Internal Tool';
-      sendAnalyticsEvent(analyticsLabel, {
+      sendAnalyticsEvent('Launch Tool', {
         tool_name: tool.name,
         tool_canvas_id: tool.canvas_id,
       });
-      if (urlIsAbsolute) {
-        window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
-      }
+      window.open(tool.launch_url, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Error opening tool launch URL:', error);
     }
@@ -88,7 +84,7 @@ export default function ToolCard (props: ToolCardProps) {
   const [screenshotDialogOpen, setScreenshotDialogOpen] = useState(false);
 
   const {
-    mutate: doUpdateToolNav, error: updateToolNavError, isLoading: updateToolNavLoading
+    mutate: doUpdateToolNav, error: updateToolNavError, isPending: updateToolNavPending
   } = useMutation(updateToolNav, { onSuccess: (data, variables) => {
     const newTool = { ...tool, navigation_enabled: variables.navEnabled };
     onToolUpdate(newTool);
@@ -97,7 +93,7 @@ export default function ToolCard (props: ToolCardProps) {
   const moreOrLessText = !showMoreInfo ? 'More' : 'Less';
   const buttonLoadingId = `add-remove-tool-button-loading-${tool.canvas_id}`;
 
-  const isLoading = updateToolNavLoading;
+  const isLoading = updateToolNavPending;
   const errors = [updateToolNavError].filter(e => e !== null) as Error[];
 
   let feedbackBlock;
@@ -174,7 +170,7 @@ export default function ToolCard (props: ToolCardProps) {
           justifyContent='space-between'
           alignItems='center'
           aria-describedby={buttonLoadingId}
-          aria-busy={updateToolNavLoading}
+          aria-busy={updateToolNavPending}
         >
           <Button
             onClick={() => handleMoreInfoClick(tool)}
@@ -194,21 +190,20 @@ export default function ToolCard (props: ToolCardProps) {
                     />
                   ) : ( // Relative Redirect URL (Internal tool)
                     <TryInternalToolButton
-                      onClick={() => handleLaunchClick(tool)}
-                      href={tool.launch_url}
+                      url={tool.launch_url}
                     />
                   )
               ) : (
                 tool.navigation_enabled
                   ? (
                     <RemoveToolButton
-                      disabled={updateToolNavLoading}
+                      disabled={updateToolNavPending}
                       onClick={() => handleUpdateToolNav(tool, false)}
                     />
                   )
                   : (
                     <AddToolButton
-                      disabled={updateToolNavLoading}
+                      disabled={updateToolNavPending}
                       onClick={() => handleUpdateToolNav(tool, true)}
                     />
                   )

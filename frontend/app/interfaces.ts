@@ -37,4 +37,8 @@ interface Tool {
   launch_url: string
 }
 
-export type { Globals, Tool, User };
+interface SyncTask {
+  id: string,
+}
+
+export type { Globals, Tool, User, SyncTask };

@@ -4,6 +4,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import LaunchIcon from '@mui/icons-material/Launch';
 import { Button, ButtonProps } from '@mui/material';
 import StartIcon from '@mui/icons-material/Start';
+import { Link } from 'react-router-dom';
 
 function AddToolButton (props: ButtonProps) {
   return (
@@ -44,13 +45,16 @@ function LaunchToolButton (props: ButtonProps) {
   );
 }
 
-function TryInternalToolButton (props: ButtonProps) {
+function TryInternalToolButton (props: ButtonProps & { url: string }) {
+  const { url, ...remainingProps } = props;
   return (
     <Button
       aria-label='Open internal tool'
       variant='contained'
       startIcon={<StartIcon/>}
-      {...props}
+      component={Link}
+      to={url}
+      {...remainingProps}
     >
       Try It Out
     </Button>
