@@ -351,12 +351,13 @@ TEST_COURSE_ID = os.getenv('TEST_COURSE_ID', 1)
 GOOGLE_ANALYTICS_ID = os.getenv('GOOGLE_ANALYTICS_ID', '')
 UM_CONSENT_MANAGER_SCRIPT_DOMAIN = os.getenv('UM_CONSENT_MANAGER_SCRIPT_DOMAIN', 'https://umich.edu/apis/umconsentmanager/consentmanager.js')
 
-#Django Q2
+#Django Q2 using default Django ORM
 Q_CLUSTER = {
-    'name': 'IT_Cluster',
+    'name': os.getenv('Q_CLUSTER_NAME', 'IT_Cluster'),
     'workers': int(os.getenv('Q_CLUSTER_WORKERS', 4)),
     'timeout': int(os.getenv('Q_CLUSTER_TIMEOUT', 1800)), # 30 minutes
     'retry': int(os.getenv('Q_CLUSTER_RETRY', 3600)), # 1hr
     'bulk': int(os.getenv('Q_CLUSTER_BULK', 5)),
+    'max_attempts': int(os.getenv('Q_CLUSTER_MAX_ATTEMPTS', 1)),
     'orm': 'default'
 }
