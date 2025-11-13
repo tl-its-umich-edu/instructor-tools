@@ -51,29 +51,16 @@ done
 echo Running python startups
 python manage.py migrate
 
-echo "Setting domain of default site record"
-# The value for LOCALHOST_PORT is set in docker-compose.yml
-#if [ "${DOMAIN}" == "localhost" ]; then
-#  python manage.py site --domain="${DOMAIN}:${LOCALHOST_PORT}" --name="${DOMAIN}"
-#else
-#  python manage.py site --domain="${DOMAIN}" --name="${DOMAIN}"
-#fi
-
 if [ "${DEBUGPY_ENABLE:-"false"}" == "false" ]; then
-    echo "Starting Gunicorn for production"
+    echo "Starting Gunicorn with uvicorn worker for production"
+    # Pass numeric args without embedded quotes so gunicorn receives plain integers.
+    CMD="gunicorn backend.asgi:application --bind 0.0.0.0:${GUNICORN_PORT} --workers=${GUNICORN_WORKERS} -k uvicorn_worker.UvicornWorker --timeout=${GUNICORN_TIMEOUT}"
 else
-    echo "Starting Gunicorn for DEBUGPY debugging"
-    # Workers need to be set to 1 for DEBUGPY
-    GUNICORN_WORKERS=1
-    GUNICORN_RELOAD="--reload"
-    GUNICORN_TIMEOUT=0
+    echo "Starting uvicorn for Development"
+    CMD="uvicorn backend.asgi:application --host=0.0.0.0 --port=${GUNICORN_PORT} --reload"
 fi
 
 # Signal backend is ready for qworker
 touch /tmp/backend_ready
 
-exec gunicorn backend.wsgi:application \
-    --bind 0.0.0.0:${GUNICORN_PORT} \
-    --workers="${GUNICORN_WORKERS}" \
-    --timeout="${GUNICORN_TIMEOUT}" \
-    ${GUNICORN_RELOAD}
+exec $CMD
