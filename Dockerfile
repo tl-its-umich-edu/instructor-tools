@@ -22,15 +22,11 @@ RUN apt-get update && \
     git \
     supervisor \
     curl \
-    pkg-config && \
+    pkg-config \
+    libmariadb-dev && \
     apt-get upgrade -y && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/*
-
-# Install MariaDB from the mariadb repository rather than using Debians 
-# https://mariadb.com/kb/en/mariadb-package-repository-setup-and-usage/
-RUN curl -LsS https://r.mariadb.com/downloads/mariadb_repo_setup | bash && \
-apt install -y --no-install-recommends libmariadb-dev
 
 RUN pip install --no-cache-dir -r requirements.txt
 
