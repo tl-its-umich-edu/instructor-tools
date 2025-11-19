@@ -109,11 +109,14 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {'charset': 'utf8mb4'},
         'TEST': {
+            'NAME': 'test_it',
             'CHARSET': 'utf8mb4',
             'COLLATION': 'utf8mb4_unicode_ci'
         }
     }
 }
+
+TEST_RUNNER = 'backend.tests.test_setup.CustomTestRunner'
 
 
 # Internationalization
