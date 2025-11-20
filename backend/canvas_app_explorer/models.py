@@ -59,10 +59,10 @@ class LtiTool(models.Model):
 class CourseScan(models.Model):
     # Big primary key
     id = models.BigAutoField(primary_key=True)
-    # Canvas course id (use BigInteger in case of large values)
-    canvas_id = models.BigIntegerField(db_index=True, unique=True)
+    # Course id (use BigInteger in case of large values)
+    course_id = models.BigIntegerField(db_index=True, unique=True)
     # ID returned by the scan task system (e.g. django-q task id)
-    scan_task_id = models.CharField(max_length=255, blank=True, null=True)
+    q_task_id = models.CharField(max_length=255, blank=True, null=True)
     # Simple status string (pending, running, completed, failed, etc.)
     status = models.CharField(max_length=50, default='pending', db_index=True)
     # When the scan was created
@@ -75,7 +75,34 @@ class CourseScan(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"CourseScan(id={self.id}, canvas_id={self.canvas_id}, status={self.status})"
+        return f"CourseScan(id={self.id}, course_id={self.course_id}, status={self.status})"
+
+
+class ContentItem(models.Model):
+    CONTENT_TYPE_ASSIGNMENT = 'assignment'
+    CONTENT_TYPE_PAGE = 'page'
+    CONTENT_TYPE_CHOICES = (
+        (CONTENT_TYPE_ASSIGNMENT, 'Assignment'),
+        (CONTENT_TYPE_PAGE, 'Page'),
+    )
+
+    id = models.BigAutoField(primary_key=True)
+    # FK to CourseScan (stored in DB column `course_id`)
+    course = models.ForeignKey(
+        CourseScan,
+        to_field='course_id',
+        on_delete=models.CASCADE,
+        db_column='course_id',
+        related_name='content_items',
+    )
+    content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
+    content_id = models.BigIntegerField()
+
+    class Meta:
+        db_table = 'canvas_app_explorer_content_item'
+
+    def __str__(self):
+        return f"ContentItem(id={self.id}, course_id={self.course_id}, type={self.content_type}, content_id={self.content_id})"
 
 
 class ImageItem(models.Model):
@@ -87,22 +114,26 @@ class ImageItem(models.Model):
     )
 
     id = models.BigAutoField(primary_key=True)
-    # ForeignKey to CourseScan using its `canvas_id` field so ImageItem is tied to the course
-    course_scan = models.ForeignKey(
+    # FK to CourseScan using DB column `course_id`
+    course = models.ForeignKey(
         CourseScan,
-        to_field='canvas_id',
+        to_field='course_id',
         on_delete=models.CASCADE,
-        db_column='canvas_id',
+        db_column='course_id',
         related_name='image_items',
     )
-    image_content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
+    # FK to ContentItem (stored in DB column `content_item_id`)
+    content_item = models.ForeignKey(
+        'ContentItem',
+        on_delete=models.CASCADE,
+        db_column='content_item_id',
+        related_name='images',
+    )
     image_id = models.BigIntegerField()
     image_url = models.URLField(max_length=2048)
-    # If the content is an assignment this is assignment_id; if page then page_id
-    image_content_id = models.BigIntegerField()
 
     class Meta:
         db_table = 'canvas_app_explorer_image_item'
 
     def __str__(self):
-        return f"ImageItem(id={self.id}, canvas_id={self.course_scan_id}, type={self.image_content_type}, image_id={self.image_id})"
+        return f"ImageItem(id={self.id}, course_id={self.course_id}, content_item_id={self.content_item_id}, image_id={self.image_id})"

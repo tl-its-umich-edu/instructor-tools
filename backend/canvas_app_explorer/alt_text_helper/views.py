@@ -43,17 +43,17 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
         try:
             with transaction.atomic():
                 obj, created = CourseScan.objects.update_or_create(
-                    canvas_id=canvas_id_int,
+                    course_id=canvas_id_int,
                     defaults={
-                        'scan_task_id': str(task_id),
+                        'q_task_id': str(task_id),
                         'status': 'pending',
                     }
                 )
-            logger.info("CourseScan %s for canvas_id=%s (scan_task_id=%s)", 'created' if created else 'updated', canvas_id_int, task_id)
+            logger.info("CourseScan %s for course_id=%s (q_task_id=%s)", 'created' if created else 'updated', canvas_id_int, task_id)
         except IntegrityError:
-            logger.exception("IntegrityError saving CourseScan for canvas_id=%s", canvas_id_int)
+            logger.exception("IntegrityError saving CourseScan for course_id=%s", canvas_id_int)
         except Exception:
-            logger.exception("Unexpected error saving CourseScan for canvas_id=%s", canvas_id_int)
+            logger.exception("Unexpected error saving CourseScan for course_id=%s", canvas_id_int)
 
         return Response(task_id)
 

@@ -18,7 +18,7 @@ from typing import List, Dict, Any, Union
 from urllib.parse import urlparse, parse_qs, urlencode
 from django.db import transaction
 
-from backend.canvas_app_explorer.models import CourseScan, ImageItem
+from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +41,13 @@ def fetch_and_scan_course(task: Dict[str, Any]):
           try:
               with transaction.atomic():
                   CourseScan.objects.update_or_create(
-                      canvas_id=canvas_id_int,
+                      course_id=canvas_id_int,
                       defaults={
                           'status': 'running',
                       }
                   )
           except Exception:
-              logger.exception("Failed to set CourseScan status to 'running' for canvas_id=%s", canvas_id_int)
+              logger.exception("Failed to set CourseScan status to 'running' for course_id=%s", canvas_id_int)
 
       # Fetch course content using the manager
       course_id = task.get('course_id')
@@ -73,18 +73,34 @@ def fetch_and_scan_course(task: Dict[str, Any]):
       result = get_courses_images(manager, course_id)
       end_time: float = time.perf_counter()
       logger.info(f"scanning course {course_id} images tofound {len(result) if result else 0} images took {end_time - start_time:.2f} seconds")
-      # replace ImageItem rows for this course with the newly found images
+      # replace ContentItem + ImageItem rows for this course with the newly found images
       try:
           if canvas_id_int is not None:
               with transaction.atomic():
-                  # delete existing ImageItem rows for this course
-                  ImageItem.objects.filter(course_scan_id=canvas_id_int).delete()
+                  # delete existing ImageItem rows for this course first (FK -> ContentItem)
+                  ImageItem.objects.filter(course_id=canvas_id_int).delete()
+                  # delete existing ContentItem rows for this course
+                  ContentItem.objects.filter(course_id=canvas_id_int).delete()
 
-                  to_create = []
+                  images_to_create = []
+                  # create ContentItem rows and associated ImageItem rows
                   for item in (result or []):
                       content_type = item.get('type')
                       content_id = item.get('id')
                       images = item.get('images') or []
+                      try:
+                          content_id_int = int(content_id) if content_id is not None else None
+                      except Exception:
+                          content_id_int = None
+
+                      # create ContentItem
+                      content_obj = ContentItem.objects.create(
+                          course_id=canvas_id_int,
+                          content_type=content_type,
+                          content_id=content_id_int,
+                      )
+
+                      # prepare ImageItem objects for this content
                       for img in images:
                           raw_img_id = img.get('image_id')
                           try:
@@ -96,32 +112,26 @@ def fetch_and_scan_course(task: Dict[str, Any]):
                           if not url:
                               logger.warning("Missing URL for image %r in course %s, skipping", raw_img_id, canvas_id_int)
                               continue
-                          try:
-                              content_id_int = int(content_id) if content_id is not None else None
-                          except Exception:
-                              content_id_int = None
 
-                          # build ImageItem instances (use course_scan_id to set FK to CourseScan.canvas_id)
-                          to_create.append(ImageItem(
-                              course_scan_id=canvas_id_int,
-                              image_content_type=content_type,
+                          images_to_create.append(ImageItem(
+                              course_id=canvas_id_int,
+                              content_item=content_obj,
                               image_id=img_id,
                               image_url=url,
-                              image_content_id=content_id_int,
                           ))
 
-                  if to_create:
-                      ImageItem.objects.bulk_create(to_create)
+                  if images_to_create:
+                      ImageItem.objects.bulk_create(images_to_create)
 
                   # mark CourseScan as completed (update timestamp via auto_now)
                   CourseScan.objects.update_or_create(
-                      canvas_id=canvas_id_int,
+                      course_id=canvas_id_int,
                       defaults={
                           'status': 'completed',
                       }
                   )
       except Exception:
-          logger.exception("Failed to replace ImageItem rows or set CourseScan to 'completed' for canvas_id=%s", canvas_id_int)
+          logger.exception("Failed to replace ContentItem/ImageItem rows or set CourseScan to 'completed' for course_id=%s", canvas_id_int)
       
 
   except CanvasHTTPError as error:
@@ -135,7 +145,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
                       defaults={'status': 'failed'}
                   )
       except Exception:
-          logger.exception("Failed to set CourseScan status to 'failed' for canvas_id=%s", locals().get('canvas_id_int'))
+          logger.exception("Failed to set CourseScan status to 'failed' for course_id=%s", locals().get('canvas_id_int'))
       return None
 
 @async_to_sync
