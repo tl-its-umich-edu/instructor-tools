@@ -60,11 +60,11 @@ class CourseScan(models.Model):
     # Big primary key
     id = models.BigAutoField(primary_key=True)
     # Course id (use BigInteger in case of large values)
-    course_id = models.BigIntegerField(db_index=True, unique=True)
+    course_id = models.BigIntegerField(unique=True)
     # ID returned by the scan task system (e.g. django-q task id)
     q_task_id = models.CharField(max_length=255, blank=True, null=True)
     # Simple status string (pending, running, completed, failed, etc.)
-    status = models.CharField(max_length=50, default='pending', db_index=True)
+    status = models.CharField(max_length=50, default='pending')
     # When the scan was created
     created_at = models.DateTimeField(auto_now_add=True)
     # When the scan was last updated
@@ -106,13 +106,6 @@ class ContentItem(models.Model):
 
 
 class ImageItem(models.Model):
-    CONTENT_TYPE_ASSIGNMENT = 'assignment'
-    CONTENT_TYPE_PAGE = 'page'
-    CONTENT_TYPE_CHOICES = (
-        (CONTENT_TYPE_ASSIGNMENT, 'Assignment'),
-        (CONTENT_TYPE_PAGE, 'Page'),
-    )
-
     id = models.BigAutoField(primary_key=True)
     # FK to CourseScan using DB column `course_id`
     course = models.ForeignKey(
