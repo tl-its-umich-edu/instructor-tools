@@ -17,7 +17,7 @@ servestatic==3.1.0 # For serving static files
 
 # DRF
 djangorestframework==3.16.1
-django-filter==25.2 # Filtering support
+django-filter==25.1 # Filtering support. 25.2 doesn't support Django 4.2
 drf-spectacular==0.29.0
 markdown==3.10 # Markdown support for the browsable API
 
