@@ -54,7 +54,7 @@ function AltTextHome (props: AltTextHomeProps) {
         Start Sync
       </Button>
       {syncTask && 
-        <p>Task ID: {syncTask.id}</p>
+        <p>Task: {syncTask.q_task_id}: {syncTask.status}</p>
       }
       {isStartSyncError && 
         <Box sx={{ marginBottom: 1 }}>

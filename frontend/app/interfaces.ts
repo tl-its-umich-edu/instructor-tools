@@ -38,7 +38,10 @@ interface Tool {
 }
 
 interface SyncTask {
-  id: string,
+  id: number
+  course_id: number
+  q_task_id: string
+  status: string,
 }
 
 export type { Globals, Tool, User, SyncTask };

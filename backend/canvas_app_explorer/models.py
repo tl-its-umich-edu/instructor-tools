@@ -75,7 +75,7 @@ class CourseScan(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"CourseScan(id={self.id}, course_id={self.course_id}, status={self.status})"
+        return f"CourseScan(id={self.id}, course_id={self.course_id}, q_task_id={self.q_task_id}, status={self.status})"
 
 
 class ContentItem(models.Model):
