@@ -23,6 +23,7 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
     )
     def start_scan(self, request: Request) -> Response:
         course_id = request.data.get('course_id')
+        logger.info(f"request.build_absolute_uri(reverse('canvas-oauth-callback')): {request.build_absolute_uri(reverse('canvas-oauth-callback'))}")
         task_payload = {
             'course_id': course_id,
             'user_id': request.user.id,
@@ -31,16 +32,15 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
         try:
             task_id = async_task('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.fetch_and_scan_course', task=task_payload)
             logger.info(f"Started alt text scan task {task_id} for course_id: {course_id}")
-            
+
             # persist CourseScan: create new or update existing for this course
-            with transaction.atomic():
-                obj, created = CourseScan.objects.update_or_create(
-                    course_id=int(course_id),
-                    defaults={
-                        'q_task_id': str(task_id),
-                        'status': 'pending',
-                    }
-                )
+            obj, created = CourseScan.objects.update_or_create(
+                course_id=int(course_id),
+                defaults={
+                    'q_task_id': str(task_id),
+                    'status': 'pending',
+                }
+            )
             logger.info(f"{obj} created: {created}")
             resp = {
                     'course_id': obj.course_id,

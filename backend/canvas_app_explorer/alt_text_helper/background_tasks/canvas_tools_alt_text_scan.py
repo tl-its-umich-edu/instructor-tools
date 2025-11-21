@@ -1,23 +1,25 @@
-from django.http import HttpRequest
-from backend import settings
 import time
-from backend.canvas_app_explorer.alt_text_helper import tasks
-from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
-import logging
-from django.test import RequestFactory
-from backend.canvas_app_explorer.canvas_lti_manager.exception import CanvasHTTPError
 import asyncio
+import logging
+from urllib.parse import urlparse, parse_qs, urlencode
+from typing import List, Dict, Any, Optional, Tuple
 from asgiref.sync import async_to_sync
-from bs4 import BeautifulSoup
+from django.http import HttpRequest
+from django.test import RequestFactory
 from django.contrib.auth.models import User
-from canvasapi.course import Course
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.middleware import SessionMiddleware
-from rest_framework.request import Request
-from typing import List, Dict, Any, Union
-from urllib.parse import urlparse, parse_qs, urlencode
+from django.contrib.sessions.backends.db import SessionStore
 from django.db import transaction
+from bs4 import BeautifulSoup
+from rest_framework.request import Request
+from canvasapi.exceptions import CanvasException
+from canvasapi.course import Course
+from canvasapi import Canvas
 
+from backend import settings
+from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
+from backend.canvas_app_explorer.canvas_lti_manager.exception import CanvasHTTPError
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem
 
 logger = logging.getLogger(__name__)
@@ -28,139 +30,72 @@ PER_PAGE = 100
 IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif')
 
 def fetch_and_scan_course(task: Dict[str, Any]):
-  logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
-  try:
+    logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
       # mark CourseScan as running (create if missing)
-      try:
-          canvas_id_val = task.get('course_id')
-          canvas_id_int = int(canvas_id_val)
-      except Exception:
-          canvas_id_int = None
+    course_id = int(task.get('course_id'))
 
-      if canvas_id_int is not None:
-          try:
-              with transaction.atomic():
-                  CourseScan.objects.update_or_create(
-                      course_id=canvas_id_int,
-                      defaults={
-                          'status': 'running',
-                      }
-                  )
-          except Exception:
-              logger.exception("Failed to set CourseScan status to 'running' for course_id=%s", canvas_id_int)
+    obj, created = CourseScan.objects.update_or_create(
+        course_id=course_id,
+        defaults={
+            'status': 'running',
+        }
+    )
+    logger.info(f"{obj} created: {created}")
 
-      # Fetch course content using the manager
-      course_id = task.get('course_id')
-      user_id = task.get('user_id')
-      req_user: User = get_user_model().objects.get(pk=user_id)
-      canvas_callback_url = task.get('canvas_callback_url')
-      # Create a request factory and build the request since this is a background task request won't have a user session
-      factory = RequestFactory()
-      request: Request = factory.get('/oauth/oauth-callback')
-      request.user = req_user
-      request.build_absolute_uri = lambda path: canvas_callback_url
-      # Attach a session to the request and set course_id so manager factory can read it
-      # SessionMiddleware requires a get_response callable; use a no-op lambda
-      session_mw = SessionMiddleware(lambda req: None)
-      session_mw.process_request(request)
-      # set the course_id on the session and persist it
-      request.session['course_id'] = course_id
-      request.session.save()
-      manager =  MANAGER_FACTORY.create_manager(request)
-    #   course = Course(manager._Canvas__requester, {'id': course_id})
+    # Fetch course content using the manager
+    user_id = task.get('user_id')
+    req_user: User = get_user_model().objects.get(pk=user_id)
+    canvas_callback_url = task.get('canvas_callback_url')
+    logger.info(f"canvas_callback_url: {canvas_callback_url}")
+    # Create a request factory and build the request since this is a background task request won't have a user session
+    factory = RequestFactory()
+    request: Request = factory.get('/oauth/oauth-callback')
+    request.user = req_user
+    request.build_absolute_uri = lambda path: canvas_callback_url
+    session = SessionStore()
+    session['course_id'] = course_id
+    session.save()
+    request.session = session
+    # Create the manager
+    canvas_api: Canvas =  MANAGER_FACTORY.create_manager(request).canvas_api
+    # Fetch full course details to ensure attributes like course_code are present for logging
+    course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
-      start_time: float = time.perf_counter()
-      result = get_courses_images(manager, course_id)
-      end_time: float = time.perf_counter()
-      logger.info(f"scanning course {course_id} images tofound {len(result) if result else 0} images took {end_time - start_time:.2f} seconds")
-      # replace ContentItem + ImageItem rows for this course with the newly found images
-      try:
-          if canvas_id_int is not None:
-              with transaction.atomic():
-                  # delete existing ImageItem rows for this course first (FK -> ContentItem)
-                  ImageItem.objects.filter(course_id=canvas_id_int).delete()
-                  # delete existing ContentItem rows for this course
-                  ContentItem.objects.filter(course_id=canvas_id_int).delete()
+    start_time: float = time.perf_counter()
+    get_courses_images(course)
+    end_time: float = time.perf_counter()
+    logger.info(f"scanning course {course_id} images took {end_time - start_time:.2f} seconds")
+    
 
-                  images_to_create = []
-                  # create ContentItem rows and associated ImageItem rows
-                  for item in (result or []):
-                      content_type = item.get('type')
-                      content_id = item.get('id')
-                      images = item.get('images') or []
-                      try:
-                          content_id_int = int(content_id) if content_id is not None else None
-                      except Exception:
-                          content_id_int = None
-
-                      # create ContentItem
-                      content_obj = ContentItem.objects.create(
-                          course_id=canvas_id_int,
-                          content_type=content_type,
-                          content_id=content_id_int,
-                      )
-
-                      # prepare ImageItem objects for this content
-                      for img in images:
-                          raw_img_id = img.get('image_id')
-                          try:
-                              img_id = int(raw_img_id) if raw_img_id is not None else None
-                          except Exception:
-                              logger.warning("Non-numeric image_id %r for course %s, skipping", raw_img_id, canvas_id_int)
-                              continue
-                          url = img.get('download_url') or img.get('image_url')
-                          if not url:
-                              logger.warning("Missing URL for image %r in course %s, skipping", raw_img_id, canvas_id_int)
-                              continue
-
-                          images_to_create.append(ImageItem(
-                              course_id=canvas_id_int,
-                              content_item=content_obj,
-                              image_id=img_id,
-                              image_url=url,
-                          ))
-
-                  if images_to_create:
-                      ImageItem.objects.bulk_create(images_to_create)
-
-                  # mark CourseScan as completed (update timestamp via auto_now)
-                  CourseScan.objects.update_or_create(
-                      course_id=canvas_id_int,
-                      defaults={
-                          'status': 'completed',
-                      }
-                  )
-      except Exception:
-          logger.exception("Failed to replace ContentItem/ImageItem rows or set CourseScan to 'completed' for course_id=%s", canvas_id_int)
-      
-
-  except CanvasHTTPError as error:
-      logger.error(f"Error fetching or scanning course {course_id}: {error}")
-      # mark CourseScan as failed on HTTP errors
-      try:
-          if 'canvas_id_int' in locals() and canvas_id_int is not None:
-              with transaction.atomic():
-                  CourseScan.objects.update_or_create(
-                      canvas_id=canvas_id_int,
-                      defaults={'status': 'failed'}
-                  )
-      except Exception:
-          logger.exception("Failed to set CourseScan status to 'failed' for course_id=%s", locals().get('canvas_id_int'))
-      return None
 
 @async_to_sync
-async def get_courses_images(manager, course_id) -> List[Dict[str, Any]]:
-    # logger.info(f"Fetching assignments and pages for course {course.id}.")
+async def get_courses_images(course: Course):
     try:
-        # Await both fetch tasks; the sync helpers guarantee a list (or empty list) on error.
-        assignments, pages = await asyncio.gather(
-            fetch_assignments_async(manager, course_id),
-            fetch_pages_async(manager, course_id),
+        results = await asyncio.gather(
+            fetch_content_items_async(get_assignments, course),
+            fetch_content_items_async(get_pages, course),
+            return_exceptions=True,
         )
-        logger.info(f"Processing {len(assignments)} assignments and {len(pages)} pages.")
+        logger.info("raw results from gather: %s", results)
+        # unpack results (assignments, pages) and handle exceptions returned by gather. gather maintain call order
+        assignments, pages = results
+
+        error_when_fetching_images = False
+        if isinstance(assignments, Exception):
+            logger.error("Error occurred fetching assignments: %s", assignments)
+            error_when_fetching_images = True
+            assignments = []
+        if isinstance(pages, Exception):
+            logger.error("Error occurred fetching pages: %s", pages)
+            error_when_fetching_images = True
+            pages = []
+        
+        if error_when_fetching_images:
+            # DB call would be needed to update CourseScan status to 'failed' here
+            return
 
         combined = assignments + pages
-        # Keep only items where 'images' is a list with at least one element
+        logger.info("Combined items count: %s", combined)
         filtered = [
             item for item in combined
             if isinstance(item.get('images'), list) and len(item.get('images')) > 0
@@ -169,74 +104,72 @@ async def get_courses_images(manager, course_id) -> List[Dict[str, Any]]:
         logger.info("Items before filter: %d; after filter (has images): %d", len(combined), len(filtered))
         logger.info("Filtered items with images: %s", filtered)
 
-        return filtered
+        # DB call to persist ContentItem and ImageItem records
+
  
     except Exception as e:
          logger.error(f"An error occurred during concurrent fetch and extraction for : {e}")
-         return []
+         #DB call would be needed to update CourseScan status to 'failed' here
   
-async def fetch_assignments_async(manager, course_id):
-  """
-  Asynchronously fetches assignments for a given course using canvas_api.get_assignments().
-  """
-  # Run the synchronous calls to get the course and then its assignments in a separate thread
-  try:
-      return await asyncio.to_thread(get_assignments, manager, course_id)
-  except Exception as e:
-      logger.error(f"Error fetching assignments for : {e}")
-      return []
-  
-def get_assignments(manager, course_id):
+async def fetch_content_items_async(fn, course: Course):
+    """
+    Generic async wrapper that runs the synchronous `fn(course)` in a thread and
+    returns a list (or empty list on error). `fn` should be a callable like
+    `get_assignments` or `get_pages` that accepts a Course and returns a list.
+    """
+    try:
+        return await asyncio.to_thread(fn, course)
+    except (CanvasException, Exception) as e:
+        logger.error("Error fetching content items using %s: %s", getattr(fn, '__name__', str(fn)), e)
+        return e
+
+
+def get_assignments(course: Course):
     """
     Synchronously fetches assignments for a given course using canvas_api.get_assignments().
     """
     try:
-        logger.info(f"Fetching assignments for course {course_id}.")
-        # materialize PaginatedList into a real list so len() and iteration are safe
-        assignments = list(manager.canvas_api.get_course(course_id).get_assignments(per_page=PER_PAGE))
+        logger.info(f"Fetching assignments for course {course.id}.")
+        assignments = list(course.get_assignments(per_page=PER_PAGE))
         logger.info(f"Fetched {len(assignments)} assignments.")
-        result = []
+        images_from_assignments = []
         for assignment in assignments:
             logger.info(f"Assignment ID: {assignment.id}, Name: {assignment.name}")
-            result.append({'id': assignment.id, 'name': assignment.name, 'images': extract_images_from_html(assignment.description), 'type': 'assignment' })
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching assignments for course {course_id}: {e}")
-        # Return empty list on error so callers don't need to check for exceptions
-        return []
+            images_from_assignments.append(
+                {'id': assignment.id, 
+                 'name': assignment.name, 
+                 'images': extract_images_from_html(assignment.description), 
+                 'type': 'assignment' })
+        return images_from_assignments
+    except (CanvasException, Exception) as e:
+        logger.error(f"Error fetching assignments for course {course.id}: {e}")
+        raise e
  
-async def fetch_pages_async(manager, course_id):
-    """
-    Asynchronously fetches pages for a given course using canvas_api.get_pages().
-    """
-    # Run the synchronous calls to get the course and then its pages in a separate thread
-    try:
-        return await asyncio.to_thread(get_pages, manager, course_id)
-    except Exception as e:
-        logger.error(f"Error fetching pages for : {e}")
-        return []
-    
  
-def get_pages(manager, course_id):
+def get_pages(course: Course):
     """
     Synchronously fetches pages for a given course using canvas_api.get_pages().
     """
     try:
-        logger.info(f"Fetching pages for course {course_id}.")
-        pages = list(manager.canvas_api.get_course(course_id).get_pages(include=['body'], per_page=PER_PAGE))
+        logger.info(f"Fetching pages for course {course.id}.")
+        pages = list(course.get_pages(include=['body'], per_page=PER_PAGE))
+
         logger.info(f"Fetched {len(pages)} pages.")
         for page in pages:
             logger.info(f"Page ID: {page.page_id}, Title: {page.title}")
-        result = []
+        images_from_pages = []
         for page in pages:
-            result.append({'id': page.page_id, 'name': page.title, 'images': extract_images_from_html(page.body), 'type': 'page'})
-        return result
-    except Exception as e:
-        logger.error(f"Errorss fetching pages for course {course_id}: {e}")
-        # Return empty list on error so callers don't need to check for exceptions
-        return []
+            images_from_pages.append(
+                {'id': page.page_id, 
+                 'name': page.title, 
+                 'images': extract_images_from_html(page.body), 
+                 'type': 'page'})
+        return images_from_pages
+    except (CanvasException, Exception) as e:
+        logger.error(f"Errorss fetching pages for course {course.id}: {e}")
+        raise e
 
-def _parse_canvas_file_src(img_src: str):
+def _parse_canvas_file_src(img_src: str) -> Tuple[Optional[str], Optional[str]]:
     """
     Parse Canvas file preview URL like:
     https://canvas-test.it.umich.edu/courses/403334/files/42932047/preview?verifier=...
@@ -254,7 +187,7 @@ def _parse_canvas_file_src(img_src: str):
                 file_id = parts[i + 1]
                 break
         if not file_id:
-            return None, None
+            raise ValueError("File ID not found in URL path")
 
         # preserve original query params (verifier, etc.)
         qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -273,8 +206,9 @@ def _parse_canvas_file_src(img_src: str):
         download_path = f"/files/{file_id}/download"
         download_url = f"{parsed.scheme}://{parsed.netloc}{download_path}?{urlencode(flat_qs)}"
         return file_id, download_url
-    except Exception:
-        return None, None
+    except Exception as e:
+        logger.error(f"Error parsing img src URL '{img_src}': {e}")
+        raise e
 
 def extract_images_from_html(html_content: str) -> List[Dict[str, Any]]:
     soup = BeautifulSoup(html_content, "html.parser")
