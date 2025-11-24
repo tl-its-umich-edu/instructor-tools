@@ -8,7 +8,7 @@ import HeaderAppBar from './HeaderAppBar';
 import ToolCard from './ToolCard';
 import { getTools } from '../api';
 import constants from '../constants';
-import '../css/Home.css';
+import '../css/ToolsHome.css';
 import { Globals, Tool, ToolFiltersState } from '../interfaces';
 import CategoriesSelector from './CategoriesSelector';
 
