@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Box, Grid, LinearProgress, Snackbar, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
@@ -37,11 +37,11 @@ const filterTools = (tools: Tool[], toolFiltersState: ToolFiltersState): Tool[] 
   );
 };
 
-interface HomeProps {
+interface ToolsHomeProps {
   globals: Globals
 }
 
-function Home (props: HomeProps) {
+function ToolsHome (props: ToolsHomeProps) {
   const { globals } = props;
 
   const initialFilters = { search: '', categoryIds: []};
@@ -50,11 +50,18 @@ function Home (props: HomeProps) {
   const [tools, setTools] = useState<undefined | Tool[]>(undefined);
   const [showRefreshAlert, setShowRefreshAlert] = useState<undefined | boolean>(undefined);
 
-  const { isLoading: getToolsLoading, error: getToolsError } = useQuery({
-    queryKey: ['getTools'],
-    queryFn: getTools,
-    onSuccess: (data) => setTools(data),
+  const { isLoading: isGetToolsLoading, error: getToolsError, data: getToolsData} = useQuery({
+    queryKey: ['getTools'], 
+    queryFn: async () => {
+      return await getTools();
+    },
   });
+
+  useEffect(() => {
+    if (getToolsData) {
+      setTools(getToolsData);
+    }
+  }, [getToolsData]);
 
   const onToolUpdate = (newTool: Tool) => {
     /*
@@ -72,7 +79,7 @@ function Home (props: HomeProps) {
 
   const handleRefreshAlertClose = () => setShowRefreshAlert(false);
 
-  const isLoading = getToolsLoading;
+  const isLoading = isGetToolsLoading;
   const errors = [getToolsError].filter(e => e !== null) as Error[];
 
   let feedbackBlock;
@@ -130,7 +137,7 @@ function Home (props: HomeProps) {
             }))
           }
         />
-        <div aria-describedby='tool-card-container-loading' aria-busy={getToolsLoading}>
+        <div aria-describedby='tool-card-container-loading' aria-busy={isGetToolsLoading}>
           {toolCardContainer}
         </div>
       </MainContainer>
@@ -146,4 +153,4 @@ function Home (props: HomeProps) {
   );
 }
 
-export default Home;
+export default ToolsHome;

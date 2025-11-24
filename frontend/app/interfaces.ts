@@ -48,4 +48,7 @@ interface ToolFiltersState {
   categoryIds: number[]
 }
 
-export type { Globals, Tool, User, ToolCategory, ToolFiltersState};
+interface SyncTask {
+  id: string,
+}
+export type { Globals, Tool, User, ToolCategory, ToolFiltersState, SyncTask};

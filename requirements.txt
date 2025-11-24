@@ -1,33 +1,34 @@
 gunicorn==23.0.0
+uvicorn-worker==0.4.0
 mysqlclient==2.2.7
 
 # Django and related
-Django==4.2.25
+Django==4.2.26
 django-csp==3.8 # For Content Security Policy
 django-db-file-storage==0.5.6.1 # Support for storage in the database
-django-mysql==4.17.0
+django-mysql==4.19.0
 django-redis==5.4.0
 django-tinymce==4.1.0 # Rich text editor
 django-watchman==1.3
-django-webpack-loader==3.2.1
+django-webpack-loader==3.2.2
 Pillow==11.3.0
-whitenoise==6.9.0 # For serving static files
+servestatic==3.1.0 # For serving static files
 
 
 # DRF
 djangorestframework==3.16.1
-django-filter==25.1 # Filtering support
-drf-spectacular==0.28.0
-markdown==3.8.2 # Markdown support for the browsable API
+django-filter==25.1 # Filtering support. 25.2 doesn't support Django 4.2
+drf-spectacular==0.29.0
+markdown==3.10 # Markdown support for the browsable API
 
 # LTI
 pycryptodome==3.23.0 # For generating LTI keys
 PyLTI1p3==2.0.0
 
 # Canvas
-canvasapi==3.3.0
+canvasapi==3.4.0
 
-debugpy==1.8.16
+debugpy==1.8.17
 
 # Not in pypi https://github.com/Harvard-University-iCommons/django-canvas-oauth
 # Migrations for this are currently manually managed in backend/canvas_oauth/migrations
@@ -35,3 +36,6 @@ debugpy==1.8.16
 https://github.com/Harvard-University-iCommons/django-canvas-oauth/archive/v1.1.1.tar.gz
 
 drf-api-tracking==1.8.4 # API tracking for DRF
+
+django-q2==1.8.0
+watchfiles==1.1.1
