@@ -11,7 +11,8 @@ const commonConfig: webpack.Configuration = {
   output: {
     path: path.resolve('./bundles/'),
     filename: '[name]-[fullhash].js',
-    chunkFilename: '[name]-[chunkhash].js'
+    chunkFilename: '[name]-[chunkhash].js',
+    clean: true,
   },
 
   plugins: [
