@@ -2,7 +2,7 @@ import { Box, Button } from '@mui/material';
 import React, { useState } from 'react';
 import { updateAltTextStartSync } from '../api';
 import ErrorsDisplay from './ErrorsDisplay';
-import { ArrowBack } from '@mui/icons-material';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Globals, SyncTask } from '../interfaces';
@@ -11,12 +11,12 @@ interface AltTextHomeProps {
   globals: Globals
 }
 
-function AltTextHome (props: AltTextHomeProps) {
-  const {course_id} = props.globals;
+function AltTextHome(props: AltTextHomeProps) {
+  const { course_id } = props.globals;
   const [syncTask, setSyncTask] = useState<SyncTask | null>(null);
 
-  const { 
-    mutate: doStartSync, 
+  const {
+    mutate: doStartSync,
     error: startSyncError,
     isError: isStartSyncError,
     isPending: startSyncPending
@@ -39,24 +39,24 @@ function AltTextHome (props: AltTextHomeProps) {
     <Box>
       <Button
         variant='outlined'
-        startIcon={<ArrowBack/>}
+        startIcon={<ArrowBack />}
         component={Link}
         to={'../'}
       >
         Go Back
       </Button>
       <p>Alt Text Helper Home</p>
-      <Button 
+      <Button
         onClick={() => doStartSync()}
         variant='contained'
         disabled={startSyncPending}
       >
         Start Sync
       </Button>
-      {syncTask && 
+      {syncTask &&
         <p>Task ID: {syncTask.id}</p>
       }
-      {isStartSyncError && 
+      {isStartSyncError &&
         <Box sx={{ marginBottom: 1 }}>
           <ErrorsDisplay errors={[startSyncError].filter(e => e !== null) as Error[]} />
         </Box>
