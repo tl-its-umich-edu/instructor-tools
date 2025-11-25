@@ -5,7 +5,7 @@ import commonConfig from './webpack.common';
 
 const devConfig: webpack.Configuration = merge(commonConfig, {
   mode: 'development',
-  devtool: 'inline-source-map'
+  devtool: 'cheap-module-source-map',
 });
 
 export default devConfig;
