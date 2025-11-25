@@ -2,7 +2,7 @@ import { Box, Button } from '@mui/material';
 import React, { useState } from 'react';
 import { updateAltTextStartSync } from '../api';
 import ErrorsDisplay from './ErrorsDisplay';
-import { ArrowBack } from '@mui/icons-material';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Globals, SyncTask } from '../interfaces';
