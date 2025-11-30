@@ -9,19 +9,31 @@ import ToolCard from './ToolCard';
 import { getTools } from '../api';
 import constants from '../constants';
 import '../css/ToolsHome.css';
-import { Globals, Tool } from '../interfaces';
+import { Globals, Tool, ToolFiltersState } from '../interfaces';
+import CategoriesSelector from './CategoriesSelector';
 
 const MainContainer = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(3),
   marginBottom: theme.spacing(3)
 }));
 
-const filterTools = (tools: Tool[], filter: string): Tool[] => {
-  const filterLower = filter.toLowerCase();
+const filterTools = (tools: Tool[], toolFiltersState: ToolFiltersState): Tool[] => {
+  const searchLower = toolFiltersState.search.toLowerCase();
   return tools.filter(
-    (tool) => (
-      tool.name.toLowerCase().includes(filterLower) ||
-      tool.short_description.toLowerCase().includes(filterLower))
+    (tool) => {
+      const matchesSearch = 
+        toolFiltersState.search === '' ||
+        tool.name.toLowerCase().includes(searchLower) ||
+        tool.short_description.toLowerCase().includes(searchLower);
+
+      const matchesCategory =
+        toolFiltersState.categoryIds.length === 0 ||
+        tool.tool_categories_expanded.some((tc) =>
+          toolFiltersState.categoryIds.some((catId) => catId === tc.id)
+        );
+
+      return matchesSearch && matchesCategory;
+    }
   );
 };
 
@@ -32,8 +44,10 @@ interface ToolsHomeProps {
 function ToolsHome (props: ToolsHomeProps) {
   const { globals } = props;
 
+  const initialFilters = { search: '', categoryIds: []};
+  const [toolFiltersState, setToolFiltersState] = useState<ToolFiltersState>(initialFilters);
+
   const [tools, setTools] = useState<undefined | Tool[]>(undefined);
-  const [searchFilter, setSearchFilter] = useState('');
   const [showRefreshAlert, setShowRefreshAlert] = useState<undefined | boolean>(undefined);
 
   const { isLoading: isGetToolsLoading, error: getToolsError, data: getToolsData} = useQuery({
@@ -81,7 +95,8 @@ function ToolsHome (props: ToolsHomeProps) {
   let toolCardContainer;
   let toolNumString = '0';
   if (tools !== undefined) {
-    const filteredTools = searchFilter !== '' ? filterTools(tools, searchFilter) : tools;
+    const [searchFilter, categoriesFilter] = [toolFiltersState.search, toolFiltersState.categoryIds];
+    const filteredTools = searchFilter !== '' || categoriesFilter.length > 0 ? filterTools(tools, toolFiltersState) : tools;
     toolNumString = `${filteredTools.length} of ${tools.length}`;
     toolCardContainer = (
       <Grid container spacing={2} justifyContent='center'>
@@ -98,7 +113,11 @@ function ToolsHome (props: ToolsHomeProps) {
 
   return (
     <div id='root'>
-      <HeaderAppBar user={globals.user} helpURL={globals.help_url} onFilterChange={(v) => setSearchFilter(v)} />
+      <HeaderAppBar 
+        user={globals.user} 
+        helpURL={globals.help_url}
+        onSearchFilterChange={(v:string) => setToolFiltersState(filters => ({...filters, search: v }))}
+      />
       <MainContainer>
         <Typography variant='h6' component='h2' sx={{ textAlign: 'center', marginBottom: 3 }}>
           Instructor Tools is a collection of tools and resources to improve the online experience for you and your students.
@@ -106,9 +125,18 @@ function ToolsHome (props: ToolsHomeProps) {
         {feedbackBlock}
         <Grid container justifyContent='center' sx={{ marginBottom: 2 }}>
           <Grid item>
-            <Typography aria-live='polite' aria-atomic>{toolNumString} tools displayed</Typography>
+            <Typography aria-live='polite' aria-atomic>{toolNumString} tools displayed. Select a category below to filter results:</Typography>
           </Grid>
         </Grid>
+        <CategoriesSelector 
+          categoryIdsSelected={toolFiltersState.categoryIds}
+          onCategoryIdsSelectedChange={(categoryIds: number[]) => 
+            setToolFiltersState(filters => ({
+              ...filters,
+              categoryIds: categoryIds
+            }))
+          }
+        />
         <div aria-describedby='tool-card-container-loading' aria-busy={isGetToolsLoading}>
           {toolCardContainer}
         </div>
