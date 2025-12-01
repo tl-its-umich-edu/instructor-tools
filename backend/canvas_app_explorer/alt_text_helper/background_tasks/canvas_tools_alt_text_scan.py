@@ -16,6 +16,7 @@ from canvasapi.exceptions import CanvasException
 from canvasapi.course import Course
 from canvasapi import Canvas
 from canvas_oauth.exceptions import InvalidOAuthReturnError
+from canvas_oauth.models import CanvasOAuth2Token
 
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
@@ -54,6 +55,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
         canvas_api: Canvas =  MANAGER_FACTORY.create_manager(request).canvas_api
     except (InvalidOAuthReturnError, Exception) as e:
         logger.error(f"Error creating Canvas API for course_id {course_id}: {e}")
+        CanvasOAuth2Token.objects.filter(user=request.user).delete()
         update_course_scan(course_id, 'failed')
         return
     # Fetch full course details to ensure attributes like course_code are present for logging
