@@ -11,8 +11,7 @@ from django.urls import reverse
 from rest_framework_tracking.mixins import LoggingMixin
 
 from django_q.tasks import async_task
-from django.db import transaction
-from django.db.utils import IntegrityError
+from django.db.utils import DatabaseError
 from backend.canvas_app_explorer.models import CourseScan
 
 logger = logging.getLogger(__name__)
@@ -49,7 +48,7 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
                     'status': obj.status,
                 }
             return Response(resp, status=HTTPStatus.OK)
-        except (IntegrityError, Exception) as e:
+        except (DatabaseError, Exception) as e:
             message = f"Failed to initiate course scan due to {e}"
             logger.error(message)
             return Response({"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})

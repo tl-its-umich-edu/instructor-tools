@@ -135,8 +135,28 @@ class TestParsingImageContentHTML(TestCase):
 
         # Patch the async fetch helpers to return our sample data (no network calls)
         module_path = "backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan"
-        with patch(f"{module_path}.fetch_assignments_async", return_value=sample_assignments), \
-                patch(f"{module_path}.fetch_pages_async", return_value=sample_pages):
-            result = get_courses_images(None, 403334)  # manager not used by patched functions
-            self.assertEqual(result, expected_filtered)
+        
+        async def mock_fetch_content_items(fn, course):
+            if fn.__name__ == 'get_assignments':
+                return sample_assignments
+            elif fn.__name__ == 'get_pages':
+                return sample_pages
+            return []
+
+        with patch(f"{module_path}.fetch_content_items_async", side_effect=mock_fetch_content_items), \
+             patch(f"{module_path}.save_scan_results") as mock_save:
+            
+            # Create a dummy course object
+            from canvasapi.course import Course
+            dummy_course = Course(None, {'id': 403334})
+            
+            # 1. Call get_courses_images to get raw results
+            raw_results = get_courses_images(dummy_course)
+            
+            # 2. Call unpack_and_store_content_images which does the filtering and calls save_scan_results
+            from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import unpack_and_store_content_images
+            unpack_and_store_content_images(raw_results, dummy_course)
+            
+            # 3. Verify save_scan_results was called with the filtered list
+            mock_save.assert_called_once_with(403334, expected_filtered)
 

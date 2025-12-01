@@ -55,7 +55,6 @@ class LtiTool(models.Model):
         delete_file_if_needed(self, 'logo_image')
         delete_file_if_needed(self, 'main_image')
 
-# New model: track course scan tasks
 class CourseScan(models.Model):
     # Big primary key
     id = models.BigAutoField(primary_key=True)
@@ -96,13 +95,14 @@ class ContentItem(models.Model):
         related_name='content_items',
     )
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
-    content_id = models.BigIntegerField()
+    content_id = models.BigIntegerField(unique=True)
+    content_name = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         db_table = 'canvas_app_explorer_content_item'
 
     def __str__(self):
-        return f"ContentItem(id={self.id}, course_id={self.course_id}, type={self.content_type}, content_id={self.content_id})"
+        return f"ContentItem(id={self.id}, course_id={self.course_id}, type={self.content_type}, content_name={self.content_name})"
 
 
 class ImageItem(models.Model):
@@ -115,11 +115,12 @@ class ImageItem(models.Model):
         db_column='course_id',
         related_name='image_items',
     )
-    # FK to ContentItem (stored in DB column `content_item_id`)
+    # FK to ContentItem (stored in DB column `content_id`)
     content_item = models.ForeignKey(
         'ContentItem',
+        to_field='content_id',
         on_delete=models.CASCADE,
-        db_column='content_item_id',
+        db_column='content_id',
         related_name='images',
     )
     image_id = models.BigIntegerField()

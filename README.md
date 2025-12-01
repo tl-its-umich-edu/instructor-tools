@@ -37,3 +37,11 @@ Then to start it you can run
 `docker compose -f docker-compose-openshift-test.yml up`
 
 This should start up as expected on http://localhost:5000
+
+
+### Running Unit test
+All test are in the `tests` folder. To run the tests 
+
+```sh 
+docker exec -it instructor_tools python manage.py test
+```
