@@ -62,7 +62,7 @@ class CourseScan(models.Model):
     course_id = models.BigIntegerField(unique=True)
     # ID returned by the scan task system (e.g. django-q task id)
     q_task_id = models.CharField(max_length=255, blank=True, null=True)
-    # Simple status string (pending, running, completed, failed, etc.)
+    # Simple status string (pending, running, completed, failed)
     status = models.CharField(max_length=50, default='pending')
     # When the scan was created
     created_at = models.DateTimeField(auto_now_add=True)
