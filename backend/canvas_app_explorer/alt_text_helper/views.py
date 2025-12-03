@@ -12,7 +12,7 @@ from rest_framework_tracking.mixins import LoggingMixin
 
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
-from backend.canvas_app_explorer.models import CourseScan
+from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
                 course_id=int(course_id),
                 defaults={
                     'q_task_id': str(task_id),
-                    'status': 'pending',
+                    'status': CourseScanStatus.PENDING.value,
                 }
             )
             logger.info(f"{obj} created: {created}")

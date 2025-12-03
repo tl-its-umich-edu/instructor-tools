@@ -20,7 +20,7 @@ from canvas_oauth.models import CanvasOAuth2Token
 
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
-from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem
+from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
 
 logger = logging.getLogger(__name__)
 
@@ -35,13 +35,12 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     course_id = int(task.get('course_id'))
 
     # adding a status before start of the scan, if this DB action failed no need to stop next steps of fetching content images
-    update_course_scan(course_id, 'running')
+    update_course_scan(course_id, CourseScanStatus.RUNNING.value)
 
     # Fetch course content using the manager
     user_id = task.get('user_id')
     req_user: User = get_user_model().objects.get(pk=user_id)
     canvas_callback_url = task.get('canvas_callback_url')
-    logger.info(f"canvas_callback_url: {canvas_callback_url}")
     # Create a request factory and build the request since this is a background task request won't have a user session
     factory = RequestFactory()
     request: Request = factory.get('/oauth/oauth-callback')
@@ -56,7 +55,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     except (InvalidOAuthReturnError, Exception) as e:
         logger.error(f"Error creating Canvas API for course_id {course_id}: {e}")
         CanvasOAuth2Token.objects.filter(user=request.user).delete()
-        update_course_scan(course_id, 'failed')
+        update_course_scan(course_id, CourseScanStatus.FAILED.value)
         return
     # Fetch full course details to ensure attributes like course_code are present for logging
     course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
@@ -93,7 +92,7 @@ def unpack_and_store_content_images(results, course: Course):
     
     if error_when_fetching_images:
         # DB call would be needed to update CourseScan status to 'failed' here. 
-        update_course_scan(course.id, 'failed')
+        update_course_scan(course.id, CourseScanStatus.FAILED.value)
         return
     
     combined = assignments + pages
@@ -164,7 +163,7 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
                     )
 
             # 3. Update CourseScan with "Completed" status
-            update_course_scan(course_id, 'completed')
+            update_course_scan(course_id, CourseScanStatus.COMPLETED.value)
     except (DatabaseError, Exception) as e:
         logger.error(f"Error in save_scan_results transaction for course_id {course_id}: {e}")
         return

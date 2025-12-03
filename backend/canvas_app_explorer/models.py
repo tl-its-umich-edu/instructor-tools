@@ -76,6 +76,13 @@ class CourseScan(models.Model):
     def __str__(self):
         return f"CourseScan(id={self.id}, course_id={self.course_id}, q_task_id={self.q_task_id}, status={self.status})"
 
+class CourseScanStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    RUNNING = "running", "Running"
+    FAILED = "failed", "Failed"
+    COMPLETED = "completed", "Completed"
+
+
 
 class ContentItem(models.Model):
     CONTENT_TYPE_ASSIGNMENT = 'assignment'
