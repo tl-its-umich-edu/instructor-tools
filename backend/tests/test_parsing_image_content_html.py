@@ -81,6 +81,42 @@ class TestParsingImageContentHTML(TestCase):
         self.assertEqual(len(images), 1)
         self.assertEqual(images[0].get("image_id"), "66666666")
     
+    def test_extract_images_with_various_file_extensions(self):
+        # Test that images with various file extensions (bufr, dcx, etc.) are picked up
+        html = (
+            '<p>'
+            '<img src="https://umich.test.instructure.com/courses/403334/files/77777777/preview" '
+            'alt="moreimag.bufr" />'
+            '<img src="https://umich.test.instructure.com/courses/403334/files/88888888/preview" '
+            'alt="another_image.dcx" />'
+            '<img src="https://umich.test.instructure.com/courses/403334/files/99999999/preview" '
+            'alt="regular.png" />'
+            '</p>'
+        )
+
+        images = extract_images_from_html(html)
+        self.assertIsInstance(images, list)
+        # All three images should be picked up since they have filenames with image extensions
+        self.assertEqual(len(images), 3)
+        
+        self.assertEqual(images[0].get("image_id"), "77777777")
+        self.assertEqual(
+            images[0].get("download_url"),
+            "https://umich.test.instructure.com/files/77777777/download?download_frd=1",
+        )
+        
+        self.assertEqual(images[1].get("image_id"), "88888888")
+        self.assertEqual(
+            images[1].get("download_url"),
+            "https://umich.test.instructure.com/files/88888888/download?download_frd=1",
+        )
+        
+        self.assertEqual(images[2].get("image_id"), "99999999")
+        self.assertEqual(
+            images[2].get("download_url"),
+            "https://umich.test.instructure.com/files/99999999/download?download_frd=1",
+        )
+    
     def test_get_courses_images_filters_out_items_with_empty_images(self):
     # sample payload: some items have empty images lists and should be filtered out
         sample_assignments = [

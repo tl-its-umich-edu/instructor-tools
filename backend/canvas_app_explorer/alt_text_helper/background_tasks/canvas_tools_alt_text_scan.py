@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.sessions.backends.db import SessionStore
 from django.db.utils import DatabaseError
 from bs4 import BeautifulSoup
+from PIL import Image
 from rest_framework.request import Request
 from canvasapi.exceptions import CanvasException
 from canvasapi.course import Course
@@ -27,7 +28,7 @@ logger = logging.getLogger(__name__)
 MANAGER_FACTORY = DjangoCourseLtiManagerFactory(f'https://{settings.CANVAS_OAUTH_CANVAS_DOMAIN}')
 
 PER_PAGE = 100
-IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif')
+IMAGE_EXTENSIONS = tuple(Image.registered_extensions().keys())
 
 def fetch_and_scan_course(task: Dict[str, Any]):
     logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
