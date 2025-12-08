@@ -102,9 +102,12 @@ async function updateAltTextStartSync(data: UpdateAltTextStartSyncData): Promise
     }
   };
   const res = await fetch(url, requestInit);
-  const resData:string = await res.json();
-  console.log(resData);
-  return { id: resData };
+  if (!res.ok) {
+    console.error(res);
+    throw new Error(await createErrorMessage(res));
+  }
+  const resData: SyncTask = await res.json();
+  return resData;
 }
 
 export { getTools, updateToolNav, getCategories, updateAltTextStartSync};

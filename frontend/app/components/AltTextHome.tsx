@@ -2,7 +2,7 @@ import { Box, Button } from '@mui/material';
 import React, { useState } from 'react';
 import { updateAltTextStartSync } from '../api';
 import ErrorsDisplay from './ErrorsDisplay';
-import { ArrowBack } from '@mui/icons-material';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { Globals, SyncTask } from '../interfaces';
@@ -54,7 +54,7 @@ function AltTextHome (props: AltTextHomeProps) {
         Start Sync
       </Button>
       {syncTask && 
-        <p>Task ID: {syncTask.id}</p>
+        <p>Task: {syncTask.q_task_id}: {syncTask.status}</p>
       }
       {isStartSyncError && 
         <Box sx={{ marginBottom: 1 }}>

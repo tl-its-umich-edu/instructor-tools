@@ -109,11 +109,14 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '3306'),
         'OPTIONS': {'charset': 'utf8mb4'},
         'TEST': {
+            'NAME': 'test_it',
             'CHARSET': 'utf8mb4',
             'COLLATION': 'utf8mb4_unicode_ci'
         }
     }
 }
+
+TEST_RUNNER = 'backend.tests.test_setup.CustomTestRunner'
 
 
 # Internationalization
@@ -298,7 +301,7 @@ if isinstance((env_canvas_scopes := os.getenv('CANVAS_OAUTH_SCOPES')), str):
 else:
     CANVAS_OAUTH_SCOPES = DEFAUlT_CANVAS_SCOPES
 
-CANVAS_OAUTH_TOKEN_EXPIRATION_BUFFER = os.getenv('CANVAS_OAUTH_TOKEN_EXPIRATION_BUFFER', timedelta())
+CANVAS_OAUTH_TOKEN_EXPIRATION_BUFFER = os.getenv('CANVAS_OAUTH_TOKEN_EXPIRATION_BUFFER', timedelta(minutes=15))
 CANVAS_OAUTH_ERROR_TEMPLATE = os.getenv('CANVAS_OAUTH_ERROR_TEMPLATE', 'canvas_app_explorer/oauth_error.html')
 
 # These are mostly needed by Canvas but it should also be on in general
