@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Box, Grid, LinearProgress, Snackbar, Typography } from '@mui/material';
+import { Alert, Box, Button, Grid, LinearProgress, Snackbar, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
 import ErrorsDisplay from './ErrorsDisplay';
@@ -10,7 +10,7 @@ import { getTools } from '../api';
 import constants from '../constants';
 import '../css/ToolsHome.css';
 import { Globals, Tool, ToolFiltersState } from '../interfaces';
-import CategoriesSelector from './CategoriesSelector';
+import ToolFilters from './ToolFilters';
 
 const MainContainer = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(3),
@@ -44,7 +44,7 @@ interface ToolsHomeProps {
 function ToolsHome (props: ToolsHomeProps) {
   const { globals } = props;
 
-  const initialFilters = { search: '', categoryIds: []};
+  const initialFilters : ToolFiltersState = { search: '', categoryIds: []};
   const [toolFiltersState, setToolFiltersState] = useState<ToolFiltersState>(initialFilters);
 
   const [tools, setTools] = useState<undefined | Tool[]>(undefined);
@@ -123,13 +123,33 @@ function ToolsHome (props: ToolsHomeProps) {
           Instructor Tools is a collection of tools and resources to improve the online experience for you and your students.
         </Typography>
         {feedbackBlock}
-        <Grid container justifyContent='center' sx={{ marginBottom: 2 }}>
+        <Grid container sx={{ justifyContent: 'center', alignItems: 'center', gap:1}}>
           <Grid item>
-            <Typography aria-live='polite' aria-atomic>{toolNumString} tools displayed. Select a category below to filter results:</Typography>
+            <Typography aria-live='polite' aria-atomic>{toolNumString} tools displayed. Type a search term or select categories to filter:</Typography>
           </Grid>
+          <Grid item>
+            { ( toolFiltersState.categoryIds.length > 0 || 
+              toolFiltersState.search !== initialFilters.search) // show when a filter is applied
+              &&
+              (
+                <Button
+                  onClick={() => setToolFiltersState(initialFilters)}>
+                    Clear All
+                </Button>
+              )
+            }
+          </Grid>
+
         </Grid>
-        <CategoriesSelector 
+        <ToolFilters 
           categoryIdsSelected={toolFiltersState.categoryIds}
+          searchTerm={toolFiltersState.search}
+          onSearchFilterChange={(v:string) => 
+            setToolFiltersState(filters => ({
+              ...filters, 
+              search: v 
+            }))
+          }
           onCategoryIdsSelectedChange={(categoryIds: number[]) => 
             setToolFiltersState(filters => ({
               ...filters,
@@ -137,6 +157,7 @@ function ToolsHome (props: ToolsHomeProps) {
             }))
           }
         />
+        
         <div aria-describedby='tool-card-container-loading' aria-busy={isGetToolsLoading}>
           {toolCardContainer}
         </div>
