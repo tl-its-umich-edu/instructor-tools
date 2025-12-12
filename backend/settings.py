@@ -364,3 +364,10 @@ Q_CLUSTER = {
     'max_attempts': int(os.getenv('Q_CLUSTER_MAX_ATTEMPTS', 1)),
     'orm': 'default'
 }
+
+#openAI settings
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+API_VERSION = os.getenv('API_VERSION', '')
+OPENAI_API_BASE = os.getenv('OPENAI_API_BASE', '')
+OPENAI_ORGANIZATION = os.getenv('OPENAI_ORGANIZATION', '')
+MODEL = os.getenv('MODEL', '')
