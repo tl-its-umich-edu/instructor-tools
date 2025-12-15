@@ -21,16 +21,18 @@ class GetContentImages:
         self.content = content_type
         self.course_id = course_id
         self.canvas_api = canvas_api
+        self.max_dimensions = 512
+        self.jpeg_quality = 85
 
 
     # TODO: Delete this method, this is a simple prototype for testing OpenAI integration
     def get_alt_text_from_openai(self, imagedata):
       start_time: float = time.perf_counter()
       client = AzureOpenAI(
-          api_key=settings.OPENAI_API_KEY,
-          api_version=settings.API_VERSION,
-          azure_endpoint = settings.OPENAI_API_BASE,
-          organization = settings.OPENAI_ORGANIZATION)
+          api_key=settings.AZURE_API_KEY,
+          api_version=settings.AZURE_API_VERSION,
+          azure_endpoint = settings.AZURE_API_BASE,
+          organization = settings.AZURE_ORGANIZATION)
 
       prompt = """
           As an AI tool specialized in image recognition, generate concise and descriptive alt text for this image.
@@ -49,7 +51,7 @@ class GetContentImages:
       ]
 
       response = client.chat.completions.with_raw_response.create(
-          model=settings.MODEL,
+          model=settings.AZURE_MODEL,
           messages=messages,
           temperature=0.0,
       )
@@ -72,8 +74,8 @@ class GetContentImages:
             if isinstance(images_content, Exception):
                 logger.error(f"Error fetching image content: {images_content}")
                 return []
-            # b64_image_data = base64.b64encode(results[0]).decode('utf-8')
-            # self.get_alt_text_from_openai(b64_image_data)
+            b64_image_data = base64.b64encode(images_content[0]).decode('utf-8')
+            self.get_alt_text_from_openai(b64_image_data)
             return images_list
         except (DatabaseError, Exception) as e:
             logger.error(f"Error retrieving images for course_id {self.course_id}: {e}")
