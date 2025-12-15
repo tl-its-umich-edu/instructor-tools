@@ -5,13 +5,13 @@ from django.conf import settings
 from django.db import DatabaseError
 from backend.canvas_app_explorer.models import ImageItem
 import time
-import openai
 from openai import AzureOpenAI
-import os
-import io
+from canvasapi.file import File
+from canvasapi.exceptions import CanvasException
+from asgiref.sync import async_to_sync
 from PIL import Image
+import asyncio
 import base64
-import re
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,9 @@ class GetContentImages:
         self.content = content_type
         self.course_id = course_id
         self.canvas_api = canvas_api
-    
+
+
+    # TODO: Delete this method, this is a simple prototype for testing OpenAI integration
     def get_alt_text_from_openai(self, imagedata):
       start_time: float = time.perf_counter()
       client = AzureOpenAI(
@@ -66,31 +68,41 @@ class GetContentImages:
             images_list = list(images)
             
             logger.info(f"Retrieved {len(images_list)} images for course_id: {self.course_id}")
-            for idx, image in enumerate(images_list, 1):
-                img_url = image.get('image_url')
-                logger.info(f"[{idx}] image_id: {image['image_id']}, image_url: {img_url}")
-                try:
-                    # Use the canvas requester to fetch the binary content for the image
-                    requester = self.canvas_api._Canvas__requester
-                    # Pass the absolute URL using the `_url` kwarg so the Requester doesn't prefix the base api path
-                    response = requester.request('GET', _url=img_url, _raw_response=True)
-                    response.raise_for_status()
-                    image_content = response.content
-                    image_content_type = response.headers.get('Content-Type')
-                    b64_image_data = base64.b64encode(image_content).decode('utf-8')
-                    self.get_alt_text_from_openai(b64_image_data)
-
-                    logger.info(
-                        f"Fetched image content for image_id: {image['image_id']}, Content-Type: {image_content_type}, Size: {len(image_content)} bytes"
-                    )
-                except Exception as req_err:
-                    logger.error(f"Error fetching image content for image_id {image['image_id']}: {req_err}")
-                    # Continue to next image
-                    continue
+            images_content = self.get_image_content_from_canvas(images_list)
+            if isinstance(images_content, Exception):
+                logger.error(f"Error fetching image content: {images_content}")
+                return []
+            # b64_image_data = base64.b64encode(results[0]).decode('utf-8')
+            # self.get_alt_text_from_openai(b64_image_data)
             return images_list
         except (DatabaseError, Exception) as e:
             logger.error(f"Error retrieving images for course_id {self.course_id}: {e}")
             return []
 
-    def extract_images(self):
+    @async_to_sync
+    async def get_image_content_from_canvas(self, images_list):
+        semaphore = asyncio.Semaphore(10)
+        async with semaphore:
+            tasks = [self.get_image_content_async(image.get('image_id'), image.get('image_url')) for image in images_list]
+            return await asyncio.gather(*tasks, return_exceptions=True)
+    
+    async def get_image_content_async(self, image_id, img_url):
+        return await asyncio.to_thread(self.get_image_content_sync, image_id, img_url)
+    
+    def get_image_content_sync(self, image_id, img_url):
+        try:
+            file = File(self.canvas_api._Canvas__requester, {
+                          'id': image_id,
+                          'url': img_url })
+            image_content = file.get_contents(binary=True)
+            logger.info(
+                f"Fetched image content for image_id: {image_id}, Content-Type:, Size: {len(image_content)} bytes"
+            )
+            return image_content
+        except (CanvasException, Exception) as req_err:
+            logger.error(f"Error fetching image content for image_id {image_id}: {req_err}")
+            return req_err
+    
+    def get_optimized_images(self, images_list):
         pass
+        
