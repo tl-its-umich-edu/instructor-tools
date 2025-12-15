@@ -373,5 +373,5 @@ AZURE_ORGANIZATION = os.getenv('AZURE_ORGANIZATION', '')
 AZURE_MODEL = os.getenv('AZURE_MODEL', 'gpt-4o')
 
 # image optimization settings
-IMAGE_MAX_DIMENSIONS = int(os.getenv('IMAGE_MAX_DIMENSIONS', 512))
+IMAGE_MAX_DIMENSION = int(os.getenv('IMAGE_MAX_DIMENSION', 512))
 IMAGE_JPEG_QUALITY = int(os.getenv('IMAGE_JPEG_QUALITY', 85))
