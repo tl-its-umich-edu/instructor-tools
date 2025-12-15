@@ -81,3 +81,11 @@ class UpdateLtiToolNavigationSerializer(serializers.Serializer):
     Serializer for body data expected when updating a tool's navigation status in a course context
     """
     navigation_enabled = fields.BooleanField()
+class ContentImagesQuerySerializer(serializers.Serializer):
+    CONTENT_TYPE_CHOICES = (
+        ('assignment', 'Assignment'),
+        ('page', 'Page'),
+        ('quiz', 'Quiz'),
+    )
+
+    content_type = serializers.ChoiceField(choices=CONTENT_TYPE_CHOICES)
