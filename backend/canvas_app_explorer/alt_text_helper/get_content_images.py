@@ -105,6 +105,6 @@ class GetContentImages:
             logger.error(f"Error fetching image content for image_id {image_id}: {req_err}")
             return req_err
     
-    def get_optimized_images(self, images_list):
+    def get_optimized_images(self, image_content):
         pass
         
