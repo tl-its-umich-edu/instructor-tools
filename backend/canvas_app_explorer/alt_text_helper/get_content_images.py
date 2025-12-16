@@ -1,32 +1,32 @@
 import logging
 import base64
-from typing import Tuple
-
-from django.conf import settings
-from django.db import DatabaseError
-from backend.canvas_app_explorer.models import ImageItem
-import time
-from openai import AzureOpenAI
-from canvasapi.file import File
-from canvasapi.exceptions import CanvasException
-from asgiref.sync import async_to_sync
-from PIL import Image
 import asyncio
+import time
 import base64
 import io
 import time
+from typing import Tuple
 from datetime import timedelta
+from django.conf import settings
+from django.db import DatabaseError
+from asgiref.sync import async_to_sync
+from PIL import Image
+from openai import AzureOpenAI
+from canvasapi.file import File
+from canvasapi.exceptions import CanvasException
+from canvasapi import Canvas
+from backend.canvas_app_explorer.models import ImageItem
 
 logger = logging.getLogger(__name__)
 
 
 class GetContentImages:
-    def __init__(self, course_id, content_type, canvas_api):
-        self.content = content_type
-        self.course_id = course_id
-        self.canvas_api = canvas_api
-        self.max_dimension = 512
-        self.jpeg_quality = 85
+    def __init__(self, course_id: int, content_type: str, canvas_api: Canvas):
+        self.content_type: str = content_type
+        self.course_id: int = course_id
+        self.canvas_api: Canvas = canvas_api
+        self.max_dimension: int = settings.IMAGE_MAX_DIMENSION
+        self.jpeg_quality: int = settings.IMAGE_JPEG_QUALITY
 
 
     # TODO: Delete this method, this is a simple prototype for testing OpenAI integration
@@ -119,6 +119,7 @@ class GetContentImages:
             logger.error(f"Error fetching image content for image_id {image_id}: {req_err}")
             return req_err
 
+    # https://www.buildwithmatija.com/blog/reduce-image-sizes-ai-processing-costs#the-smart-optimization-strategy
     def get_optimized_images(self, image_content, image_id):
         original_size = len(image_content)
         try:
