@@ -2,8 +2,9 @@
 from http import HTTPStatus
 import logging
 
+
 from drf_spectacular.utils import extend_schema, OpenApiParameter
-from rest_framework import viewsets
+from rest_framework import authentication, permissions, status, viewsets, serializers
 from rest_framework.request import Request
 from rest_framework.response import Response
 from django.urls import reverse
@@ -12,11 +13,20 @@ from rest_framework_tracking.mixins import LoggingMixin
 
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
+from backend import settings
+from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
+from backend.canvas_app_explorer.alt_text_helper.get_content_images import GetContentImages
+from backend.canvas_app_explorer.serializers import ContentImagesQuerySerializer
 
 logger = logging.getLogger(__name__)
 
+MANAGER_FACTORY = DjangoCourseLtiManagerFactory(f'https://{settings.CANVAS_OAUTH_CANVAS_DOMAIN}')
+
 class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
+    authentication_classes = [authentication.SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
     @extend_schema(
             parameters=[OpenApiParameter('course_id', location='path', required=True)],
     )
@@ -53,3 +63,27 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
             logger.error(message)
             return Response({"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})
 
+
+
+class AltTextGetContentImagesViewSet(LoggingMixin,viewsets.ViewSet):
+    authentication_classes = [authentication.SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ContentImagesQuerySerializer
+
+    
+    @extend_schema(
+        parameters=[OpenApiParameter('content_type', location='query', required=True)],
+    )
+    def get_content_images(self, request: Request, course_id: str = None) -> Response:
+        # validate query param using serializer so invalid values raise a serializer ValidationError
+        query_serializer = ContentImagesQuerySerializer(data=request.query_params)
+        if not query_serializer.is_valid():
+            logger.error(f"Invalid query parameters: {query_serializer.errors}")
+            return Response({"message": query_serializer.errors, "status_code": status.HTTP_400_BAD_REQUEST})
+        
+        content_type = query_serializer.validated_data['content_type']
+        logger.info(f"Getting content images for course_id: {course_id}, content_type: {content_type}")
+        canvas_api = MANAGER_FACTORY.create_manager(request).canvas_api
+        content_images = GetContentImages(course_id, content_type, canvas_api)
+        images = content_images.get_images_by_course()
+        return Response({'course': course_id, 'content_type': content_type}, status=HTTPStatus.OK)

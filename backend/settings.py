@@ -364,3 +364,14 @@ Q_CLUSTER = {
     'max_attempts': int(os.getenv('Q_CLUSTER_MAX_ATTEMPTS', 1)),
     'orm': 'default'
 }
+
+#openAI settings
+AZURE_API_KEY = os.getenv('AZURE_API_KEY', '')
+AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2025-04-01-preview')
+AZURE_API_BASE = os.getenv('AZURE_API_BASE', 'https://api.umgpt.umich.edu/azure-openai-api')
+AZURE_ORGANIZATION = os.getenv('AZURE_ORGANIZATION', '')
+AZURE_MODEL = os.getenv('AZURE_MODEL', 'gpt-4o')
+
+# image optimization settings
+IMAGE_MAX_DIMENSION = int(os.getenv('IMAGE_MAX_DIMENSION', 512))
+IMAGE_JPEG_QUALITY = int(os.getenv('IMAGE_JPEG_QUALITY', 85))
