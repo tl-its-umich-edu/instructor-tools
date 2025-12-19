@@ -1,5 +1,12 @@
-const constants = Object.freeze({
-  toolMenuName: 'Course Navigation Menu'
-});
+const TOOL_MENU_NAME = 'Course Navigation Menu' as const;
 
-export default constants;
+const COURSE_CONTENT_CATEGORIES = {
+  ASSIGNMENT: 'assignment',
+  PAGE: 'page',
+  QUIZ: 'quiz',
+} as const;
+
+type CourseContentCategory = typeof COURSE_CONTENT_CATEGORIES[keyof typeof COURSE_CONTENT_CATEGORIES]
+
+export { TOOL_MENU_NAME, COURSE_CONTENT_CATEGORIES };
+export type { CourseContentCategory };

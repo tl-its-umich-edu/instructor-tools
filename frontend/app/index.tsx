@@ -17,10 +17,8 @@ const globals: Globals = Object.freeze(JSON.parse(globalsEl.textContent));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: false,
-      retryOnMount: false,
+      refetchOnWindowFocus: false,
     },
-    mutations: { retry: false }
   }
 });
 

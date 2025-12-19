@@ -48,10 +48,31 @@ interface ToolFiltersState {
   categoryIds: number[]
 }
 
-interface SyncTask {
+interface AltTextScan {
   id: number
   course_id: number
   q_task_id: string
   status: string,
+  created_at: string,
+  updated_at: string
 }
-export type { Globals, Tool, User, ToolCategory, ToolFiltersState, SyncTask};
+
+interface AltTextLastScanCourseContentItem {
+  id: number, 
+  canvas_id: number,
+  canvas_name: string
+}
+interface AltTextLastScanCourseContentByType {
+  assignment_list: AltTextLastScanCourseContentItem[],
+  page_list: AltTextLastScanCourseContentItem[],
+}
+interface AltTextLastScanDetail {
+  id: number
+  course_id: number,
+  status: string,
+  created_at: string,
+  updated_at: string,
+  course_content: AltTextLastScanCourseContentByType,
+}
+
+export type { Globals, Tool, User, ToolCategory, ToolFiltersState, AltTextScan, AltTextLastScanDetail, AltTextLastScanCourseContentItem };

@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import AddBox from '@mui/icons-material/AddBox';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -14,12 +14,12 @@ import ErrorsDisplay from './ErrorsDisplay';
 import ImageDialog from './ImageDialog';
 import { AddToolButton, RemoveToolButton, LaunchToolButton, TryInternalToolButton } from './toolButtons';
 import { updateToolNav } from '../api';
-import constants from '../constants';
+import { TOOL_MENU_NAME } from '../constants';
 import { Tool } from '../interfaces';
 import { AnalyticsConsentContext } from '../context';
 import { useGoogleAnalytics } from '../hooks/useGoogleAnalytics';
 
-const TOOL_IN_MENU_TEXT = `Tool in ${constants.toolMenuName}`;
+const TOOL_IN_MENU_TEXT = `Tool in ${TOOL_MENU_NAME}`;
 
 interface ToolCardProps {
   tool: Tool
@@ -82,13 +82,18 @@ export default function ToolCard (props: ToolCardProps) {
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [screenshotDialogOpen, setScreenshotDialogOpen] = useState(false);
-
+  
+  const queryClient = useQueryClient();
   const {
     mutate: doUpdateToolNav, error: updateToolNavError, isPending: updateToolNavPending
-  } = useMutation(updateToolNav, { onSuccess: (data, variables) => {
-    const newTool = { ...tool, navigation_enabled: variables.navEnabled };
-    onToolUpdate(newTool);
-  }});
+  } = useMutation(updateToolNav, { 
+    retry: false,
+    onSuccess: (data, variables) => {
+      const newTool = { ...tool, navigation_enabled: variables.navEnabled };
+      onToolUpdate(newTool);
+      queryClient.invalidateQueries({ queryKey:['getTools'] });
+    },
+  });
 
   const moreOrLessText = !showMoreInfo ? 'More' : 'Less';
   const buttonLoadingId = `add-remove-tool-button-loading-${tool.canvas_id}`;

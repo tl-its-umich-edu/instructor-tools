@@ -53,6 +53,7 @@ urlpatterns = [
 
     # alt text helper endpoints
     path('alt-text-helper/', views.get_home_template, name = 'alt_text_helper'),
+    path('alt-text-helper/review', views.get_home_template, name = 'alt_text_helper_review'),
     path('api/alt-text/', include('backend.canvas_app_explorer.alt_text_helper.urls')),
 ]
 

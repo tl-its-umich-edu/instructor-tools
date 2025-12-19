@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-import { SyncTask, Tool, ToolCategory} from './interfaces';
+import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan} from './interfaces';
 
 const API_BASE = '/api';
 const JSON_MIME_TYPE = 'application/json';
@@ -84,18 +84,15 @@ async function getCategories (): Promise<ToolCategory[]> {
   const data: ToolCategory[] = await res.json();
   return data;
 }
-
-  interface UpdateAltTextStartSyncData {
+interface AltTextScanRequest {
   courseId: number
 }
 
-async function updateAltTextStartSync(data: UpdateAltTextStartSyncData): Promise<SyncTask> {
+async function updateAltTextStartScan(data: AltTextScanRequest): Promise<AltTextScan> {
   const { courseId } = data;
-  const body = { course_id: courseId };
-  const url = `${API_BASE}/alt-text/scan/`;
+  const url = `${API_BASE}/alt-text/scan/${courseId}`;
   const requestInit: RequestInit = {
     method: 'POST',
-    body: JSON.stringify(body),
     headers: {
       ...BASE_MUTATION_HEADERS,
       'X-CSRFTOKEN': getCSRFToken() ?? ''
@@ -106,8 +103,35 @@ async function updateAltTextStartSync(data: UpdateAltTextStartSyncData): Promise
     console.error(res);
     throw new Error(await createErrorMessage(res));
   }
-  const resData: SyncTask = await res.json();
+  const resData: AltTextScan = await res.json();
   return resData;
 }
 
-export { getTools, updateToolNav, getCategories, updateAltTextStartSync};
+interface AltTextLastScanResponse {
+  found: boolean,
+  scan_detail?: AltTextLastScanDetail 
+}
+async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLastScanDetail | false> {
+  const { courseId } = data;
+  const url = `${API_BASE}/alt-text/scan/${courseId}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    console.error(res);
+    throw new Error(await createErrorMessage(res));
+  }
+  const resData: AltTextLastScanResponse = await res.json();
+  if (!resData.found) {
+    return false;
+  } 
+  // scan_detail must be defined if found
+  if (resData.scan_detail === undefined) {
+    const message = `Scan details for ${courseId} not found`;
+    console.error(message);
+    throw new Error(message);
+  } else {
+    const response = resData.found ? resData.scan_detail : false;
+    return response;
+  }
+}
+
+export { getTools, updateToolNav, getCategories, updateAltTextStartScan, getAltTextLastScan };
