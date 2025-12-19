@@ -1,9 +1,9 @@
-import { Box, Checkbox, Chip, CircularProgress, FormControl, Grid, InputLabel, ListItemText, MenuItem, OutlinedInput, Paper, Select, SelectChangeEvent, styled, TextField, Typography } from '@mui/material';
+import { Box, Checkbox, Chip, CircularProgress, FormControl, Grid, InputLabel, ListItemText, MenuItem, OutlinedInput, Select, SelectChangeEvent, styled, TextField } from '@mui/material';
 import React from 'react';
 import { getCategories } from '../api';
 import { useQuery } from '@tanstack/react-query';
 import { ToolCategory } from '../interfaces';
-import { FilterList } from '@mui/icons-material';
+import FilterList from '@mui/icons-material/FilterList';
 
 const MAX_CHIPS_SHOWN = 5; // for category chips overflow
 const PREFIX = 'ToolFilters';
@@ -54,7 +54,7 @@ function ToolFilters({
   onSearchFilterChange, 
   onCategoryIdsSelectedChange 
 }: ToolFiltersProps) {
-  const { data: categories = [], isLoading: getCategoriesLoading, error: getCategoriesError } = useQuery<ToolCategory[]>({
+  const { data: categories = [], isLoading: getCategoriesLoading } = useQuery<ToolCategory[]>({
     queryKey: ['getCategories'],
     queryFn: getCategories,
   });
