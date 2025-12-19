@@ -1,16 +1,12 @@
-import { Box, Button, Divider, LinearProgress, Typography } from '@mui/material';
+import { Box, Divider, LinearProgress, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import React, { useState } from 'react';
 import ErrorsDisplay from './ErrorsDisplay';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import { Link } from 'react-router-dom';
-import { AltTextLastScanDetail, AltTextScan, Globals } from '../interfaces';
+import { Globals } from '../interfaces';
 import HeaderAppBar from './HeaderAppBar';
 import CourseScanComponent from './CourseScanComponent';
-// import { useQueryLastScan, useStartScan } from '../hooks/useAltTextQueryOptions';
-import { isError, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
-import { Refresh } from '@mui/icons-material';
 import ReviewSelectForm from './ReviewSelectForm';
 import AltTextReview from './AltTextReview';
 import { CourseContentCategory } from '../constants';
@@ -87,7 +83,7 @@ function AltTextHome (props: AltTextHomeProps) {
         user={user}
         helpURL={help_url}
       />
-      {reviewCategoryStarted ? // Review view
+      {reviewCategoryStarted ? // Review view 
         (
           <>
             <AltTextReview 

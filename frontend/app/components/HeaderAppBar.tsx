@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppBar, Breadcrumbs, Button, Grid, Paper, Toolbar, Typography } from '@mui/material';
+import { AppBar, Breadcrumbs, Button, Grid, Toolbar, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import Link from '@mui/material/Link';
 import { User } from '../interfaces';

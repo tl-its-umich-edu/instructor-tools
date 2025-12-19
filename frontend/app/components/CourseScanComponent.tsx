@@ -1,4 +1,4 @@
-import { Accordion, AccordionActions, AccordionDetails, AccordionSummary, Box, Button, Chip, Grid, LinearProgress, Stack, Typography } from '@mui/material';
+import { Accordion, AccordionActions, AccordionDetails, AccordionSummary, Box, Button, Grid, LinearProgress, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import { AltTextLastScanDetail as ScanDetail } from '../interfaces';

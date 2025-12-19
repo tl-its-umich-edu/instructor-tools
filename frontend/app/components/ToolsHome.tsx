@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Box, Button, Grid, LinearProgress, Snackbar, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import SearchIcon from '@mui/icons-material/Search';
-import InputBase from '@mui/material/InputBase';
 
 import ErrorsDisplay from './ErrorsDisplay';
 import HeaderAppBar from './HeaderAppBar';

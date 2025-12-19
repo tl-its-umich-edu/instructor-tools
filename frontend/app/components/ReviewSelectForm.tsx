@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AltTextLastScanDetail as ScanDetail, AltTextLastScanCourseContentItem as LastScanContentItem } from '../interfaces';
+import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import { Button, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { COURSE_CONTENT_CATEGORIES, CourseContentCategory } from '../constants';
 
