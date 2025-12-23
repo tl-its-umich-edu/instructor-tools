@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
+import { AltTextLastScanCourseContentItem, AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import { Button, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { COURSE_CONTENT_CATEGORIES, CourseContentCategory } from '../constants';
 
@@ -18,7 +18,12 @@ export default function ReviewSelectForm({ scanPending, lastScan, handleStartRev
       handleStartReview(selectedCategory);
     }
   };
-
+  
+  const imageSum = (contentItems : AltTextLastScanCourseContentItem[]) => {
+    let result = 0;
+    contentItems.forEach((item) => result += item.image_count);
+    return result;
+  };
 
   return (
     <>
@@ -26,8 +31,7 @@ export default function ReviewSelectForm({ scanPending, lastScan, handleStartRev
         Start Review
       </Typography>
       <Typography variant="body2" sx={{ mb: 3 }}>
-        Select which type of content to review first. You can review images from
-        assignments or pages.
+        Select which type of content to review first. You can review images by the available categories:
       </Typography>
       <Stack direction="row" spacing={2} alignItems='flex-end'>
         <FormControl sx={{ minWidth: 200 }} >
@@ -39,10 +43,10 @@ export default function ReviewSelectForm({ scanPending, lastScan, handleStartRev
             onChange={(e) => setSelectedCategory(e.target.value as CourseContentCategory)}
           >
             <MenuItem value={COURSE_CONTENT_CATEGORIES.ASSIGNMENT}>
-                  Assignments - ({lastScan.course_content.assignment_list.length} items)
+                  Assignments - ({imageSum(lastScan.course_content.assignment_list)} images)
             </MenuItem>
             <MenuItem value={COURSE_CONTENT_CATEGORIES.PAGE}>
-                  Pages - ({lastScan.course_content.page_list.length} items)
+                  Pages - ({imageSum(lastScan.course_content.page_list)} images)
             </MenuItem>
           </Select>
         </FormControl>

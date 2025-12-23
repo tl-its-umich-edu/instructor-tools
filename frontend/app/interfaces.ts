@@ -60,7 +60,8 @@ interface AltTextScan {
 interface AltTextLastScanCourseContentItem {
   id: number, 
   canvas_id: number,
-  canvas_name: string
+  canvas_name: string,
+  image_count: number,
 }
 interface AltTextLastScanCourseContentByType {
   assignment_list: AltTextLastScanCourseContentItem[],

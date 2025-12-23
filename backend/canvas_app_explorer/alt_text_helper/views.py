@@ -14,7 +14,7 @@ from rest_framework_tracking.mixins import LoggingMixin
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
 from django.db.models import Count
-from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus
+from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,8 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
                     {
                         'id': content_item.id,
                         'canvas_id': content_item.content_id,
-                        'canvas_name': content_item.content_name
+                        'canvas_name': content_item.content_name,
+                        'image_count': ImageItem.objects.filter(content_item=content_item).count()
                     }
                     for content_item in content_queryset
                 ]
