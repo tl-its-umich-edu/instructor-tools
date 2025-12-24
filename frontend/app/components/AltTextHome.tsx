@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
 import ReviewSelectForm from './ReviewSelectForm';
 import AltTextReview from './AltTextReview';
-import { ContentCategoryForReview } from '../constants';
+import { ContentCategoryForReview, COURSE_SCAN_POLL_DURATION } from '../constants';
 
 const TitleBlock = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(3),
@@ -39,7 +39,7 @@ function AltTextHome (props: AltTextHomeProps) {
         (data.status == 'running' || data.status == 'pending')
       ) {
         console.log('Last scan is in progress, waiting to refetch');
-        return 2000;
+        return COURSE_SCAN_POLL_DURATION;
       } else {
         return false;
       }
