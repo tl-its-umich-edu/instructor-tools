@@ -92,9 +92,13 @@ class CourseScanStatus(models.TextChoices):
 class ContentItem(models.Model):
     CONTENT_TYPE_ASSIGNMENT = 'assignment'
     CONTENT_TYPE_PAGE = 'page'
+    CONTENT_TYPE_QUIZ = 'quiz'
+    CONTENT_TYPE_QUIZ_QUESTION = 'quiz question'
     CONTENT_TYPE_CHOICES = (
         (CONTENT_TYPE_ASSIGNMENT, 'Assignment'),
         (CONTENT_TYPE_PAGE, 'Page'),
+        (CONTENT_TYPE_QUIZ, 'Quiz'),
+        (CONTENT_TYPE_QUIZ_QUESTION, 'Quiz Question'),
     )
 
     id = models.BigAutoField(primary_key=True)
@@ -109,12 +113,14 @@ class ContentItem(models.Model):
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
     content_id = models.BigIntegerField(unique=True)
     content_name = models.CharField(max_length=255, null=True, blank=True)
+    # for quiz question
+    content_parent_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = 'canvas_app_explorer_content_item'
 
     def __str__(self):
-        return f"ContentItem(id={self.id}, course_id={self.course_id}, type={self.content_type}, content_name={self.content_name})"
+        return f"ContentItem(id={self.id}, course_id={self.course_id}, type={self.content_type}, content_name={self.content_name}, content_parent_id={self.content_parent_id})"
 
 
 class ImageItem(models.Model):

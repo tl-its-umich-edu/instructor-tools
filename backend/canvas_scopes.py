@@ -8,4 +8,7 @@ DEFAUlT_CANVAS_SCOPES = [
     'url:GET|/api/v1/courses/:course_id/assignments',
     # Pages
     'url:GET|/api/v1/courses/:course_id/pages',
+    # Quizzes
+    'url:GET|/api/v1/courses/:course_id/quizzes',
+    'url:GET|/api/v1/courses/:course_id/quizzes/:quiz_id/questions',
 ]
