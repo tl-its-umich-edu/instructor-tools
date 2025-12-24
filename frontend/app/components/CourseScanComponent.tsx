@@ -2,7 +2,7 @@ import { Accordion, AccordionActions, AccordionDetails, AccordionSummary, Box, B
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
-import { Refresh } from '@mui/icons-material';
+import Refresh from '@mui/icons-material/Refresh';
 import theme from '../theme';
 
 const ScanInfoContainer = styled(Box)(() => ({
@@ -43,7 +43,7 @@ export default function CourseScanComponent(props: CourseScanComponentProps) {
       </Box>
     );
   }
-  
+
   const scanUpdated = new Date(lastScan.updated_at);
   const scanCreated = new Date(lastScan.created_at);
 

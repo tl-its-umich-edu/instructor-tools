@@ -1,6 +1,6 @@
 import React from 'react';
 import { ContentCategoryForReview } from '../constants';
-import { ArrowBack } from '@mui/icons-material';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Button } from '@mui/material';
 
 interface AltTextReviewProps {
