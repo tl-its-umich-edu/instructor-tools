@@ -93,7 +93,7 @@ class ContentItem(models.Model):
     CONTENT_TYPE_ASSIGNMENT = 'assignment'
     CONTENT_TYPE_PAGE = 'page'
     CONTENT_TYPE_QUIZ = 'quiz'
-    CONTENT_TYPE_QUIZ_QUESTION = 'quiz question'
+    CONTENT_TYPE_QUIZ_QUESTION = 'quiz_question'
     CONTENT_TYPE_CHOICES = (
         (CONTENT_TYPE_ASSIGNMENT, 'Assignment'),
         (CONTENT_TYPE_PAGE, 'Page'),

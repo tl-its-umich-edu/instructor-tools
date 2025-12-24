@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { AltTextLastScanCourseContentItem, AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import { Button, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
-import { COURSE_CONTENT_CATEGORIES, CourseContentCategory } from '../constants';
+import { CONTENT_CATEGORY_FOR_REVIEW, ContentCategoryForReview } from '../constants';
 
 
 interface ReveiwSelectFormProps {
     scanPending: boolean;
     lastScan: ScanDetail;
-    handleStartReview: (categorySelected:CourseContentCategory) => void;
+    handleStartReview: (categorySelected:ContentCategoryForReview) => void;
 }
 
 export default function ReviewSelectForm({ scanPending, lastScan, handleStartReview }:ReveiwSelectFormProps) {
-  const [selectedCategory, setSelectedCategory] = useState<CourseContentCategory>(COURSE_CONTENT_CATEGORIES.ASSIGNMENT);
+  const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
   
   const handleSubmit = () => {
     if (selectedCategory) {
@@ -40,13 +40,16 @@ export default function ReviewSelectForm({ scanPending, lastScan, handleStartRev
             value={selectedCategory}
             label="Content Category"
             disabled={scanPending}
-            onChange={(e) => setSelectedCategory(e.target.value as CourseContentCategory)}
+            onChange={(e) => setSelectedCategory(e.target.value as ContentCategoryForReview)}
           >
-            <MenuItem value={COURSE_CONTENT_CATEGORIES.ASSIGNMENT}>
+            <MenuItem value={CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS}>
                   Assignments - ({imageSum(lastScan.course_content.assignment_list)} images)
             </MenuItem>
-            <MenuItem value={COURSE_CONTENT_CATEGORIES.PAGE}>
+            <MenuItem value={CONTENT_CATEGORY_FOR_REVIEW.PAGES}>
                   Pages - ({imageSum(lastScan.course_content.page_list)} images)
+            </MenuItem>
+            <MenuItem value={CONTENT_CATEGORY_FOR_REVIEW.CLASSIC_QUIZZES}>
+                  Classic Quizzes - ({imageSum(lastScan.course_content.quiz_list)+imageSum(lastScan.course_content.quiz_question_list)} images)
             </MenuItem>
           </Select>
         </FormControl>

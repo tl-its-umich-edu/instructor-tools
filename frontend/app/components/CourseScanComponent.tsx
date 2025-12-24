@@ -43,17 +43,23 @@ export default function CourseScanComponent(props: CourseScanComponentProps) {
       </Box>
     );
   }
+  
+  const scanUpdated = new Date(lastScan.updated_at);
+  const scanCreated = new Date(lastScan.created_at);
 
   const descriptionBlock = (
     <Box aria-describedby='scan-description-loading'>
-      <Typography>Task: {lastScan.id}</Typography>
+      <Typography>Scan Task ID: {lastScan.id} -- First run on {scanCreated.toLocaleDateString()}</Typography>
       <Typography>Assignment Count: {lastScan.course_content.assignment_list.length}</Typography>
       <Typography>Pages Count: {lastScan.course_content.page_list.length}</Typography>
+      <Typography>Classic Quiz Count: {lastScan.course_content.quiz_list.length}</Typography>
+      <Typography>Classic Quiz Question Count: {lastScan.course_content.quiz_question_list.length}</Typography>
     </Box>
   );
 
   const status = scanPending ? 'IN PROGRESS' :
-    lastScan.status;
+    lastScan.status.toUpperCase();
+  
   return (
     <>
       <ScanInfoContainer>
@@ -75,7 +81,7 @@ export default function CourseScanComponent(props: CourseScanComponentProps) {
             <Grid container spacing={2} justifyContent='space-between' align-items='end'>
               <Grid item>
                 <Typography variant='h5'>Course Scan </Typography>
-                <Typography variant='body1'>Updated: {lastScan.updated_at}</Typography>
+                <Typography variant='body1'>Last Updated: {scanUpdated.toLocaleString()}</Typography>
               </Grid>
               <Grid item>
                 <Typography>Status: {status}</Typography>

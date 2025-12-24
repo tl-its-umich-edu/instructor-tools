@@ -1,14 +1,14 @@
 import React from 'react';
-import { CourseContentCategory } from '../constants';
+import { ContentCategoryForReview } from '../constants';
 import { ArrowBack } from '@mui/icons-material';
 import { Button } from '@mui/material';
 
 interface AltTextReviewProps {
-  category: CourseContentCategory
+  categoryForReview: ContentCategoryForReview
   onEndReview: () => void
 }
 
-export default function AltTextReview( {category, onEndReview} :AltTextReviewProps) {
+export default function AltTextReview( {categoryForReview, onEndReview} :AltTextReviewProps) {
 
   const handleGoBack = () => {
     onEndReview();
@@ -19,6 +19,6 @@ export default function AltTextReview( {category, onEndReview} :AltTextReviewPro
       onClick={handleGoBack}>
       Go Back
     </Button>
-    <div>{'Category selected : ' + JSON.stringify(category)}</div>
+    <div>{'Category selected : ' + JSON.stringify(categoryForReview)}</div>
   </>;
 }

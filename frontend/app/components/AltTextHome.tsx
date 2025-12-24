@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
 import ReviewSelectForm from './ReviewSelectForm';
 import AltTextReview from './AltTextReview';
-import { CourseContentCategory } from '../constants';
+import { ContentCategoryForReview } from '../constants';
 
 const TitleBlock = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(3),
@@ -23,7 +23,7 @@ interface AltTextHomeProps {
 function AltTextHome (props: AltTextHomeProps) {
   const {course_id, user, help_url} = props.globals;
   const [scanPending, setScanPending] = useState(false);
-  const [reviewCategoryStarted, setReviewCategoryStarted] = useState<CourseContentCategory>();
+  const [reviewCategoryStarted, setReviewCategoryStarted] = useState<ContentCategoryForReview>();
 
   const { data: lastScan, 
     isLoading: lastScanIsLoading, 
@@ -68,7 +68,7 @@ function AltTextHome (props: AltTextHomeProps) {
     await mutate(course_id);
   };
 
-  const handleStartReview = (category: CourseContentCategory ) => {
+  const handleStartReview = (category: ContentCategoryForReview ) => {
     setReviewCategoryStarted(category);
   };
 
@@ -87,7 +87,7 @@ function AltTextHome (props: AltTextHomeProps) {
         (
           <>
             <AltTextReview 
-              category={reviewCategoryStarted}
+              categoryForReview={reviewCategoryStarted}
               onEndReview={handleEndReview}
             />
           </>

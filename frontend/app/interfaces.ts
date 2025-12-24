@@ -66,6 +66,8 @@ interface AltTextLastScanCourseContentItem {
 interface AltTextLastScanCourseContentByType {
   assignment_list: AltTextLastScanCourseContentItem[],
   page_list: AltTextLastScanCourseContentItem[],
+  quiz_list: AltTextLastScanCourseContentItem[],
+  quiz_question_list: AltTextLastScanCourseContentItem[]
 }
 interface AltTextLastScanDetail {
   id: number
