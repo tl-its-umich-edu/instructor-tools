@@ -13,7 +13,7 @@ from django.db.utils import DatabaseError
 from bs4 import BeautifulSoup
 from PIL import Image
 from rest_framework.request import Request
-from canvasapi.exceptions import CanvasException, ResourceDoesNotExist
+from canvasapi.exceptions import CanvasException
 from canvasapi.course import Course
 from canvasapi.quiz import Quiz
 from canvasapi import Canvas
@@ -22,7 +22,9 @@ from canvas_oauth.models import CanvasOAuth2Token
 
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
+from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
+from backend.canvas_app_explorer.alt_text_helper.get_content_images import GetContentImages
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -68,7 +70,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     start_time: float = time.perf_counter()
     results = get_courses_images(course)
     logger.info(f"Fetching course {course_id} content images took {time.perf_counter() - start_time:.2f} seconds")
-    unpack_and_store_content_images(results, course)
+    unpack_and_store_content_images(results, course, canvas_api)
 
     
 @async_to_sync
@@ -82,7 +84,7 @@ async def get_courses_images(course: Course):
     logger.info("raw results from gather course images: %s", results)
     return results
     
-def unpack_and_store_content_images(results, course: Course):
+def unpack_and_store_content_images(results, course: Course, canvas_api: Canvas):
      # unpack results (assignments, pages) and handle exceptions returned by gather. gather maintain call order
     assignments, pages, quizzes = results
 
@@ -112,6 +114,15 @@ def unpack_and_store_content_images(results, course: Course):
 
     logger.debug("Items before filter: %d; after filter (has images): %d", len(combined), len(filtered_content_with_images))
     logger.info(f"Course {course.id} items with images: {filtered_content_with_images}")
+
+    content_images = GetContentImages(course.id, canvas_api, filtered_content_with_images)
+    try:
+        # what to do with this content images depending on the AI call handled so the exception handled there as well.    
+        images_by_course = content_images.get_images_by_course()
+    except ImageContentExtractionException as e:
+        logger.error(f"Error extracting image content for course {course.id}: {e}")
+        update_course_scan(course.id, CourseScanStatus.FAILED.value)
+        return
 
     # DB call to persist ContentItem and ImageItem records
     save_scan_results(course.id, filtered_content_with_images)
@@ -405,3 +416,5 @@ def append_image_items(
             'content_parent_id': content_parent_id
             })
     return images_list
+
+

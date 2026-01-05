@@ -5,29 +5,28 @@ import time
 import base64
 import io
 import time
-from typing import Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from datetime import timedelta
 from django.conf import settings
-from django.db import DatabaseError
 from asgiref.sync import async_to_sync
+from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from PIL import Image
 from openai import AzureOpenAI
 from canvasapi.file import File
 from canvasapi.exceptions import CanvasException
 from canvasapi import Canvas
-from backend.canvas_app_explorer.models import ImageItem
 
 logger = logging.getLogger(__name__)
 
 
 class GetContentImages:
-    def __init__(self, course_id: int, content_type: str, canvas_api: Canvas):
-        self.content_type: str = content_type
-        self.course_id: int = course_id
+    def __init__(self, course_id: int, canvas_api: Canvas, images_object: List[Dict[str, Any]]):
+        self.course_id = course_id
         self.canvas_api: Canvas = canvas_api
+        # images_object may be provided by caller; if not, it can be passed later to get_images_by_course
+        self.images_object = images_object
         self.max_dimension: int = settings.IMAGE_MAX_DIMENSION
         self.jpeg_quality: int = settings.IMAGE_JPEG_QUALITY
-
 
     # TODO: Delete this method, this is a simple prototype for testing OpenAI integration
     def get_alt_text_from_openai(self, imagedata):
@@ -68,11 +67,14 @@ class GetContentImages:
     def get_images_by_course(self):
         """
         Retrieve all image_url and image_id from the database for the given course_id.
+
+        Optionally, a flattened `images_input` list may be provided. If not provided,
+        the instance's `images_object` will be used.
         """
         try:
             start_time = time.perf_counter()
-            images = ImageItem.objects.filter(course_id=self.course_id).values('image_id', 'image_url')
-            images_list = list(images)
+            images_list = self.flatten_images_from_content()
+            logger.info(f"Image List : {images_list}")
             
             logger.info(f"Retrieved {len(images_list)} images for course_id: {self.course_id}")
             images_content = self.get_image_content_from_canvas(images_list)
@@ -80,22 +82,54 @@ class GetContentImages:
             logger.info(f"Fetching image content and Optimizing took {timedelta(seconds=end_time - start_time)} seconds")
 
 
+            images_combined: List[Dict[str, Any]] = []
             if isinstance(images_content, list):
                 errors = [e for e in images_content if isinstance(e, Exception)]
-                # If any task failed, return early (do not proceed to AI calls)
+                # If any task failed, wrap and raise a single custom exception so callers can decide how to handle
                 if errors:
-                    logger.error(f"One or more image fetches failed for course {self.course_id}: {errors}")
-                    return []
-            
+                    raise ImageContentExtractionException(errors)
+
+                # Build ordered combined list matching images_list to images_content. 
+                # This works since asyncio.gather preserves order.
+                for idx, content in enumerate(images_content):
+                    meta = images_list[idx] if idx < len(images_list) else {}
+                    images_combined.append({
+                        'image_id': meta.get('image_id'),
+                        'image_url': meta.get('image_url'),
+                        'content': content
+                    })
+
             # TODO: This will be replaced with actual alt text generation logic
-            for image in images_content:
-                logger.info(f"Processing image: {len(image)}")
-                b64_image_data = base64.b64encode(image).decode('utf-8')
+            for image_meta in images_combined:
+                content_bytes = image_meta.get('content')
+                logger.info(f"Processing image id {image_meta.get('image_id')} url {image_meta.get('image_url')}")
+                b64_image_data = base64.b64encode(content_bytes).decode('utf-8')
                 self.get_alt_text_from_openai(b64_image_data)
-            return images_list
-        except (DatabaseError, Exception) as e:
+            return images_combined
+        except (Exception) as e:
             logger.error(f"Error retrieving images for course_id {self.course_id}: {e}")
-            return []
+            raise e
+
+    def flatten_images_from_content(self) -> List[Dict[int, str]]:
+        """Return a flat list of images from a list of content items.
+
+        Each returned dict contains:
+        - image_id: int if parseable, otherwise original value or None
+        - image_url: the 'download_url' value or None
+        """
+        images: List[Dict[str, Any]] = []
+        for item in self.images_object:
+            for img in item.get('images', []):
+                image_id = img.get('image_id')
+                try:
+                    image_id_cast = int(image_id) if image_id is not None else None
+                except (ValueError, TypeError):
+                    image_id_cast = image_id
+                images.append({
+                    'image_id': image_id_cast,
+                    'image_url': img.get('download_url')
+                })
+        return images
 
     @async_to_sync
     async def get_image_content_from_canvas(self, images_list):

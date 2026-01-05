@@ -44,3 +44,14 @@ class CanvasHTTPError(Exception):
 
     def to_dict(self) -> CanvasHTTPErrorData:
         return { 'status_code': self.status_code, 'message': self.message }
+
+class ImageContentExtractionException(Exception):
+    """Raised when one or more image content fetch tasks failed.
+
+    Attributes:
+        errors (List[Exception]): list of exceptions returned from image fetch tasks
+    """
+    def __init__(self, errors):
+        self.errors = errors
+        super().__init__(f"Image content extraction failed with {len(errors)} errors {errors}")
+
