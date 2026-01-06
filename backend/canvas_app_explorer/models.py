@@ -143,6 +143,8 @@ class ImageItem(models.Model):
     )
     image_id = models.BigIntegerField()
     image_url = models.URLField(max_length=2048)
+    # optional alt text produced by AI or provided by user; limit to ~2000 characters
+    image_alt_text = models.TextField(blank=True, null=True, validators=[MaxLengthValidator(2000)])
 
     class Meta:
         db_table = 'canvas_app_explorer_image_item'
