@@ -74,7 +74,7 @@ class GetContentImages:
         try:
             start_time = time.perf_counter()
             images_list = self.flatten_images_from_content()
-            logger.info(f"Image List : {images_list}")
+            logger.debug(f"Image List : {images_list}")
             
             logger.info(f"Retrieved {len(images_list)} images for course_id: {self.course_id}")
             images_content = self.get_image_content_from_canvas(images_list)
