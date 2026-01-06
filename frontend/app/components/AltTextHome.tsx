@@ -53,8 +53,8 @@ function AltTextHome (props: AltTextHomeProps) {
 
   const queryClient = useQueryClient();
   const { mutate } = useMutation({
-    mutationFn: async (courseId : number) => {
-      return await updateAltTextStartScan({ courseId });
+    mutationFn: async () => {
+      return await updateAltTextStartScan();
     },
     onSuccess: (data) => {
       if (data.status == 'running' || data.status=='pending') {
@@ -65,7 +65,7 @@ function AltTextHome (props: AltTextHomeProps) {
   });
 
   const handleStartScan = async () => {
-    await mutate(course_id);
+    await mutate();
   };
 
   const handleStartReview = (category: ContentCategoryForReview ) => {

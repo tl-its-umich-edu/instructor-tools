@@ -3,7 +3,7 @@ from . import views
 
 urlpatterns = [
     path(
-        'scan/<int:course_id>',
+        'scan',
         views.AltTextScanViewSet.as_view({
             'post': 'start_scan',
             'get':'get_last_scan'}),

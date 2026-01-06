@@ -88,9 +88,8 @@ interface AltTextScanRequest {
   courseId: number
 }
 
-async function updateAltTextStartScan(data: AltTextScanRequest): Promise<AltTextScan> {
-  const { courseId } = data;
-  const url = `${API_BASE}/alt-text/scan/${courseId}`;
+async function updateAltTextStartScan(): Promise<AltTextScan> {
+  const url = `${API_BASE}/alt-text/scan`;
   const requestInit: RequestInit = {
     method: 'POST',
     headers: {
@@ -113,7 +112,7 @@ interface AltTextLastScanResponse {
 }
 async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLastScanDetail | false> {
   const { courseId } = data;
-  const url = `${API_BASE}/alt-text/scan/${courseId}`;
+  const url = `${API_BASE}/alt-text/scan`;
   const res = await fetch(url);
   if (!res.ok) {
     console.error(res);

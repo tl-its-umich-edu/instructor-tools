@@ -22,11 +22,11 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(
-            parameters=[OpenApiParameter('course_id', location='path', required=True)],
-    )
-    def start_scan(self, request: Request, course_id: int) -> Response:
-        logger.info(f"request.build_absolute_uri(reverse('canvas-oauth-callback')): {request.build_absolute_uri(reverse('canvas-oauth-callback'))}")
+    def start_scan(self, request: Request) -> Response:
+        course_id, error_resp = self._require_course_id(request)
+        if error_resp:
+            return error_resp
+        
         task_payload = {
             'course_id': course_id,
             'user_id': request.user.id,
@@ -57,7 +57,19 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
             logger.error(message)
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})
     
-    def get_last_scan(self, request: Request, course_id: int) -> Response:
+    def _require_course_id(self, request: Request):
+        """Return a tuple (course_id, None) or (None, Response) when missing privileges."""
+        course_id = request.session.get('course_id')
+        if course_id is None:
+            message = "you don't have access for this course"
+            logger.error(message)
+            return None, Response(status=HTTPStatus.BAD_REQUEST, data={"status_code": HTTPStatus.BAD_REQUEST, "message": message})
+        return course_id, None
+    
+    def get_last_scan(self, request: Request) -> Response:
+        course_id, error_resp = self._require_course_id(request)
+        if error_resp:
+            return error_resp
         try:
             scan_queryset = CourseScan.objects.filter(course_id=course_id)
             if not scan_queryset.exists():
