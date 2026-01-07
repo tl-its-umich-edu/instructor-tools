@@ -9,4 +9,10 @@ urlpatterns = [
             'get':'get_last_scan'}),
         name='alt_text_start_scan'
     ),
+    path(
+        'content-images',
+        views.AltTextContentGetAndUpdateViewSet.as_view({
+            'get': 'get_content_images'}),
+        name='alt_text_get_content_images'
+    ),
 ]

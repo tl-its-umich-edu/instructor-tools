@@ -13,6 +13,7 @@ from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseSc
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
+from backend.canvas_app_explorer.serializers import ContentQuerySerializer
 
 logger = logging.getLogger(__name__)
 
@@ -115,3 +116,47 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
         except (Exception) as e:
             logger.error(f"Problem appending course content to scan for course id f{course_id}")
             raise e
+
+class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
+    authentication_classes = [authentication.SessionAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name='content_type', description='Type of content to  like assignment, page, quiz', required=True, type=str),
+        ]
+    )
+    def get_content_images(self, request: Request) -> Response:
+        course_id = request.session.get('course_id')
+        # Support both DRF Request (has .query_params) and Django WSGIRequest (has .GET)
+        params = getattr(request, 'query_params', request.GET)
+        serializer = ContentQuerySerializer(data=params)
+        if not serializer.is_valid():
+            logger.error("Invalid query parameters for get_content_images: %s", serializer.errors)
+            return Response(status=HTTPStatus.BAD_REQUEST, data={"status_code": HTTPStatus.BAD_REQUEST, "message": serializer.errors})
+
+        content_type = serializer.validated_data['content_type']
+
+        # fetch content items and associated images from DB
+        try:
+            # include quiz questions when requesting quizzes
+            if content_type == ContentItem.CONTENT_TYPE_QUIZ:
+                types_to_query = [ContentItem.CONTENT_TYPE_QUIZ, ContentItem.CONTENT_TYPE_QUIZ_QUESTION]
+            else:
+                types_to_query = [content_type]
+
+            items_qs = ContentItem.objects.filter(course_id=course_id, content_type__in=types_to_query).prefetch_related('images')
+            content_items = []
+            for content_item in items_qs:
+                images = [img.image_url for img in content_item.images.all()]
+                content_items.append({
+                    'content_id': content_item.content_id,
+                    'content_parent_id': content_item.content_parent_id,
+                    'content_type': content_item.content_type,
+                    'images': images,
+                })
+            resp = {'content_items': content_items}
+            return Response(resp, status=HTTPStatus.OK)
+        except (DatabaseError, Exception) as e:
+            logger.error(f"Failed to fetch content images from DB for course {course_id} and content_type {content_type}: {e}")
+            return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": str(e)})

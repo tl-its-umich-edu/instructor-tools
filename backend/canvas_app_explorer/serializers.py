@@ -6,6 +6,8 @@ from rest_framework import fields, serializers
 
 from backend.canvas_app_explorer import models
 from backend.canvas_app_explorer.canvas_lti_manager.data_class import ExternalToolTab
+from backend.canvas_app_explorer.models import ContentItem
+
 
 class GlobalsUserSerializer(serializers.ModelSerializer):
     """
@@ -81,3 +83,8 @@ class UpdateLtiToolNavigationSerializer(serializers.Serializer):
     Serializer for body data expected when updating a tool's navigation status in a course context
     """
     navigation_enabled = fields.BooleanField()
+
+class ContentQuerySerializer(serializers.Serializer):
+    content_type = serializers.ChoiceField(
+        choices=ContentItem.CONTENT_TYPE_CHOICES
+    )
