@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan} from './interfaces';
+import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan, ContentItemResponse} from './interfaces';
 
 const API_BASE = '/api';
 const JSON_MIME_TYPE = 'application/json';
@@ -133,4 +133,15 @@ async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLast
   }
 }
 
-export { getTools, updateToolNav, getCategories, updateAltTextStartScan, getAltTextLastScan };
+async function getContentImages(contentType: 'assignment' | 'page' | 'quiz'): Promise<ContentItemResponse[]> {
+  const url = `${API_BASE}/alt-text/content-images?content_type=${encodeURIComponent(contentType)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    console.error(res);
+    throw new Error(await createErrorMessage(res));
+  }
+  const data: { content_items: ContentItemResponse[] } = await res.json();
+  return data.content_items;
+}
+
+export { getTools, updateToolNav, getCategories, updateAltTextStartScan, getAltTextLastScan, getContentImages };

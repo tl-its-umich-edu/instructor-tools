@@ -78,4 +78,18 @@ interface AltTextLastScanDetail {
   course_content: AltTextLastScanCourseContentByType,
 }
 
-export type { Globals, Tool, User, ToolCategory, ToolFiltersState, AltTextScan, AltTextLastScanDetail, AltTextLastScanCourseContentItem };
+interface ContentImage {
+  image_url: string
+  image_id: number | string
+  image_alt_text: string | null
+}
+
+interface ContentItemResponse {
+  content_id: number
+  content_parent_id: number | null
+  content_type: string
+  images: ContentImage[]
+}
+
+export type { Globals, Tool, User, ToolCategory, ToolFiltersState, 
+  AltTextScan, AltTextLastScanDetail, AltTextLastScanCourseContentItem, ContentImage, ContentItemResponse };
