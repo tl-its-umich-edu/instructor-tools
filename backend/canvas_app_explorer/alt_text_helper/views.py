@@ -157,7 +157,6 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
                     # If canvas-provided image_id is missing, synthesize a stable id by combining
                     # the content item's canvas id and the DB row id (e.g. "<content_id>-<image_pk>")
                     image_id_val = img.image_id if img.image_id is not None else f"{content_item.content_id}-{img.id}"
-                    # image_url = self._normalize_image_url(img.image_url, course_id)
                     image_url = img.image_url
                     images.append({
                         'image_url': image_url,
@@ -178,31 +177,3 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
         except (DatabaseError, Exception) as e:
             logger.error(f"Failed to fetch content images from DB for course {course_id} and content_type {content_type}: {e}")
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": str(e)})
-
-    def _normalize_image_url(self, raw_url: str, course_id: int) -> str:
-        """Normalize Canvas file URLs to a preview form and drop download fragments.
-
-        Examples:
-        - https://canvas-test.it.umich.edu/files/44125878/download?verifier=...&download_frd=1
-          -> https://canvas-test.it.umich.edu/courses/<course_id>/files/44125878/preview?verifier=...
-        """
-        try:
-            parsed = urlparse(raw_url)
-            path = parsed.path
-            m = re.search(r"/files/(\d+)(?:/download)?", path)
-            if m:
-                file_id = m.group(1)
-                new_path = f"/courses/{course_id}/files/{file_id}/preview"
-            else:
-                # Fallback: just remove '/download' segments if present
-                new_path = path.replace('/download', '')
-
-            qs = parse_qs(parsed.query, keep_blank_values=True)
-            # Drop any download-related query params (download_frd, etc.)
-            filtered_qs = {k: v for k, v in qs.items() if not k.lower().startswith('download')}
-            new_query = urlencode(filtered_qs, doseq=True)
-            new_parsed = parsed._replace(path=new_path, query=new_query)
-            return urlunparse(new_parsed)
-        except Exception:
-            # If anything goes wrong, return the original URL
-            return raw_url
