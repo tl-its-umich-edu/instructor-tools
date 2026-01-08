@@ -86,6 +86,7 @@ interface ContentImage {
 
 interface ContentItemResponse {
   content_id: number
+  content_name: string
   content_parent_id: number | null
   content_type: string
   images: ContentImage[]
