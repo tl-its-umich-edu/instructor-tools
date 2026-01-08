@@ -141,7 +141,7 @@ class ImageItem(models.Model):
         db_column='content_id',
         related_name='images',
     )
-    image_id = models.BigIntegerField()
+    image_id = models.BigIntegerField(null=True, blank=True)
     image_url = models.URLField(max_length=2048)
     # optional alt text produced by AI or provided by user; limit to ~2000 characters
     image_alt_text = models.TextField(blank=True, null=True, validators=[MaxLengthValidator(2000)])

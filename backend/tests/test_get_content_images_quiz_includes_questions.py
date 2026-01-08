@@ -58,3 +58,7 @@ class TestGetContentImagesQuiz(TestCase):
         types = {item['content_type'] for item in data['content_items']}
         self.assertTrue(ContentItem.CONTENT_TYPE_QUIZ in types)
         self.assertTrue(ContentItem.CONTENT_TYPE_QUIZ_QUESTION in types)
+        # verify images are returned as objects with url and id
+        urls = {img['image_url'] for item in data['content_items'] for img in item['images']}
+        self.assertIn('https://example.com/quiz.png', urls)
+        self.assertIn('https://example.com/q1.png', urls)

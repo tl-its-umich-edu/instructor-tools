@@ -148,7 +148,17 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
             items_qs = ContentItem.objects.filter(course_id=course_id, content_type__in=types_to_query).prefetch_related('images')
             content_items = []
             for content_item in items_qs:
-                images = [img.image_url for img in content_item.images.all()]
+                images = []
+                for img in content_item.images.all():
+                    # If canvas-provided image_id is missing, synthesize a stable id by combining
+                    # the content item's canvas id and the DB row id (e.g. "<content_id>-<image_pk>")
+                    image_id_val = img.image_id if img.image_id is not None else f"{content_item.content_id}-{img.id}"
+                    images.append({
+                        'image_url': img.image_url,
+                        'image_id': image_id_val,
+                        'image_alt_text': img.image_alt_text,
+                    })
+
                 content_items.append({
                     'content_id': content_item.content_id,
                     'content_parent_id': content_item.content_parent_id,
