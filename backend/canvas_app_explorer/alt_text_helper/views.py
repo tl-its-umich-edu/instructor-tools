@@ -14,8 +14,6 @@ from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
 from backend.canvas_app_explorer.serializers import ContentQuerySerializer
-import re
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 logger = logging.getLogger(__name__)
 
