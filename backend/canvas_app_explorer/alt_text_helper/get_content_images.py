@@ -1,17 +1,15 @@
 import logging
 import base64
 import asyncio
-import time
-import base64
 import io
-import time
 from typing import Any, Dict, List, Tuple, Optional
 from datetime import timedelta
 from django.conf import settings
 from asgiref.sync import async_to_sync
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
+from backend.canvas_app_explorer.alt_text_helper.ai_processor import AltTextProcessor
+from backend.canvas_app_explorer.decorators import log_execution_time
 from PIL import Image
-from openai import AzureOpenAI
 from canvasapi.file import File
 from canvasapi.exceptions import CanvasException
 from canvasapi import Canvas
@@ -27,44 +25,10 @@ class GetContentImages:
         self.images_object = images_object
         self.max_dimension: int = settings.IMAGE_MAX_DIMENSION
         self.jpeg_quality: int = settings.IMAGE_JPEG_QUALITY
+        self.alt_text_processor = AltTextProcessor()
 
-    # TODO: Delete this method, this is a simple prototype for testing OpenAI integration
-    def get_alt_text_from_openai(self, imagedata):
-      start_time: float = time.perf_counter()
-      client = AzureOpenAI(
-          api_key=settings.AZURE_API_KEY,
-          api_version=settings.AZURE_API_VERSION,
-          azure_endpoint = settings.AZURE_API_BASE,
-          organization = settings.AZURE_ORGANIZATION)
-
-      prompt = """
-          As an AI tool specialized in image recognition, generate concise and descriptive alt text for this image.
-          The description should be suitable for a student with a
-          vision impairment taking a quiz. Do not include phrases
-          like 'This is an image of...'. Provide only one concise
-          option with no further explanation.
-          """
-      messages=[
-              {"role": "system", "content": prompt},
-              {"role": "user", "content": [
-                  {"type": "image_url", "image_url": {
-                      "url": f"data:image/jpeg;base64,{imagedata}"}}
-              ]
-          }
-      ]
-
-      response = client.chat.completions.with_raw_response.create(
-          model=settings.AZURE_MODEL,
-          messages=messages,
-          temperature=0.0,
-      )
-      end_time: float = time.perf_counter()
-      logger.info(f"AI call duration: {end_time - start_time:.2f} seconds")
-      completion = response.parse()
-      alt_text = completion.choices[0].message.content
-      logger.info(f"AI response: {alt_text}")
-
-    def get_images_by_course(self):
+    @log_execution_time
+    def get_images_by_course(self) -> Dict[str, Dict[str, Optional[str]]]:
         """
         Retrieve all image_url and image_id from the database for the given course_id.
 
@@ -72,39 +36,40 @@ class GetContentImages:
         the instance's `images_object` will be used.
         """
         try:
-            start_time = time.perf_counter()
             images_list = self.flatten_images_from_content()
             logger.debug(f"Image List : {images_list}")
             
             logger.info(f"Retrieved {len(images_list)} images for course_id: {self.course_id}")
             images_content = self.get_image_content_from_canvas(images_list)
-            end_time = time.perf_counter()
-            logger.info(f"Fetching image content and Optimizing took {timedelta(seconds=end_time - start_time)} seconds")
 
-
-            images_combined: List[Dict[str, Any]] = []
+            # Index images by image_id (int) for easy lookup later
+            images_combined: Dict[int, Dict[str, Any]] = {}
             if isinstance(images_content, list):
                 errors = [e for e in images_content if isinstance(e, Exception)]
                 # If any task failed, wrap and raise a single custom exception so callers can decide how to handle
                 if errors:
                     raise ImageContentExtractionException(errors)
 
-                # Build ordered combined list matching images_list to images_content. 
-                # This works since asyncio.gather preserves order.
+                # Build mapping image_id -> metadata/content (image_id guaranteed valid)
                 for idx, content in enumerate(images_content):
-                    meta = images_list[idx] if idx < len(images_list) else {}
-                    images_combined.append({
-                        'image_id': meta.get('image_id'),
-                        'image_url': meta.get('image_url'),
+                    meta = images_list[idx]
+                    key = meta.get('image_url') or f"image_{meta.get('image_id')}"
+                    images_combined[key] = {
                         'content': content
-                    })
+                    }
 
-            # TODO: This will be replaced with actual alt text generation logic
-            for image_meta in images_combined:
+            # Process each image, generate alt text and annotate the original content items
+            for key, image_meta in images_combined.items():
                 content_bytes = image_meta.get('content')
-                logger.info(f"Processing image id {image_meta.get('image_id')} url {image_meta.get('image_url')}")
+                logger.info(f"Processing image id {key} url {image_meta.get('image_url')}")
                 b64_image_data = base64.b64encode(content_bytes).decode('utf-8')
-                self.get_alt_text_from_openai(b64_image_data)
+                try:
+                    alt_text = self.alt_text_processor.generate_alt_text(b64_image_data)
+                except Exception as ai_err:
+                    logger.error(f"Alt text generation failed for image_id {key}: {ai_err}")
+                    alt_text = None
+                images_combined[key]['alt_text'] = alt_text
+
             return images_combined
         except (Exception) as e:
             logger.error(f"Error retrieving images for course_id {self.course_id}: {e}")
@@ -132,7 +97,7 @@ class GetContentImages:
         return images
 
     @async_to_sync
-    async def get_image_content_from_canvas(self, images_list):
+    async def get_image_content_from_canvas(self, images_list) -> List[Any]:
         semaphore = asyncio.Semaphore(10)
         async with semaphore:
             tasks = [self.get_image_content_async(image.get('image_id'), image.get('image_url')) for image in images_list]

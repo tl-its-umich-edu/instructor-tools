@@ -1,4 +1,3 @@
-import time
 import asyncio
 import logging
 from django.db import transaction
@@ -25,6 +24,7 @@ from backend.canvas_app_explorer.canvas_lti_manager.django_factory import Django
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
 from backend.canvas_app_explorer.alt_text_helper.get_content_images import GetContentImages
+from backend.canvas_app_explorer.decorators import log_execution_time
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -36,6 +36,8 @@ IMAGE_EXTENSIONS = tuple(Image.registered_extensions().keys())
 semaphore = asyncio.Semaphore(10)
 
 
+
+@log_execution_time
 def fetch_and_scan_course(task: Dict[str, Any]):
     logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
       # mark CourseScan as running (create if missing)
@@ -67,9 +69,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     # Fetch full course details to ensure attributes like course_code are present for logging
     course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
-    start_time: float = time.perf_counter()
     results = get_courses_images(course)
-    logger.info(f"Fetching course {course_id} content images took {time.perf_counter() - start_time:.2f} seconds")
     unpack_and_store_content_images(results, course, canvas_api)
 
     
@@ -117,14 +117,18 @@ def unpack_and_store_content_images(results, course: Course, canvas_api: Canvas)
 
     content_images = GetContentImages(course.id, canvas_api, filtered_content_with_images)
     try:
-        # what to do with this content images depending on the AI call handled so the exception handled there as well.    
-        images_by_course = content_images.get_images_by_course()
+        # get_images_by_course now returns the flat list of images with `alt_text`.
+        images_flat = content_images.get_images_by_course()
     except ImageContentExtractionException as e:
         logger.error(f"Error extracting image content for course {course.id}: {e}")
         update_course_scan(course.id, CourseScanStatus.FAILED.value)
         return
 
-    # DB call to persist ContentItem and ImageItem records
+    # Annotate the original content items with alt text and persist
+    annotated_items = content_images.annotate_content_with_alt_text(images_flat)
+    if isinstance(annotated_items, list):
+        filtered_content_with_images = annotated_items
+
     save_scan_results(course.id, filtered_content_with_images)
 
 def update_course_scan(course_id, status) -> None:
@@ -167,9 +171,9 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
             for item in items:
                 content_item = ContentItem.objects.create(
                     course_id=course_id,
-                    content_type=item['type'],
-                    content_id=item['id'],
-                    content_name=item['name'],
+                    content_type=item.get('type'),
+                    content_id=item.get('id'),
+                    content_name=item.get('name'),
                     content_parent_id=item.get('content_parent_id')
                 )
                 
@@ -177,8 +181,9 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
                     ImageItem.objects.create(
                         course_id=course_id,
                         content_item=content_item,
-                        image_id=img['image_id'],
-                        image_url=img['download_url']
+                        image_id=img.get('image_id'),
+                        image_url=img.get('image_url'),
+                        alt_text=img.get('alt_text')
                     )
 
             # 3. Update CourseScan with "Completed" status
