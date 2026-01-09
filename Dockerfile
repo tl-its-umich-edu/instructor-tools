@@ -8,7 +8,7 @@ RUN npm install
 
 RUN npm run build:frontend
 
-FROM python:3.10-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 # NOTE: requirements.txt not likely to change between dev builds
 COPY requirements.txt .
