@@ -20,7 +20,7 @@ class AltTextProcessor:
         )
         self.model = settings.AZURE_MODEL
     
-    @log_execution_time
+    @log_exebackend/canvas_app_explorer/decorators.pycution_time
     def generate_alt_text(self, imagedata: str) -> str:
         """
         Generate alt text for an image using Azure OpenAI.

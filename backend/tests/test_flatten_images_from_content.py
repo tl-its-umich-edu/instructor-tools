@@ -1,5 +1,5 @@
 from django.test import TestCase
-from backend.canvas_app_explorer.alt_text_helper.get_content_images import GetContentImages
+from backend.canvas_app_explorer.alt_text_helper.process_content_images import GetContentImages
 
 
 class TestFlattenImagesFromContent(TestCase):

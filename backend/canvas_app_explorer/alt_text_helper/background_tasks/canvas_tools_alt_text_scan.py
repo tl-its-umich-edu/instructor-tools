@@ -23,7 +23,7 @@ from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
-from backend.canvas_app_explorer.alt_text_helper.get_content_images import GetContentImages
+from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.decorators import log_execution_time
 
 logger = logging.getLogger(__name__)
@@ -66,11 +66,22 @@ def fetch_and_scan_course(task: Dict[str, Any]):
         CanvasOAuth2Token.objects.filter(user=request.user).delete()
         update_course_scan(course_id, CourseScanStatus.FAILED.value)
         return
+
+    # Try to fetch OAuth token for this user to pass down to the image fetcher. This avoids
+    # having the fetcher try to introspect private attributes on the Canvas object.
+    token_obj = CanvasOAuth2Token.objects.filter(user=request.user).first()
+    bearer_token = token_obj.access_token if token_obj else None
+
     # Fetch full course details to ensure attributes like course_code are present for logging
     course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
     results = get_courses_images(course)
     unpack_and_store_content_images(results, course, canvas_api)
+    retrieve_and_store_alt_text(course, canvas_api, bearer_token=bearer_token)
+
+    # Update that the course scan is completed
+    update_course_scan(course_id, CourseScanStatus.COMPLETED.value)
+
 
     
 @async_to_sync
@@ -84,6 +95,25 @@ async def get_courses_images(course: Course):
     logger.info("raw results from gather course images: %s", results)
     return results
     
+def retrieve_and_store_alt_text(course: Course, canvas_api: Canvas, bearer_token: Optional[str] = None):
+    """
+    Retrieve alt text for images in the given course using AI processor.
+    The images for the course need to have been processed first to get the image URLs.
+
+    :param course: Course object
+    :type course: Course
+    :param canvas_api: Canvas API object
+    :type canvas_api: Canvas
+    :param bearer_token: Optional bearer token to pass directly to the image fetcher for Authorization
+    """
+    process_content_images = ProcessContentImages(
+        course_id=course.id,
+        canvas_api=canvas_api,
+        bearer_token=bearer_token,
+    )
+    images_with_alt_text = process_content_images.retrieve_images_with_alt_text()
+    return images_with_alt_text
+
 def unpack_and_store_content_images(results, course: Course, canvas_api: Canvas):
      # unpack results (assignments, pages) and handle exceptions returned by gather. gather maintain call order
     assignments, pages, quizzes = results
@@ -115,20 +145,7 @@ def unpack_and_store_content_images(results, course: Course, canvas_api: Canvas)
     logger.debug("Items before filter: %d; after filter (has images): %d", len(combined), len(filtered_content_with_images))
     logger.info(f"Course {course.id} items with images: {filtered_content_with_images}")
 
-    content_images = GetContentImages(course.id, canvas_api, filtered_content_with_images)
-    try:
-        # get_images_by_course now returns the flat list of images with `alt_text`.
-        images_flat = content_images.get_images_by_course()
-    except ImageContentExtractionException as e:
-        logger.error(f"Error extracting image content for course {course.id}: {e}")
-        update_course_scan(course.id, CourseScanStatus.FAILED.value)
-        return
-
-    # Annotate the original content items with alt text and persist
-    annotated_items = content_images.annotate_content_with_alt_text(images_flat)
-    if isinstance(annotated_items, list):
-        filtered_content_with_images = annotated_items
-
+    # DB call to persist initial ContentItem and ImageItem records
     save_scan_results(course.id, filtered_content_with_images)
 
 def update_course_scan(course_id, status) -> None:
@@ -186,8 +203,6 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
                         alt_text=img.get('alt_text')
                     )
 
-            # 3. Update CourseScan with "Completed" status
-            update_course_scan(course_id, CourseScanStatus.COMPLETED.value)
     except (DatabaseError, Exception) as e:
         logger.error(f"Error in save_scan_results transaction for course_id {course_id}: {e}")
         return
