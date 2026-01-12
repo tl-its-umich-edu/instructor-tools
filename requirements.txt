@@ -40,10 +40,8 @@ drf-api-tracking==1.8.4 # API tracking for DRF
 
 django-q2==1.9.0
 openai==2.15.0
-<<<<<<< HEAD
 blessed==1.25.0
-=======
 
-# Http should be pulled in by openai, but adding explicitly to avoid issues
-httpx==0.24.1
->>>>>>> 35f0e85 (Adding httpx to possibly avoid future issues)
+# httpx should be pulled in by openai, but adding explicitly to avoid issues
+# If the version goes above 1.0 will need to verify compatibility with openai package
+httpx>=0.28.1,<1.0
