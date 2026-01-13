@@ -40,3 +40,4 @@ drf-api-tracking==1.8.4 # API tracking for DRF
 
 django-q2==1.9.0
 openai==2.15.0
+blessed==1.25.0

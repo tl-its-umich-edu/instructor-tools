@@ -45,3 +45,18 @@ All test are in the `tests` folder. To run the tests
 ```sh 
 docker exec -it instructor_tools python manage.py test
 ```
+### Django Queue
+1. Getting the Alt text from course images run as a background task.
+2. We are using [Django ORM](https://django-q2.readthedocs.io/en/master/brokers.html#django-orm) is set a default message Broker.
+3. Django admin can be used for tracking Successful, Failed, Queued, Scheduled Tasks
+    1. Apart from Django admin, CLI can be used for [tracking](https://django-q2.readthedocs.io/en/master/monitor.html) as well:
+        ```
+        python manage.py qinfo
+        ```
+4. The following environment variables can be set to configure Django Q background task processing
+    1. `Q_CLUSTER_WORKERS` - Number of worker processes (default: 4)
+    2. `Q_CLUSTER_TIMEOUT` - Task execution timeout in seconds (default: 900, i.e., 15 minutes)
+    3. `Q_CLUSTER_RETRY` - Retry interval in seconds for failed tasks (default: 1800, i.e., 30 minutes)
+    4. `Q_CLUSTER_BULK` - Sets the number of messages each cluster tries to get from the broker per call.
+    5. `Q_CLUSTER_MAX_ATTEMPTS` - Maximum number of retry attempts for a task after failure (default: 1)
+    6. `Q_CLUSTER_NAME` - Cluster Name
