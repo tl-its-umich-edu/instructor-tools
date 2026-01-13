@@ -39,5 +39,4 @@ https://github.com/Harvard-University-iCommons/django-canvas-oauth/archive/v1.1.
 drf-api-tracking==1.8.4 # API tracking for DRF
 
 django-q2==1.9.0
-watchfiles==1.1.1
 openai==2.15.0
