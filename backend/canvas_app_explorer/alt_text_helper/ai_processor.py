@@ -1,7 +1,10 @@
 import logging
 import time
+import base64
+import io
 from django.conf import settings
 from openai import AzureOpenAI
+from PIL import Image
 from backend.canvas_app_explorer.decorators import log_execution_time
 
 logger = logging.getLogger(__name__)
@@ -21,16 +24,21 @@ class AltTextProcessor:
         self.model = settings.AZURE_MODEL
     
     @log_execution_time
-    def generate_alt_text(self, imagedata: str) -> str:
+    def generate_alt_text(self, image: Image.Image) -> str:
         """
         Generate alt text for an image using Azure OpenAI.
         
         Args:
-            imagedata: Base64-encoded image data
+            image: PIL Image object (will be converted to JPEG)
             
         Returns:
             Generated alt text string
         """
+        # Encode image to base64 (converts to JPEG if needed)
+        img_buffer = io.BytesIO()
+        image.save(img_buffer, format='JPEG')
+        imagedata = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+        
         prompt = settings.AZURE_ALT_TEXT_PROMPT
         
         messages = [

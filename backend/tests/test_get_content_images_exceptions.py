@@ -14,7 +14,27 @@ class DummyProcessImages(ProcessContentImages):
         image_id = images_list[0].get('image_id')
         if image_id == 1:
             return [Exception('fetch failed')]
-        return [b'binarydata']
+        # return a real small JPEG byte stream
+        from PIL import Image
+        import io
+        img = Image.new('RGB', (5, 5), color=(0, 255, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        return [buf.getvalue()]
+
+    async def get_image_content_async(self, image_id, img_url):
+        # Mirror the synchronous get_image_content_from_canvas behavior for the
+        # concurrent codepath used by ProcessContentImages._process_images_concurrently
+        if image_id == 1:
+            return Exception('fetch failed')
+        from PIL import Image
+        import io
+        img = Image.new('RGB', (5, 5), color=(0, 255, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        return buf.getvalue()
 
 class TestGetContentImages(TestCase):
     def setUp(self):
@@ -34,6 +54,10 @@ class TestGetContentImages(TestCase):
             proc.retrieve_images_with_alt_text()
 
         exc = cm.exception
+        # Debugging output to inspect why multiple errors are present
+        print("DEBUG: exc.errors repr:", repr(exc.errors))
+        print("DEBUG: exc.errors types:", [type(e) for e in exc.errors])
+        print("DEBUG: exc.errors contents:", exc.errors)
         self.assertIsInstance(exc.errors, list)
         self.assertEqual(len(exc.errors), 1)
 

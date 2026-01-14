@@ -187,9 +187,9 @@ class ProcessContentImages:
                         if isinstance(contents, Exception):
                             return {'img': img, 'alt_text': contents}
 
-                        # Generate alt text
-                        b64_image_data = base64.b64encode(contents).decode('utf-8')
-                        alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, b64_image_data)
+                        # Convert to PIL Image and generate alt text
+                        pil_image = Image.open(io.BytesIO(contents))
+                        alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image)
                         return {'img': img, 'alt_text': alt_text}
                     except Exception as e:
                         logger.error(f"Processing exception for image {image_id}: {e}")
@@ -321,6 +321,6 @@ class GetContentImages(ProcessContentImages):
                 logger.warning(f"Skipping image {image_meta.get('image_id')} due to earlier fetch error")
                 continue
             logger.info(f"Processing image id {image_meta.get('image_id')} url {image_meta.get('image_url')}")
-            b64_image_data = base64.b64encode(content_bytes).decode('utf-8')
-            images_combined[key]["alt_text"] = self.alt_text_processor.generate_alt_text(b64_image_data)
+            pil_image = Image.open(io.BytesIO(content_bytes))
+            images_combined[key]["alt_text"] = self.alt_text_processor.generate_alt_text(pil_image)
         return images_combined

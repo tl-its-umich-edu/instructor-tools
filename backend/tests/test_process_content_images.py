@@ -19,7 +19,14 @@ class TestProcessContentImages(TestCase):
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
     def test_retrieve_images_with_alt_text_success_updates_db(self, mock_generate_alt, mock_get_content):
-        mock_get_content.return_value = b'fakeimagebytes'
+        # create a small in-memory JPEG to simulate a real image response
+        from PIL import Image
+        import io
+        img = Image.new('RGB', (10, 10), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        mock_get_content.return_value = buf.getvalue()
         mock_generate_alt.return_value = 'A descriptive alt text'
 
         proc = ProcessContentImages(course_id=self.course_id, canvas_api=object())
