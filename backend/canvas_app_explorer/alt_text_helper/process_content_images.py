@@ -61,17 +61,13 @@ class ProcessContentImages:
             errors = []
             to_update = []
 
-            # Collect images and corresponding models in order
-            images_list = []
-            image_models = []
-            for img in qs.iterator():
-                images_list.append({'image_id': img.image_id, 'image_url': img.image_url})
-                image_models.append(img)
+            # Collect image models
+            image_models = list(qs.iterator())
 
             # Process images concurrently: fetch content and generate alt text for each, bounded
-            if images_list:
+            if image_models:
                 try:
-                    gen_results = self._process_images_concurrently(images_list, image_models)
+                    gen_results = self._process_images_concurrently(image_models)
                 except Exception as gen_exc:
                     logger.error(f"Image processing worker failed: {gen_exc}")
                     errors.append(gen_exc)
@@ -169,7 +165,7 @@ class ProcessContentImages:
             logger.error(f"Error fetching image content for image_id {image_id}: {req_err}")
             return req_err
 
-    def _process_images_concurrently(self, images_list: List[Dict[str, Any]], image_models: List[ImageItem]) -> List[Dict[str, Any]]:
+    def _process_images_concurrently(self, image_models: List[ImageItem]) -> List[Dict[str, Any]]:
         """Process images concurrently: fetch content and generate alt text for each, bounded.
 
         - Uses asyncio.Semaphore to limit concurrent in-flight image processing tasks (default from settings IMAGE_PROCESSING_CONCURRENCY)
@@ -181,10 +177,10 @@ class ProcessContentImages:
         async def _worker():
             sem = asyncio.Semaphore(concurrency)
 
-            async def _process_single_image(img: ImageItem, image_meta: Dict[str, Any]) -> Dict[str, Any]:
+            async def _process_single_image(img: ImageItem) -> Dict[str, Any]:
                 async with sem:
-                    image_id = image_meta['image_id']
-                    img_url = image_meta['image_url']
+                    image_id = img.image_id
+                    img_url = img.image_url
                     try:
                         # Fetch image content
                         contents = await self.get_image_content_async(image_id, img_url)
@@ -199,7 +195,7 @@ class ProcessContentImages:
                         logger.error(f"Processing exception for image {image_id}: {e}")
                         return {'img': img, 'alt_text': e}
 
-            tasks = [_process_single_image(img, meta) for img, meta in zip(image_models, images_list)]
+            tasks = [_process_single_image(img) for img in image_models]
             return await asyncio.gather(*tasks, return_exceptions=False)
 
         # Use asyncio.run here because this method is called from synchronous code
