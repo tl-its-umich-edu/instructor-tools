@@ -44,11 +44,11 @@ class ProcessContentImages:
 
     @log_execution_time
     def retrieve_images_with_alt_text(self) -> Dict[str, Dict[str, Any]]:
-        """Process ImageItem records for this course one at a time and generate alt text.
+        """Process ImageItem records for this course concurrently and generate alt text.
 
         - Reads ImageItem rows for course_id
-        - Fetches the image content (one at a time to avoid memory pressure)
-        - Generates alt text and bulk-updates ImageItem.image_alt_text for successful ones
+        - Fetches image content and generates alt text concurrently (bounded to avoid memory/API spikes)
+        - Bulk-updates ImageItem.image_alt_text for successful ones
         - If any fetch/generation failed, raises ImageContentExtractionException with list of errors
 
         Returns a dict mapping image_url -> {image_id, image_url, image_alt_text}
@@ -61,44 +61,42 @@ class ProcessContentImages:
             errors = []
             to_update = []
 
+            # Collect images and corresponding models in order
+            images_list = []
+            image_models = []
             for img in qs.iterator():
-                image_id = img.image_id
-                img_url = img.image_url
-                logger.debug(f"Fetching image_id={image_id} url={img_url}")
+                images_list.append({'image_id': img.image_id, 'image_url': img.image_url})
+                image_models.append(img)
 
-                contents = self.get_image_content_from_canvas([{
-                    'image_id': image_id,
-                    'image_url': img_url
-                }])
-                # get_image_content_from_canvas returns a list (due to being written for list input)
-                if not isinstance(contents, list):
-                    # Unexpected response; wrap and treat as error
-                    err = Exception(f"Unexpected fetch response for {img_url}")
-                    logger.error(err)
-                    errors.append(err)
-                    continue
-
-                content = contents[0]
-                if isinstance(content, Exception):
-                    logger.error(f"Failed to fetch image {image_id} ({img_url}): {content}")
-                    errors.append(content)
-                    continue
-
-                # Generate alt text
+            # Process images concurrently: fetch content and generate alt text for each, bounded
+            if images_list:
                 try:
-                    b64_image_data = base64.b64encode(content).decode('utf-8')
-                    alt_text = self.alt_text_processor.generate_alt_text(b64_image_data)
-                    img.image_alt_text = alt_text
+                    gen_results = self._process_images_concurrently(images_list, image_models)
+                except Exception as gen_exc:
+                    logger.error(f"Image processing worker failed: {gen_exc}")
+                    errors.append(gen_exc)
+                    gen_results = []
+
+                for res in gen_results:
+                    img = res['img']
+                    alt_or_exc = res['alt_text']
+                    image_id = img.image_id
+                    img_url = img.image_url
+
+                    if isinstance(alt_or_exc, Exception):
+                        logger.error(f"Processing failed for image {image_id}: {alt_or_exc}")
+                        errors.append(alt_or_exc)
+                        continue
+
+                    img.image_alt_text = alt_or_exc
                     to_update.append(img)
                     results[img_url] = {
                         'image_id': image_id,
                         'image_url': img_url,
-                        'image_alt_text': alt_text
+                        'image_alt_text': alt_or_exc
                     }
                     logger.info(f"Generated alt text for image_id={image_id} url={img_url}")
-                except Exception as gen_err:
-                    logger.error(f"Alt text generation failed for image {image_id}: {gen_err}")
-                    errors.append(gen_err)
+
 
             # Bulk update successful alt texts
             if to_update:
@@ -170,6 +168,42 @@ class ProcessContentImages:
         except Exception as req_err:
             logger.error(f"Error fetching image content for image_id {image_id}: {req_err}")
             return req_err
+
+    def _process_images_concurrently(self, images_list: List[Dict[str, Any]], image_models: List[ImageItem]) -> List[Dict[str, Any]]:
+        """Process images concurrently: fetch content and generate alt text for each, bounded.
+
+        - Uses asyncio.Semaphore to limit concurrent in-flight image processing tasks (default from settings IMAGE_PROCESSING_CONCURRENCY)
+        - Each task fetches image content (async) then generates alt text (in thread)
+        - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
+        """
+        concurrency = getattr(settings, 'IMAGE_PROCESSING_CONCURRENCY', 4)
+
+        async def _worker():
+            sem = asyncio.Semaphore(concurrency)
+
+            async def _process_single_image(img: ImageItem, image_meta: Dict[str, Any]) -> Dict[str, Any]:
+                async with sem:
+                    image_id = image_meta['image_id']
+                    img_url = image_meta['image_url']
+                    try:
+                        # Fetch image content
+                        contents = await self.get_image_content_async(image_id, img_url)
+                        if isinstance(contents, Exception):
+                            return {'img': img, 'alt_text': contents}
+
+                        # Generate alt text
+                        b64_image_data = base64.b64encode(contents).decode('utf-8')
+                        alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, b64_image_data)
+                        return {'img': img, 'alt_text': alt_text}
+                    except Exception as e:
+                        logger.error(f"Processing exception for image {image_id}: {e}")
+                        return {'img': img, 'alt_text': e}
+
+            tasks = [_process_single_image(img, meta) for img, meta in zip(image_models, images_list)]
+            return await asyncio.gather(*tasks, return_exceptions=False)
+
+        # Use asyncio.run here because this method is called from synchronous code
+        return asyncio.run(_worker())
 
     # https://www.buildwithmatija.com/blog/reduce-image-sizes-ai-processing-costs#the-smart-optimization-strategy
     def get_optimized_images(self, image_content, image_id):

@@ -16,10 +16,10 @@ class TestProcessContentImages(TestCase):
         ContentItem.objects.create(course_id=self.course_id, content_type='page', content_id=1, content_name='Page 1')
         ImageItem.objects.create(course_id=self.course_id, content_item_id=1, image_id=111, image_url='http://example.com/img.jpg')
 
-    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_from_canvas')
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
     def test_retrieve_images_with_alt_text_success_updates_db(self, mock_generate_alt, mock_get_content):
-        mock_get_content.return_value = [b'fakeimagebytes']
+        mock_get_content.return_value = b'fakeimagebytes'
         mock_generate_alt.return_value = 'A descriptive alt text'
 
         proc = ProcessContentImages(course_id=self.course_id, canvas_api=object())
@@ -33,9 +33,9 @@ class TestProcessContentImages(TestCase):
         img = ImageItem.objects.get(course_id=self.course_id, image_id=111)
         self.assertEqual(img.image_alt_text, 'A descriptive alt text')
 
-    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_from_canvas')
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
     def test_retrieve_images_with_alt_text_raises_on_fetch_error(self, mock_get_content):
-        mock_get_content.return_value = [Exception('fetch failed')]
+        mock_get_content.return_value = Exception('fetch failed')
 
         proc = ProcessContentImages(course_id=self.course_id, canvas_api=object())
         with self.assertRaises(ImageContentExtractionException) as ctx:
