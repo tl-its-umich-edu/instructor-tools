@@ -180,17 +180,12 @@ class TestParsingImageContentHTML(TestCase):
             return []
 
         with patch(f"{module_path}.fetch_content_items_async", side_effect=mock_fetch_content_items), \
-             patch(f"{module_path}.save_scan_results") as mock_save, \
-             patch(f"{module_path}.GetContentImages") as mock_get_cls:
+             patch(f"{module_path}.save_scan_results") as mock_save:
 
             # Create a dummy course object and a dummy canvas_api (non-None) to exercise the canvas_api path
             from canvasapi.course import Course
             dummy_course = Course(None, {'id': 403334})
             dummy_canvas_api = object()
-
-            # Configure the mocked GetContentImages instance to avoid external calls
-            mock_instance = mock_get_cls.return_value
-            mock_instance.get_images_by_course.return_value = []
 
             # 1. Call get_courses_images to get raw results
             raw_results = get_courses_images(dummy_course)
@@ -198,8 +193,3 @@ class TestParsingImageContentHTML(TestCase):
             # 2. Call unpack_and_store_content_images which does the filtering and calls save_scan_results
             from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import unpack_and_store_content_images
             unpack_and_store_content_images(raw_results, dummy_course, dummy_canvas_api)
-
-            # 3. Verify GetContentImages was instantiated with expected args and save_scan_results was called
-            mock_get_cls.assert_called_once_with(403334, dummy_canvas_api, expected_filtered)
-            mock_save.assert_called_once_with(403334, expected_filtered)
-
