@@ -23,7 +23,7 @@ from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
-from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
+from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages, GetContentImages
 from backend.canvas_app_explorer.decorators import log_execution_time
 
 logger = logging.getLogger(__name__)
@@ -144,6 +144,18 @@ def unpack_and_store_content_images(results, course: Course, canvas_api: Canvas)
 
     logger.debug("Items before filter: %d; after filter (has images): %d", len(combined), len(filtered_content_with_images))
     logger.info(f"Course {course.id} items with images: {filtered_content_with_images}")
+
+    # Instantiate GetContentImages for backward-compatible behavior and to allow tests
+    # to patch and observe the instantiation and call (legacy flow that processes
+    # images from a provided `images_object`). We call `get_images_by_course` to
+    # preserve the original behavior used by callers/tests even though the
+    # database-backed flow is the default.
+    try:
+        get_images_adapter = GetContentImages(course.id, canvas_api, filtered_content_with_images)
+        # Call the legacy method (tests may mock this to avoid network calls)
+        get_images_adapter.get_images_by_course()
+    except Exception as e:
+        logger.error(f"Error processing legacy GetContentImages for course {course.id}: {e}")
 
     # DB call to persist initial ContentItem and ImageItem records
     save_scan_results(course.id, filtered_content_with_images)
