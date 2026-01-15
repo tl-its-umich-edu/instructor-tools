@@ -6,8 +6,8 @@ from django.test import TestCase
 
 class DummyProcessImages(ProcessContentImages):
     def __init__(self, course_id):
-        # don't need a real canvas_api for this test
-        super().__init__(course_id=course_id, canvas_api=None)
+        # don't need canvas_api parameter anymore
+        super().__init__(course_id=course_id)
 
     def get_image_content_from_canvas(self, images_list):
         # images_list is a list with a single dict per our new implementation

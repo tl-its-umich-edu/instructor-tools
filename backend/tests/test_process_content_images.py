@@ -33,7 +33,7 @@ class TestProcessContentImages(TestCase):
         mock_get_content.return_value = buf.getvalue()
         mock_generate_alt.return_value = self.EXPECTED_ALT_TEXT
 
-        proc = ProcessContentImages(course_id=self.course_id, canvas_api=object())
+        proc = ProcessContentImages(course_id=self.course_id)
         results = proc.retrieve_images_with_alt_text()
 
         # ensure results contain our image_url and generated alt text
@@ -48,7 +48,7 @@ class TestProcessContentImages(TestCase):
     def test_retrieve_images_with_alt_text_raises_on_fetch_error(self, mock_get_content):
         mock_get_content.return_value = Exception('fetch failed')
 
-        proc = ProcessContentImages(course_id=self.course_id, canvas_api=object())
+        proc = ProcessContentImages(course_id=self.course_id)
         with self.assertRaises(ImageContentExtractionException) as ctx:
             proc.retrieve_images_with_alt_text()
 
@@ -68,10 +68,9 @@ class TestProcessContentImages(TestCase):
         from canvasapi.course import Course
         dummy_course = Course(None, {'id': self.course_id})
 
-        canvas_api_obj = object()
-        result = retrieve_and_store_alt_text(dummy_course, canvas_api=canvas_api_obj, bearer_token=None)
+        result = retrieve_and_store_alt_text(dummy_course, bearer_token=None)
 
-        mock_proc_cls.assert_called_once_with(course_id=self.course_id, canvas_api=canvas_api_obj, bearer_token=None)
+        mock_proc_cls.assert_called_once_with(course_id=self.course_id, bearer_token=None)
         self.assertEqual(result, {'http://example.com/img.jpg': {'image_alt_text': 'alt'}})
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
@@ -115,3 +114,91 @@ class TestProcessContentImages(TestCase):
         course_scan.refresh_from_db()
         self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
 
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
+    def test_retrieve_images_skips_when_generate_alt_text_returns_none(self, mock_generate_alt, mock_get_content):
+        """Test that when generate_alt_text returns None, the image is skipped and not updated in DB."""
+        from PIL import Image
+        import io
+        
+        img = Image.new('RGB', (10, 10), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        mock_get_content.return_value = buf.getvalue()
+        mock_generate_alt.return_value = None  # Simulate API failure returning None
+
+        proc = ProcessContentImages(course_id=self.course_id)
+        results = proc.retrieve_images_with_alt_text()
+
+        # Results should be empty since the image was skipped
+        self.assertEqual(results, {})
+
+        # DB record should NOT be updated (should still be None)
+        img_record = ImageItem.objects.get(course_id=self.course_id, image_id=111)
+        self.assertIsNone(img_record.image_alt_text)
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
+    def test_process_images_concurrently_converts_none_to_empty_string(self, mock_generate_alt, mock_get_content):
+        """Test that _process_images_concurrently converts None return to empty string."""
+        from PIL import Image
+        import io
+        
+        img = Image.new('RGB', (10, 10), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        mock_get_content.return_value = buf.getvalue()
+        mock_generate_alt.return_value = None
+
+        proc = ProcessContentImages(course_id=self.course_id)
+        
+        # Get the image models
+        image_models = list(ImageItem.objects.filter(course_id=self.course_id))
+        
+        # Call _process_images_concurrently directly
+        results = proc._process_images_concurrently(image_models)
+        
+        # Should have one result
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['img'].image_id, 111)
+        # alt_text should be empty string, not None
+        self.assertEqual(results[0]['alt_text'], '')
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
+    def test_retrieve_images_handles_mixed_success_and_none_returns(self, mock_generate_alt, mock_get_content):
+        """Test that when some images return alt text and some return None, only successful ones are updated."""
+        from PIL import Image
+        import io
+        
+        # Add another image
+        ImageItem.objects.create(
+            course_id=self.course_id, content_item_id=1, image_id=222, image_url='http://example.com/img2.jpg'
+        )
+        
+        img = Image.new('RGB', (10, 10), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        mock_get_content.return_value = buf.getvalue()
+        
+        # First image gets alt text, second returns None
+        mock_generate_alt.side_effect = ['First image alt text', None]
+
+        proc = ProcessContentImages(course_id=self.course_id)
+        results = proc.retrieve_images_with_alt_text()
+
+        # Only the first image should be in results
+        self.assertEqual(len(results), 1)
+        self.assertIn('http://example.com/img.jpg', results)
+        self.assertEqual(results['http://example.com/img.jpg']['image_alt_text'], 'First image alt text')
+
+        # First image should be updated
+        img1 = ImageItem.objects.get(image_id=111)
+        self.assertEqual(img1.image_alt_text, 'First image alt text')
+        
+        # Second image should NOT be updated (remain None)
+        img2 = ImageItem.objects.get(image_id=222)
+        self.assertIsNone(img2.image_alt_text)

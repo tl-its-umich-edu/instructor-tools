@@ -79,7 +79,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     unpack_and_store_content_images(results, course, canvas_api)
     
     try:
-        retrieve_and_store_alt_text(course, canvas_api, bearer_token=bearer_token)
+        retrieve_and_store_alt_text(course, bearer_token=bearer_token)
     except ImageContentExtractionException as e:
         logger.error(
             f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}",
@@ -104,20 +104,17 @@ async def get_courses_images(course: Course):
     logger.info("raw results from gather course images: %s", results)
     return results
     
-def retrieve_and_store_alt_text(course: Course, canvas_api: Canvas, bearer_token: Optional[str] = None):
+def retrieve_and_store_alt_text(course: Course, bearer_token: Optional[str] = None):
     """
     Retrieve alt text for images in the given course using AI processor.
     The images for the course need to have been processed first to get the image URLs.
 
     :param course: Course object
     :type course: Course
-    :param canvas_api: Canvas API object
-    :type canvas_api: Canvas
     :param bearer_token: Optional bearer token to pass directly to the image fetcher for Authorization
     """
     process_content_images = ProcessContentImages(
         course_id=course.id,
-        canvas_api=canvas_api,
         bearer_token=bearer_token,
     )
     images_with_alt_text = process_content_images.retrieve_images_with_alt_text()

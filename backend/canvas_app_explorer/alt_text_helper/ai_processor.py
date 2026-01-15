@@ -2,6 +2,7 @@ import logging
 import time
 import base64
 import io
+from typing import Optional
 from django.conf import settings
 from openai import AzureOpenAI
 from PIL import Image
@@ -24,7 +25,7 @@ class AltTextProcessor:
         self.model = settings.AZURE_MODEL
     
     @log_execution_time
-    def generate_alt_text(self, image: Image.Image) -> str:
+    def generate_alt_text(self, image: Image.Image) -> Optional[str]:
         """
         Generate alt text for an image using Azure OpenAI.
         
@@ -32,7 +33,7 @@ class AltTextProcessor:
             image: PIL Image object (will be converted to JPEG)
             
         Returns:
-            Generated alt text string
+            Generated alt text string, or None if generation fails
         """
         # Encode image to base64 (converts to JPEG if needed)
         img_buffer = io.BytesIO()

@@ -80,6 +80,11 @@ class ProcessContentImages:
                         errors.append(alt_or_exc)
                         continue
 
+                    # Skip if alt_text is None or empty string
+                    if not alt_or_exc:
+                        logger.warning(f"No alt text generated for image {image_id}")
+                        continue
+
                     img.image_alt_text = alt_or_exc
                     to_update.append(img)
                     results[img_url] = {
@@ -165,7 +170,8 @@ class ProcessContentImages:
                         # Convert to PIL Image and generate alt text
                         pil_image = Image.open(io.BytesIO(contents))
                         alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image)
-                        return {'img': img, 'alt_text': alt_text}
+                        # Handle None return value by providing empty string fallback
+                        return {'img': img, 'alt_text': alt_text or ''}
                     except Exception as e:
                         logger.error(f"Processing exception for image {image_id}: {e}")
                         return {'img': img, 'alt_text': e}
