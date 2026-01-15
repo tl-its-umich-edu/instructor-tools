@@ -9,23 +9,8 @@ class DummyProcessImages(ProcessContentImages):
         # don't need canvas_api parameter anymore
         super().__init__(course_id=course_id)
 
-    def get_image_content_from_canvas(self, images_list):
-        # images_list is a list with a single dict per our new implementation
-        image_id = images_list[0].get('image_id')
-        if image_id == 1:
-            return [Exception('fetch failed')]
-        # return a real small JPEG byte stream
-        from PIL import Image
-        import io
-        img = Image.new('RGB', (5, 5), color=(0, 255, 0))
-        buf = io.BytesIO()
-        img.save(buf, format='JPEG')
-        buf.seek(0)
-        return [buf.getvalue()]
-
     async def get_image_content_async(self, image_id, img_url):
-        # Mirror the synchronous get_image_content_from_canvas behavior for the
-        # concurrent codepath used by ProcessContentImages._process_images_concurrently
+        # Mock the async fetch for testing
         if image_id == 1:
             return Exception('fetch failed')
         from PIL import Image

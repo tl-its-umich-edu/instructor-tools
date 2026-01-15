@@ -104,16 +104,6 @@ class ProcessContentImages:
             logger.error(f"Error retrieving images for course_id {self.course_id}: {e}")
             raise e
 
-    @async_to_sync
-    async def get_image_content_from_canvas(self, images_list) -> List[Any]:
-        semaphore = asyncio.Semaphore(10)
-        tasks = [self._bounded_get_image(image.get('image_id'), image.get('image_url'), semaphore) for image in images_list]
-        return await asyncio.gather(*tasks, return_exceptions=True)
-
-    async def _bounded_get_image(self, image_id, img_url, semaphore):
-        async with semaphore:
-            return await self.get_image_content_async(image_id, img_url)
-
     async def get_image_content_async(self, image_id, img_url):
         headers = self._auth_header
         if not headers:
