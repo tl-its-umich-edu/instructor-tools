@@ -119,11 +119,11 @@ class ProcessContentImages:
             return await self.get_image_content_async(image_id, img_url)
 
     async def get_image_content_async(self, image_id, img_url):
-        try:
-            headers = self._auth_header
-        except ValueError as e:
-            logger.error(f"Auth header error for image_id {image_id}: {e}")
-            return e
+        headers = self._auth_header
+        if not headers:
+            err = ValueError(f"Auth header missing for image_id {image_id}")
+            logger.error(err)
+            return err
 
         if not img_url:
             err = ValueError(f"No image URL provided for image_id {image_id}")
@@ -240,19 +240,19 @@ class ProcessContentImages:
         except Exception as e:
             logger.error(f"Failed to optimize image with ID {image_id} due to {e}")
             raise e
-      
+
     def _calculate_optimal_size(self, original_size: Tuple[int, int]) -> Tuple[int, int]:
-      """Calculate optimal dimensions maintaining aspect ratio."""
-      width, height = original_size
+        """Calculate optimal dimensions maintaining aspect ratio."""
+        width, height = original_size
 
-      if max(width, height) <= self.max_dimension:
-          return width, height
+        if max(width, height) <= self.max_dimension:
+            return width, height
 
-      if width > height:
-          new_width = self.max_dimension
-          new_height = int(height * (self.max_dimension / width))
-      else:
-          new_height = self.max_dimension
-          new_width = int(width * (self.max_dimension / height))
+        if width > height:
+            new_width = self.max_dimension
+            new_height = int(height * (self.max_dimension / width))
+        else:
+            new_height = self.max_dimension
+            new_width = int(width * (self.max_dimension / height))
 
-      return new_width, new_height
+        return new_width, new_height

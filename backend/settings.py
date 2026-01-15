@@ -377,7 +377,7 @@ The description should be suitable for a student with a
 vision impairment taking a quiz. Do not include phrases
 like 'This is an image of...'. Provide only one concise
 option with no further explanation.
-""")
+""".strip())
 AZURE_ALT_TEXT_TEMPERATURE = float(os.getenv('AZURE_ALT_TEXT_TEMPERATURE', 0.0))
 
 # image optimization settings

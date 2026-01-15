@@ -77,7 +77,16 @@ def fetch_and_scan_course(task: Dict[str, Any]):
 
     results = get_courses_images(course)
     unpack_and_store_content_images(results, course, canvas_api)
-    retrieve_and_store_alt_text(course, canvas_api, bearer_token=bearer_token)
+    
+    try:
+        retrieve_and_store_alt_text(course, canvas_api, bearer_token=bearer_token)
+    except ImageContentExtractionException as e:
+        logger.error(
+            f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}",
+            exc_info=True
+        )
+        update_course_scan(course_id, CourseScanStatus.FAILED.value)
+        return
 
     # Update that the course scan is completed
     update_course_scan(course_id, CourseScanStatus.COMPLETED.value)

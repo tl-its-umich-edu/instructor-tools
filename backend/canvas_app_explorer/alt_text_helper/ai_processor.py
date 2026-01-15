@@ -56,6 +56,16 @@ class AltTextProcessor:
         )
         
         completion = response.parse()
+        
+        # Validate that completion and choices exist before accessing
+        if not completion or not completion.choices or len(completion.choices) == 0:
+            logger.error(
+                f"Invalid API response: completion={completion}, "
+                f"choices={completion.choices if completion else 'completion is None'}, "
+                f"parsed_response={completion}"
+            )
+            return None
+        
         alt_text = completion.choices[0].message.content
         logger.info(f"AI response: {alt_text}")
         

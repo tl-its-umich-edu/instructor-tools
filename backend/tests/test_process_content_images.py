@@ -1,11 +1,13 @@
 from django.test import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import (
     retrieve_and_store_alt_text,
+    fetch_and_scan_course,
 )
-from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem
+from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
+from django.contrib.auth.models import User
 
 
 class TestProcessContentImages(TestCase):
@@ -71,3 +73,45 @@ class TestProcessContentImages(TestCase):
 
         mock_proc_cls.assert_called_once_with(course_id=self.course_id, canvas_api=canvas_api_obj, bearer_token=None)
         self.assertEqual(result, {'http://example.com/img.jpg': {'image_alt_text': 'alt'}})
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.get_courses_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
+    def test_fetch_and_scan_course_handles_image_extraction_exception(
+        self, mock_factory, mock_get_images, mock_unpack, mock_retrieve_alt
+    ):
+        """Test that fetch_and_scan_course sets scan status to FAILED when ImageContentExtractionException is raised."""
+        course_id = 999
+        user = User.objects.create_user(username='testuser', password='testpass')
+        
+        # Create initial CourseScan record
+        course_scan = CourseScan.objects.create(course_id=course_id, status=CourseScanStatus.PENDING.value)
+        
+        # Setup mocks
+        mock_manager = MagicMock()
+        mock_factory.create_manager.return_value = mock_manager
+        mock_canvas_api = MagicMock()
+        mock_manager.canvas_api = mock_canvas_api
+        
+        mock_get_images.return_value = ([], [], [])
+        mock_unpack.return_value = None
+        
+        # Make retrieve_and_store_alt_text raise ImageContentExtractionException
+        mock_retrieve_alt.side_effect = ImageContentExtractionException(
+            errors=['Image fetch failed', 'Processing error']
+        )
+        
+        task = {
+            'course_id': course_id,
+            'user_id': user.id,
+            'canvas_callback_url': 'http://localhost/callback'
+        }
+        
+        # Call the function - it should not raise an exception
+        fetch_and_scan_course(task)
+        
+        # Verify that CourseScan status was set to FAILED
+        course_scan.refresh_from_db()
+        self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
+
