@@ -62,12 +62,7 @@ class ProcessContentImages:
 
             # Process images concurrently: fetch content and generate alt text for each, bounded
             if image_models:
-                try:
-                    gen_results = self._process_images_concurrently(image_models)
-                except Exception as gen_exc:
-                    logger.error(f"Image processing worker failed: {gen_exc}")
-                    errors.append(gen_exc)
-                    gen_results = []
+                gen_results = self._process_images_concurrently(image_models)
 
                 for res in gen_results:
                     img = res['img']
