@@ -1,5 +1,5 @@
 from django.test import TestCase
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import (
     extract_images_from_html,
     get_courses_images,
@@ -179,7 +179,9 @@ class TestParsingImageContentHTML(TestCase):
                 return sample_pages
             return []
 
-        with patch(f"{module_path}.fetch_content_items_async", side_effect=mock_fetch_content_items), \
+        mock_fetch = AsyncMock(side_effect=mock_fetch_content_items)
+        
+        with patch(f"{module_path}.fetch_content_items_async", mock_fetch), \
              patch(f"{module_path}.save_scan_results") as mock_save:
 
             # Create a dummy course object and a dummy canvas_api (non-None) to exercise the canvas_api path
@@ -188,6 +190,7 @@ class TestParsingImageContentHTML(TestCase):
             dummy_canvas_api = object()
 
             # 1. Call get_courses_images to get raw results
+            # Note: get_courses_images is already wrapped with @async_to_sync, so call it directly
             raw_results = get_courses_images(dummy_course)
 
             # 2. Call unpack_and_store_content_images which does the filtering and calls save_scan_results
