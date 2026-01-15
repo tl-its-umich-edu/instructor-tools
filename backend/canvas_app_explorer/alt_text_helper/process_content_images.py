@@ -168,11 +168,11 @@ class ProcessContentImages:
     def _process_images_concurrently(self, image_models: List[ImageItem]) -> List[Dict[str, Any]]:
         """Process images concurrently: fetch content and generate alt text for each, bounded.
 
-        - Uses asyncio.Semaphore to limit concurrent in-flight image processing tasks (default from settings IMAGE_PROCESSING_CONCURRENCY)
+        - Uses asyncio.Semaphore to limit concurrent in-flight image processing tasks (from settings IMAGE_PROCESSING_CONCURRENCY)
         - Each task fetches image content (async) then generates alt text (in thread)
         - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
         """
-        concurrency = getattr(settings, 'IMAGE_PROCESSING_CONCURRENCY', 4)
+        concurrency = settings.IMAGE_PROCESSING_CONCURRENCY
 
         async def _worker():
             sem = asyncio.Semaphore(concurrency)
