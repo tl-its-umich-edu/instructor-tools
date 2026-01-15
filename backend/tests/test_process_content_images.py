@@ -9,6 +9,8 @@ from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageConten
 
 
 class TestProcessContentImages(TestCase):
+    EXPECTED_ALT_TEXT = 'A descriptive alt text'
+
     def setUp(self):
         # create a CourseScan and related content/image items
         self.course_id = 123456
@@ -27,14 +29,14 @@ class TestProcessContentImages(TestCase):
         img.save(buf, format='JPEG')
         buf.seek(0)
         mock_get_content.return_value = buf.getvalue()
-        mock_generate_alt.return_value = 'A descriptive alt text'
+        mock_generate_alt.return_value = self.EXPECTED_ALT_TEXT
 
         proc = ProcessContentImages(course_id=self.course_id, canvas_api=object())
         results = proc.retrieve_images_with_alt_text()
 
         # ensure results contain our image_url and generated alt text
         self.assertIn('http://example.com/img.jpg', results)
-        self.assertEqual(results['http://example.com/img.jpg']['image_alt_text'], 'A descriptive alt text')
+        self.assertEqual(results['http://example.com/img.jpg']['image_alt_text'], self.EXPECTED_ALT_TEXT)
 
         # DB record should be updated
         img = ImageItem.objects.get(course_id=self.course_id, image_id=111)
