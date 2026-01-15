@@ -108,27 +108,6 @@ class ProcessContentImages:
             logger.error(f"Error retrieving images for course_id {self.course_id}: {e}")
             raise e
 
-    def flatten_images_from_content(self) -> List[Dict[int, str]]:
-        """Return a flat list of images from a list of content items.
-
-        Each returned dict contains:
-        - image_id: int if parseable, otherwise original value or None
-        - image_url: the 'download_url' value or None
-        """
-        images: List[Dict[str, Any]] = []
-        for item in self.images_object:
-            for img in item.get('images', []):
-                image_id = img.get('image_id')
-                try:
-                    image_id_cast = int(image_id) if image_id is not None else None
-                except (ValueError, TypeError):
-                    image_id_cast = image_id
-                images.append({
-                    'image_id': image_id_cast,
-                    'image_url': img.get('download_url')
-                })
-        return images
-
     @async_to_sync
     async def get_image_content_from_canvas(self, images_list) -> List[Any]:
         semaphore = asyncio.Semaphore(10)
@@ -277,50 +256,3 @@ class ProcessContentImages:
           new_width = int(width * (self.max_dimension / height))
 
       return new_width, new_height
-
-class GetContentImages(ProcessContentImages):
-    """Backward-compatible adapter that accepts an `images_object` and exposes
-    the legacy `get_images_by_course` behaviour used in some unit tests and callers.
-
-    This keeps the new DB-backed `ProcessContentImages.retrieve_images_with_alt_text` for
-    production flows while allowing tests to pass images directly.
-    """
-    def __init__(self, course_id: int, canvas_api: Canvas, images_object: Optional[List[Dict[str, Any]]] = None, **kwargs):
-        super().__init__(course_id=course_id, canvas_api=canvas_api, **kwargs)
-        self.images_object = images_object or []
-
-    @log_execution_time
-    def get_images_by_course(self):
-        # Legacy behavior: flatten provided `images_object`, fetch contents in parallel,
-        # and raise on any errors (keeps original semantics used by tests).
-        images_list = self.flatten_images_from_content()
-        logger.debug(f"Image List : {images_list}")
-
-        logger.info(f"Retrieved {len(images_list)} images for course_id: {self.course_id}")
-        images_content = self.get_image_content_from_canvas(images_list)
-
-        images_combined: Dict[str, Dict[str, Any]] = {}
-        if isinstance(images_content, list):
-            errors = [e for e in images_content if isinstance(e, Exception)]
-            if errors:
-                raise ImageContentExtractionException(errors)
-
-            for idx, content in enumerate(images_content):
-                meta = images_list[idx]
-                key = meta.get('image_url')
-                images_combined[key] = {
-                    'image_id': meta.get('image_id'),
-                    'image_url': key,
-                    'content': content
-                }
-
-        # Inline alt text generation (kept for backwards compatibility)
-        for key, image_meta in images_combined.items():
-            content_bytes = image_meta.get('content')
-            if isinstance(content_bytes, Exception):
-                logger.warning(f"Skipping image {image_meta.get('image_id')} due to earlier fetch error")
-                continue
-            logger.info(f"Processing image id {image_meta.get('image_id')} url {image_meta.get('image_url')}")
-            pil_image = Image.open(io.BytesIO(content_bytes))
-            images_combined[key]["alt_text"] = self.alt_text_processor.generate_alt_text(pil_image)
-        return images_combined

@@ -23,7 +23,7 @@ from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
-from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages, GetContentImages
+from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.decorators import log_execution_time
 
 logger = logging.getLogger(__name__)
