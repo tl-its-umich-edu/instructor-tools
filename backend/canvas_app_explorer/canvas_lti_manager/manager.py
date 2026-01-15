@@ -41,6 +41,7 @@ class CanvasLtiManager:
 
     def __init__(self, api_url: str, api_key: str, course_id: int):
         self.course_id: int = course_id
+        self.api_key: str = api_key
         self.canvas_api: Canvas = Canvas(api_url, api_key)
 
     @staticmethod

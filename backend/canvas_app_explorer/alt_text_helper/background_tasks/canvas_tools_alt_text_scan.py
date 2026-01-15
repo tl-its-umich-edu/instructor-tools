@@ -60,17 +60,14 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     session.save()
     request.session = session
     try:
-        canvas_api: Canvas =  MANAGER_FACTORY.create_manager(request).canvas_api
+        manager = MANAGER_FACTORY.create_manager(request)
+        canvas_api: Canvas = manager.canvas_api
+        bearer_token = manager.api_key
     except (InvalidOAuthReturnError, Exception) as e:
         logger.error(f"Error creating Canvas API for course_id {course_id}: {e}")
         CanvasOAuth2Token.objects.filter(user=request.user).delete()
         update_course_scan(course_id, CourseScanStatus.FAILED.value)
         return
-
-    # Try to fetch OAuth token for this user to pass down to the image fetcher. This avoids
-    # having the fetcher try to introspect private attributes on the Canvas object.
-    token_obj = CanvasOAuth2Token.objects.filter(user=request.user).first()
-    bearer_token = token_obj.access_token if token_obj else None
 
     # Fetch full course details to ensure attributes like course_code are present for logging
     course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
