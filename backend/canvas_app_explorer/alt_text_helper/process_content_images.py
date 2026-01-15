@@ -10,9 +10,6 @@ from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageConten
 from backend.canvas_app_explorer.alt_text_helper.ai_processor import AltTextProcessor
 from backend.canvas_app_explorer.decorators import log_execution_time
 from PIL import Image
-from canvasapi.file import File
-from canvasapi.exceptions import CanvasException
-from canvasapi import Canvas
 import httpx
 from backend.canvas_app_explorer.models import ImageItem
 
@@ -20,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessContentImages:
-    def __init__(self, course_id: int, canvas_api: Canvas, bearer_token: Optional[str] = None, auth_header: Optional[Dict[str, str]] = None):
+    def __init__(self, course_id: int, bearer_token: Optional[str] = None, auth_header: Optional[Dict[str, str]] = None):
         """Process images for a course.
 
         :param bearer_token: Optional bearer token string to use for Authorization header. If provided,
@@ -28,7 +25,6 @@ class ProcessContentImages:
         :param auth_header: Optional explicit Authorization header dict to use. Takes highest precedence.
         """
         self.course_id = course_id
-        self.canvas_api: Canvas = canvas_api
         self.max_dimension: int = settings.IMAGE_MAX_DIMENSION
         self.jpeg_quality: int = settings.IMAGE_JPEG_QUALITY
         self.alt_text_processor = AltTextProcessor()
