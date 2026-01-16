@@ -141,9 +141,10 @@ class TestProcessContentImages(TestCase):
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
     def test_process_images_concurrently_converts_none_to_empty_string(self, mock_generate_alt, mock_get_content):
-        """Test that _process_images_concurrently converts None return to empty string."""
+        """Test that _worker_async converts None return to empty string."""
         from PIL import Image
         import io
+        from django.conf import settings
         
         img = Image.new('RGB', (10, 10), color=(255, 0, 0))
         buf = io.BytesIO()
@@ -157,7 +158,7 @@ class TestProcessContentImages(TestCase):
         # Get the image models
         image_models = list(ImageItem.objects.filter(course_id=self.course_id))
         
-        # Call _process_images_concurrently directly
+        # Call _process_images_concurrently which calls _worker_async
         results = proc._process_images_concurrently(image_models)
         
         # Should have one result

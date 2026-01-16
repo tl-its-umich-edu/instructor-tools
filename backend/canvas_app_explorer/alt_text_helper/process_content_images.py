@@ -1,9 +1,7 @@
 import logging
-import base64
 import asyncio
 import io
 from typing import Any, Dict, List, Tuple, Optional
-from datetime import timedelta
 from django.conf import settings
 from asgiref.sync import async_to_sync
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
@@ -130,6 +128,39 @@ class ProcessContentImages:
             logger.error(f"Error fetching image content for image_id {image_id}: {req_err}")
             return req_err
 
+    @async_to_sync
+    @log_execution_time
+    async def _worker_async(self, image_models: List[ImageItem], concurrency: int) -> List[Dict[str, Any]]:
+        """Process images concurrently using semaphore for concurrency control.
+
+        - Fetches image content (async) then generates alt text (in thread)
+        - Limits concurrent in-flight tasks via asyncio.Semaphore
+        - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
+        """
+        sem = asyncio.Semaphore(concurrency)
+
+        async def _process_single_image(img: ImageItem) -> Dict[str, Any]:
+            async with sem:
+                image_id = img.image_id
+                img_url = img.image_url
+                try:
+                    # Fetch image content
+                    contents = await self.get_image_content_async(image_id, img_url)
+                    if isinstance(contents, Exception):
+                        return {'img': img, 'alt_text': contents}
+
+                    # Convert to PIL Image and generate alt text
+                    pil_image = Image.open(io.BytesIO(contents))
+                    alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image)
+                    # Handle None return value by providing empty string fallback
+                    return {'img': img, 'alt_text': alt_text or ''}
+                except Exception as e:
+                    logger.error(f"Processing exception for image {image_id}: {e}")
+                    return {'img': img, 'alt_text': e}
+
+        tasks = [_process_single_image(img) for img in image_models]
+        return await asyncio.gather(*tasks, return_exceptions=False)
+
     def _process_images_concurrently(self, image_models: List[ImageItem]) -> List[Dict[str, Any]]:
         """Process images concurrently: fetch content and generate alt text for each, bounded.
 
@@ -138,34 +169,7 @@ class ProcessContentImages:
         - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
         """
         concurrency = settings.IMAGE_PROCESSING_CONCURRENCY
-
-        async def _worker():
-            sem = asyncio.Semaphore(concurrency)
-
-            async def _process_single_image(img: ImageItem) -> Dict[str, Any]:
-                async with sem:
-                    image_id = img.image_id
-                    img_url = img.image_url
-                    try:
-                        # Fetch image content
-                        contents = await self.get_image_content_async(image_id, img_url)
-                        if isinstance(contents, Exception):
-                            return {'img': img, 'alt_text': contents}
-
-                        # Convert to PIL Image and generate alt text
-                        pil_image = Image.open(io.BytesIO(contents))
-                        alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image)
-                        # Handle None return value by providing empty string fallback
-                        return {'img': img, 'alt_text': alt_text or ''}
-                    except Exception as e:
-                        logger.error(f"Processing exception for image {image_id}: {e}")
-                        return {'img': img, 'alt_text': e}
-
-            tasks = [_process_single_image(img) for img in image_models]
-            return await asyncio.gather(*tasks, return_exceptions=False)
-
-        # Use asyncio.run here because this method is called from synchronous code
-        return asyncio.run(_worker())
+        return self._worker_async(image_models, concurrency)
 
     # https://www.buildwithmatija.com/blog/reduce-image-sizes-ai-processing-costs#the-smart-optimization-strategy
     def get_optimized_images(self, image_content, image_id):
