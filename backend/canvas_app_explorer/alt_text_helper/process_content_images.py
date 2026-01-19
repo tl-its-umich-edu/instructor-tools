@@ -46,7 +46,7 @@ class ProcessContentImages:
         - Bulk-updates ImageItem.image_alt_text for successful ones
         - If any fetch/generation failed, raises ImageContentExtractionException with list of errors
 
-        Returns a dict mapping image_url -> {image_id, image_url, image_alt_text}
+        Returns a dict mapping image_url -> {image_url, image_alt_text}
         """
         try:
             qs = ImageItem.objects.filter(course_id=self.course_id)
@@ -66,27 +66,25 @@ class ProcessContentImages:
                 for res in gen_results:
                     img = res['img']
                     alt_or_exc = res['alt_text']
-                    image_id = img.image_id
                     img_url = img.image_url
 
                     if isinstance(alt_or_exc, Exception):
-                        logger.error(f"Processing failed for image {image_id}: {alt_or_exc}")
+                        logger.error(f"Processing failed for image {img_url}: {alt_or_exc}")
                         errors.append(alt_or_exc)
                         continue
 
                     # Skip if alt_text is None or empty string
                     if not alt_or_exc:
-                        logger.warning(f"No alt text generated for image {image_id}")
+                        logger.warning(f"No alt text generated for image {img_url}")
                         continue
 
                     img.image_alt_text = alt_or_exc
                     to_update.append(img)
                     results[img_url] = {
-                        'image_id': image_id,
                         'image_url': img_url,
                         'image_alt_text': alt_or_exc
                     }
-                    logger.info(f"Generated alt text for image_id={image_id} url={img_url}")
+                    logger.info(f"Generated alt text for image url={img_url}")
 
 
             # Bulk update successful alt texts
@@ -103,15 +101,15 @@ class ProcessContentImages:
             logger.error(f"Error retrieving images for course_id {self.course_id}: {e}")
             raise e
 
-    async def get_image_content_async(self, image_id, img_url):
+    async def get_image_content_async(self, img_url):
         headers = self._auth_header
         if not headers:
-            err = ValueError(f"Auth header missing for image_id {image_id}")
+            err = ValueError(f"Auth header missing for image {img_url}")
             logger.error(err)
             return err
 
         if not img_url:
-            err = ValueError(f"No image URL provided for image_id {image_id}")
+            err = ValueError(f"No image URL provided for image {img_url}")
             logger.error(err)
             return err
 
@@ -120,13 +118,13 @@ class ProcessContentImages:
                 resp = await client.get(img_url, headers=headers)
                 resp.raise_for_status()
                 image_content = resp.content
-                optimized_image_content = self.get_optimized_images(image_content, image_id)
+                optimized_image_content = self.get_optimized_images(image_content, img_url)
                 return optimized_image_content
         except httpx.HTTPStatusError as http_err:
-            logger.error(f"HTTP error fetching image {image_id} from {img_url}: {http_err}")
+            logger.error(f"HTTP error fetching image {img_url}: {http_err}")
             return http_err
         except Exception as req_err:
-            logger.error(f"Error fetching image content for image_id {image_id}: {req_err}")
+            logger.error(f"Error fetching image content for image_id {img_url}: {req_err}")
             return req_err
 
     @async_to_sync
@@ -142,11 +140,10 @@ class ProcessContentImages:
 
         async def _process_single_image(img: ImageItem) -> Dict[str, Any]:
             async with sem:
-                image_id = img.image_id
                 img_url = img.image_url
                 try:
                     # Fetch image content
-                    contents = await self.get_image_content_async(image_id, img_url)
+                    contents = await self.get_image_content_async(img_url)
                     if isinstance(contents, Exception):
                         return {'img': img, 'alt_text': contents}
 
@@ -156,7 +153,7 @@ class ProcessContentImages:
                     # Handle None return value by providing empty string fallback
                     return {'img': img, 'alt_text': alt_text or ''}
                 except Exception as e:
-                    logger.error(f"Processing exception for image {image_id}: {e}")
+                    logger.error(f"Processing exception for image {img_url}: {e}")
                     return {'img': img, 'alt_text': e}
 
         tasks = [_process_single_image(img) for img in image_models]
