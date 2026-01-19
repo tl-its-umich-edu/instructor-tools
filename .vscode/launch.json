@@ -1,22 +1,29 @@
 {
   "version": "0.2.0",
   "configurations": [
-    
-      {
-          "name": "IPT Django",
-          "type": "debugpy",
-          "request": "attach",
-          "pathMappings": [
-              {
-                  "localRoot": "${workspaceFolder}",
-                  "remoteRoot": "/code"
-              }
-          ],
-          "connect": {
-            "port": 5020,
-            "host": "localhost",
-        },
-          "justMyCode": false
-      }
+    {
+      "name": "IPT Django",
+      "type": "debugpy",
+      "request": "attach",
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}",
+          "remoteRoot": "/code"
+        }
+      ],
+      "connect": {
+        "port": 5020,
+        "host": "localhost"
+      },
+      "justMyCode": false
+    },
+    {
+      "name": "Django-Q Debug",
+      "type": "python",
+      "request": "attach",
+      "host": "localhost",
+      "port": 5021,
+      "justMyCode": false
+    }
   ]
 }

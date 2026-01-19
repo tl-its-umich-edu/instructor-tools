@@ -24,7 +24,7 @@ from backend.canvas_app_explorer.canvas_lti_manager.django_factory import Django
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
-from backend.canvas_app_explorer.decorators import log_execution_time
+from backend.canvas_app_explorer.decorators import log_execution_time, debugpy_django_q
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -37,6 +37,7 @@ semaphore = asyncio.Semaphore(10)
 
 
 
+@debugpy_django_q
 @log_execution_time
 def fetch_and_scan_course(task: Dict[str, Any]):
     logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")

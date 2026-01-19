@@ -1,15 +1,11 @@
-import os
 import debugpy
 import logging
+from backend import settings
 
-def config_to_bool(value): 
-    return str(value).lower() in ('true', '1', 'yes', 'on')
 
 def check_and_enable_debugpy():
-    debugpy_enable = config_to_bool(os.getenv('DEBUGPY_ENABLE', False))
-    debugpy_address =  '0.0.0.0'
-    debugpy_port = 5020
+    debugpy_address = '0.0.0.0'
 
-    if debugpy_enable:
-        logging.debug('DEBUGPY: Enabled Listening on ({0}:{1})'.format(debugpy_address, debugpy_port))
-        debugpy.listen((debugpy_address, debugpy_port))
+    if settings.DEBUGPY_ENABLE:
+        logging.debug('DEBUGPY: Enabled Listening on ({0}:{1})'.format(debugpy_address, settings.DEBUGPY_PORT))
+        debugpy.listen((debugpy_address, settings.DEBUGPY_PORT))
