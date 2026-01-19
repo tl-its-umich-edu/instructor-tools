@@ -4,6 +4,7 @@ import base64
 import io
 from typing import Optional
 from django.conf import settings
+from constance import config
 from openai import AzureOpenAI
 from PIL import Image
 from backend.canvas_app_explorer.decorators import log_execution_time
@@ -17,12 +18,12 @@ class AltTextProcessor:
     def __init__(self):
         """Initialize the AltTextProcessor with Azure OpenAI client configuration."""
         self.client = AzureOpenAI(
-            api_key=settings.AZURE_API_KEY,
-            api_version=settings.AZURE_API_VERSION,
-            azure_endpoint=settings.AZURE_API_BASE,
-            organization=settings.AZURE_ORGANIZATION
+            api_key=config.AZURE_API_KEY,
+            api_version=config.AZURE_API_VERSION,
+            azure_endpoint=config.AZURE_API_BASE,
+            organization=config.AZURE_ORGANIZATION
         )
-        self.model = settings.AZURE_MODEL
+        self.model = config.AZURE_MODEL
     
     @log_execution_time
     def generate_alt_text(self, image: Image.Image) -> Optional[str]:
@@ -40,7 +41,7 @@ class AltTextProcessor:
         image.save(img_buffer, format='JPEG')
         imagedata = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
         
-        prompt = settings.AZURE_ALT_TEXT_PROMPT
+        prompt = config.AZURE_ALT_TEXT_PROMPT
         
         messages = [
             {"role": "system", "content": prompt},
@@ -53,7 +54,7 @@ class AltTextProcessor:
         response = self.client.chat.completions.with_raw_response.create(
             model=self.model,
             messages=messages,
-            temperature=settings.AZURE_ALT_TEXT_TEMPERATURE,
+            temperature=config.AZURE_ALT_TEXT_TEMPERATURE,
         )
         
         completion = response.parse()

@@ -3,6 +3,7 @@ import asyncio
 import io
 from typing import Any, Dict, List, Tuple, Optional
 from django.conf import settings
+from constance import config
 from asgiref.sync import async_to_sync
 from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.alt_text_helper.ai_processor import AltTextProcessor
@@ -23,8 +24,8 @@ class ProcessContentImages:
         :param auth_header: Optional explicit Authorization header dict to use. Takes highest precedence.
         """
         self.course_id = course_id
-        self.max_dimension: int = settings.IMAGE_MAX_DIMENSION
-        self.jpeg_quality: int = settings.IMAGE_JPEG_QUALITY
+        self.max_dimension: int = config.IMAGE_MAX_DIMENSION
+        self.jpeg_quality: int = config.IMAGE_JPEG_QUALITY
         self.alt_text_processor = AltTextProcessor()
         # Explicit header or token provided by caller — prefer these over internal discovery
         self._auth_header = auth_header
@@ -168,7 +169,7 @@ class ProcessContentImages:
         - Each task fetches image content (async) then generates alt text (in thread)
         - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
         """
-        concurrency = settings.IMAGE_PROCESSING_CONCURRENCY
+        concurrency = config.IMAGE_PROCESSING_CONCURRENCY
         return self._worker_async(image_models, concurrency)
 
     # https://www.buildwithmatija.com/blog/reduce-image-sizes-ai-processing-costs#the-smart-optimization-strategy

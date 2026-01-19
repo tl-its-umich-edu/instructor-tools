@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 from datetime import timedelta
 from pathlib import Path
 import os
+import sys
 
 from django.core.management.utils import get_random_secret_key
 
@@ -56,6 +57,8 @@ INSTALLED_APPS = [
     'watchman',
     'rest_framework_tracking',
     'django_q',
+    'constance',
+    'constance.backends.database',
 ]
 
 MIDDLEWARE = [
@@ -365,22 +368,56 @@ Q_CLUSTER = {
     'orm': 'default'
 }
 
-#openAI settings
-AZURE_API_KEY = os.getenv('AZURE_API_KEY', '')
-AZURE_API_VERSION = os.getenv('AZURE_API_VERSION', '2025-04-01-preview')
-AZURE_API_BASE = os.getenv('AZURE_API_BASE', 'https://api.umgpt.umich.edu/azure-openai-api')
-AZURE_ORGANIZATION = os.getenv('AZURE_ORGANIZATION', '')
-AZURE_MODEL = os.getenv('AZURE_MODEL', 'gpt-4o')
-AZURE_ALT_TEXT_PROMPT = os.getenv('AZURE_ALT_TEXT_PROMPT', """
-As an AI tool specialized in image recognition, generate concise and descriptive alt text for this image.
+# Constance configuration for dynamic settings
+CONSTANCE_CONFIG = {
+    'AZURE_API_KEY': (
+        os.getenv('AZURE_API_KEY', ''),
+        'Azure OpenAI API Key'
+    ),
+    'AZURE_API_VERSION': (
+        os.getenv('AZURE_API_VERSION', '2025-04-01-preview'),
+        'Azure OpenAI API Version'
+    ),
+    'AZURE_API_BASE': (
+        os.getenv('AZURE_API_BASE', 'https://api.umgpt.umich.edu/azure-openai-api'),
+        'Azure OpenAI API Base URL'
+    ),
+    'AZURE_ORGANIZATION': (
+        os.getenv('AZURE_ORGANIZATION', ''),
+        'Azure Organization ID'
+    ),
+    'AZURE_MODEL': (
+        os.getenv('AZURE_MODEL', 'gpt-4o'),
+        'Azure OpenAI Model Name'
+    ),
+    'AZURE_ALT_TEXT_PROMPT': (
+        os.getenv('AZURE_ALT_TEXT_PROMPT', """As an AI tool specialized in image recognition, generate concise and descriptive alt text for this image.
 The description should be suitable for a student with a
 vision impairment taking a quiz. Do not include phrases
 like 'This is an image of...'. Provide only one concise
-option with no further explanation.
-""".strip())
-AZURE_ALT_TEXT_TEMPERATURE = float(os.getenv('AZURE_ALT_TEXT_TEMPERATURE', 0.0))
+option with no further explanation.""").strip(),
+        'Prompt for generating alt text'
+    ),
+    'AZURE_ALT_TEXT_TEMPERATURE': (
+        float(os.getenv('AZURE_ALT_TEXT_TEMPERATURE', 0.0)),
+        'Temperature for alt text generation: 0 = deterministic/consistent responses, 2 = maximum creativity/randomness'
+    ),
+    'IMAGE_MAX_DIMENSION': (
+        int(os.getenv('IMAGE_MAX_DIMENSION', 512)),
+        'Maximum dimension for image optimization (pixels)'
+    ),
+    'IMAGE_JPEG_QUALITY': (
+        int(os.getenv('IMAGE_JPEG_QUALITY', 85)),
+        'JPEG quality for image optimization (1-100)'
+    ),
+    'IMAGE_PROCESSING_CONCURRENCY': (
+        int(os.getenv('IMAGE_PROCESSING_CONCURRENCY', 4)),
+        'Number of concurrent image processing tasks (note: values over 4 were not tested and may timeout)'
+    ),
+}
 
-# image optimization settings
-IMAGE_MAX_DIMENSION = int(os.getenv('IMAGE_MAX_DIMENSION', 512))
-IMAGE_JPEG_QUALITY = int(os.getenv('IMAGE_JPEG_QUALITY', 85))
-IMAGE_PROCESSING_CONCURRENCY = int(os.getenv('IMAGE_PROCESSING_CONCURRENCY', 4))
+# Use in-memory backend for constance during tests to avoid database migration issues
+if 'test' in sys.argv:
+    CONSTANCE_BACKEND = 'constance.backends.memory.MemoryBackend'
+else:
+    CONSTANCE_BACKEND = 'constance.backends.database.DatabaseBackend'
