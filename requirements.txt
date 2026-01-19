@@ -5,7 +5,7 @@ mysqlclient==2.2.7
 # Django and related
 Django==4.2.27
 django-csp==3.8 # For Content Security Policy
-django-constance==4.1.0 # Dynamic settings in admin UI
+django-constance==4.3.4 # Dynamic settings in admin UI
 django-db-file-storage==0.5.6.1 # Support for storage in the database
 django-mysql==4.19.0
 django-redis==5.4.0
