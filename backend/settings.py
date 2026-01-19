@@ -347,8 +347,6 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
-HELP_URL = os.getenv('HELP_URL', '')
-
 TEST_API_KEY = os.getenv('TEST_API_KEY', '')
 TEST_API_URL = os.getenv('TEST_API_URL', '')
 TEST_COURSE_ID = os.getenv('TEST_COURSE_ID', 1)
@@ -413,6 +411,10 @@ option with no further explanation.""").strip(),
     'IMAGE_PROCESSING_CONCURRENCY': (
         int(os.getenv('IMAGE_PROCESSING_CONCURRENCY', 4)),
         'Number of concurrent image processing tasks (note: values over 4 were not tested and may timeout)'
+    ),
+    'HELP_URL': (
+        os.getenv('HELP_URL', ''),
+        'URL for external help resource'
     ),
 }
 
