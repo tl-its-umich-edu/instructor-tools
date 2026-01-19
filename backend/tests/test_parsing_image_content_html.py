@@ -187,7 +187,6 @@ class TestParsingImageContentHTML(TestCase):
             # Create a dummy course object and a dummy canvas_api (non-None) to exercise the canvas_api path
             from canvasapi.course import Course
             dummy_course = Course(None, {'id': 403334})
-            dummy_canvas_api = object()
 
             # 1. Call get_courses_images to get raw results
             # Note: get_courses_images is already wrapped with @async_to_sync, so call it directly
@@ -195,7 +194,7 @@ class TestParsingImageContentHTML(TestCase):
 
             # 2. Call unpack_and_store_content_images which does the filtering and calls save_scan_results
             from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import unpack_and_store_content_images
-            unpack_and_store_content_images(raw_results, dummy_course, dummy_canvas_api)
+            unpack_and_store_content_images(raw_results, dummy_course)
 
             # 3. Assert that save_scan_results was called once and verify it received the filtered results
             mock_save.assert_called_once()

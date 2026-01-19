@@ -46,3 +46,5 @@ blessed==1.26.0
 # httpx should be pulled in by openai, but adding explicitly to avoid issues
 # If the version goes above 1.0 will need to verify compatibility with openai package
 httpx>=0.28.1,<1.0
+
+watchfiles==1.1.1

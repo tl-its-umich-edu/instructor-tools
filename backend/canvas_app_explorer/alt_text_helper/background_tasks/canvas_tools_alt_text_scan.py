@@ -50,15 +50,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     user_id = task.get('user_id')
     req_user: User = get_user_model().objects.get(pk=user_id)
     canvas_callback_url = task.get('canvas_callback_url')
-    # Create a request factory and build the request since this is a background task request won't have a user session
-    factory = RequestFactory()
-    request: Request = factory.get('/oauth/oauth-callback')
-    request.user = req_user
-    request.build_absolute_uri = lambda path: canvas_callback_url
-    session = SessionStore()
-    session['course_id'] = course_id
-    session.save()
-    request.session = session
+    request = _create_background_request(req_user, canvas_callback_url, course_id)
     try:
         manager = MANAGER_FACTORY.create_manager(request)
         canvas_api: Canvas = manager.canvas_api
@@ -73,23 +65,37 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
     results = get_courses_images(course)
-    unpack_and_store_content_images(results, course, canvas_api)
+    unpack_and_store_content_images(results, course)
     
-    try:
-        retrieve_and_store_alt_text(course, bearer_token=bearer_token)
-    except ImageContentExtractionException as e:
-        logger.error(
-            f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}",
-            exc_info=True
-        )
-        update_course_scan(course_id, CourseScanStatus.FAILED.value)
-        return
+    # try:
+    #     retrieve_and_store_alt_text(course, bearer_token=bearer_token)
+    # except ImageContentExtractionException as e:
+    #     logger.error(
+    #         f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}",
+    #         exc_info=True
+    #     )
+    #     update_course_scan(course_id, CourseScanStatus.FAILED.value)
+    #     return
 
     # Update that the course scan is completed
     update_course_scan(course_id, CourseScanStatus.COMPLETED.value)
 
 
     
+
+def _create_background_request(req_user: User, canvas_callback_url: str, course_id: int) -> Request:
+    logger.info(f"Creating background request - User: {req_user}, Course ID: {course_id}, Callback URL: {canvas_callback_url}")
+    # Create a request factory and build the request since this is a background task request won't have a user session
+    factory = RequestFactory()
+    request: Request = factory.get('/oauth/oauth-callback')
+    request.user = req_user
+    request.build_absolute_uri = lambda path: canvas_callback_url
+    session = SessionStore()
+    session['course_id'] = course_id
+    session.save()
+    request.session = session
+    return request
+
 @async_to_sync
 async def get_courses_images(course: Course):
     results = await asyncio.gather(
@@ -117,7 +123,7 @@ def retrieve_and_store_alt_text(course: Course, bearer_token: Optional[str] = No
     images_with_alt_text = process_content_images.retrieve_images_with_alt_text()
     return images_with_alt_text
 
-def unpack_and_store_content_images(results, course: Course, canvas_api: Canvas):
+def unpack_and_store_content_images(results, course: Course):
      # unpack results (assignments, pages) and handle exceptions returned by gather. gather maintain call order
     assignments, pages, quizzes = results
 
@@ -189,6 +195,7 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
             
             # 2. Create ContentItem and ImageItem
             for item in items:
+                logger.info(f"Creating ContentItem content_type {item.get('type')}, content_id {item.get('id')}, content_name {item.get('name')}")
                 content_item = ContentItem.objects.create(
                     course_id=course_id,
                     content_type=item.get('type'),
@@ -198,12 +205,11 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
                 )
                 
                 for img in item['images']:
+                    logger.info(f"Creating ImageItem content_item_id {content_item.id}, image_url {img}")
                     ImageItem.objects.create(
                         course_id=course_id,
                         content_item=content_item,
-                        image_id=img.get('image_id'),
-                        image_url=img.get('download_url'),
-                        image_alt_text=img.get('alt_text')
+                        image_url=img
                     )
 
     except (DatabaseError, Exception) as e:
@@ -350,14 +356,14 @@ def get_quiz_questions_sync(quiz: Quiz):
         logger.error(f"Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
         raise e
 
-def _parse_canvas_file_src(img_src: str) -> Tuple[Optional[str], Optional[str]]:
+def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
     """
     Parse Canvas file preview URL like:
     https://canvas-test.it.umich.edu/courses/403334/files/42932047/preview?verifier=...
-    Return (file_id, download_url) or (None, None) if not parseable.
+    Return download_url or None if not parseable.
     """
     if not img_src:
-        return None, None
+        return None
     try:
         parsed = urlparse(img_src)
         # Path segments: ['', 'courses', '403334', 'files', '42932047', 'preview']
@@ -386,12 +392,13 @@ def _parse_canvas_file_src(img_src: str) -> Tuple[Optional[str], Optional[str]]:
 
         download_path = f"/files/{file_id}/download"
         download_url = f"{parsed.scheme}://{parsed.netloc}{download_path}?{urlencode(flat_qs)}"
-        return file_id, download_url
+        logger.info(f"Parsed img src URL '{img_src}' to download URL: '{download_url}'")
+        return download_url
     except Exception as e:
         logger.error(f"Error parsing img src URL '{img_src}': {e}")
         raise e
 
-def extract_images_from_html(html_content: str) -> List[Dict[str, Any]]:
+def extract_images_from_html(html_content: str) -> List[str]:
     if not html_content:
         return []
     soup = BeautifulSoup(html_content, "html.parser")
@@ -411,21 +418,23 @@ def extract_images_from_html(html_content: str) -> List[Dict[str, Any]]:
             continue
 
         if img_src:
-            file_id, download_url = _parse_canvas_file_src(img_src)
+            download_url = _parse_canvas_file_src(img_src)
 
-            images_found.append({
-                "image_id": file_id,
-                "download_url": download_url
-            })
+            # images_found.append({
+            #     "download_url": download_url
+            # })
+            images_found.append(download_url)
+
+    
     logger.info(images_found)
     return images_found
 
 # Helper function to append image items if images exist
 def append_image_items(
-        images_list: List[Dict[str, Any]],
+        images_list: List[str],
         content_id: int,
         content_name: str,
-        images: List[Dict[str, Any]],
+        images: List[str],
         content_type: str,
         content_parent_id: Optional[int]) -> List[Dict[str, Any]]:
 

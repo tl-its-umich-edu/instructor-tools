@@ -9,4 +9,4 @@ done
 
 echo "qworker: Running"
 rm /tmp/backend_ready
-python manage.py qcluster
+watchfiles --filter python 'python manage.py qcluster' /code/backend

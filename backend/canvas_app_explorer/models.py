@@ -141,7 +141,6 @@ class ImageItem(models.Model):
         db_column='content_id',
         related_name='images',
     )
-    image_id = models.BigIntegerField(null=True, blank=True)
     image_url = models.URLField(max_length=2048)
     # optional alt text produced by AI or provided by user; limit to ~2000 characters
     image_alt_text = models.TextField(blank=True, null=True, validators=[MaxLengthValidator(2000)])
@@ -150,4 +149,4 @@ class ImageItem(models.Model):
         db_table = 'canvas_app_explorer_image_item'
 
     def __str__(self):
-        return f"ImageItem(id={self.id}, course_id={self.course_id}, content_item_id={self.content_item_id}, image_id={self.image_id})"
+        return f"ImageItem(id={self.id}, course_id={self.course_id}, content_item_id={self.content_item_id})"
