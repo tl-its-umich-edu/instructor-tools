@@ -17,38 +17,35 @@ class TestGetContentImagesView(TestCase):
         # create course scan and content items with images
         cs = CourseScan.objects.create(course_id=2222)
         assignment = ContentItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
             content_id=10,
             content_name='A1',
             content_parent_id=None,
         )
-        ImageItem.objects.create(
-            course_id=cs.course_id,
+        img_explicit = ImageItem.objects.create(
+            course=cs,
             content_item=assignment,
-            image_id=100,
             image_url='https://example.com/a1.png'
         )
-        # image with missing canvas image_id (synthesize from content_id and DB id)
+        # image for comparison
         img_without_id = ImageItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_item=assignment,
-            image_id=None,
             image_url='https://example.com/a1b.png'
         )
 
         # another content item (different type) should not be returned
         page = ContentItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_type=ContentItem.CONTENT_TYPE_PAGE,
             content_id=20,
             content_name='P1',
             content_parent_id=None,
         )
         ImageItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_item=page,
-            image_id=200,
             image_url='https://example.com/p1.png'
         )
 
@@ -72,13 +69,12 @@ class TestGetContentImagesView(TestCase):
         self.assertEqual(item['content_type'], ContentItem.CONTENT_TYPE_ASSIGNMENT)
         self.assertEqual(len(item['images']), 2)
 
-        # find the image with an explicit canvas image_id
-        img_explicit = next(img for img in item['images'] if img['image_url'] == 'https://example.com/a1.png')
-        self.assertEqual(img_explicit['image_id'], 100)
-        self.assertIsNone(img_explicit['image_alt_text'])
+        # find the image we created first
+        img_explicit_resp = next(img for img in item['images'] if img['image_url'] == 'https://example.com/a1.png')
+        self.assertEqual(img_explicit_resp['image_id'], img_explicit.id)
+        self.assertIsNone(img_explicit_resp['image_alt_text'])
 
-        # find the image that had no canvas image_id and verify the synthesized id
-        img_missing = next(img for img in item['images'] if img['image_url'] == 'https://example.com/a1b.png')
-        expected_synth = f"{assignment.content_id}-{img_without_id.pk}"
-        self.assertEqual(img_missing['image_id'], expected_synth)
-        self.assertIsNone(img_missing['image_alt_text'])
+        # find the other image we created
+        img_missing_resp = next(img for img in item['images'] if img['image_url'] == 'https://example.com/a1b.png')
+        self.assertEqual(img_missing_resp['image_id'], img_without_id.id)
+        self.assertIsNone(img_missing_resp['image_alt_text'])

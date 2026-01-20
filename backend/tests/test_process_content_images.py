@@ -16,9 +16,9 @@ class TestProcessContentImages(TestCase):
     def setUp(self):
         # create a CourseScan and related content/image items
         self.course_id = 123456
-        CourseScan.objects.create(course_id=self.course_id)
-        ContentItem.objects.create(course_id=self.course_id, content_type='page', content_id=1, content_name='Page 1')
-        ImageItem.objects.create(course_id=self.course_id, content_item_id=1, image_id=111, image_url='http://example.com/img.jpg')
+        course_scan = CourseScan.objects.create(course_id=self.course_id)
+        content_item = ContentItem.objects.create(course=course_scan, content_type='page', content_id=1, content_name='Page 1')
+        self.image_item = ImageItem.objects.create(course=course_scan, content_item=content_item, image_url='http://example.com/img.jpg')
 
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
@@ -41,7 +41,7 @@ class TestProcessContentImages(TestCase):
         self.assertEqual(results['http://example.com/img.jpg']['image_alt_text'], self.EXPECTED_ALT_TEXT)
 
         # DB record should be updated
-        img = ImageItem.objects.get(course_id=self.course_id, image_id=111)
+        img = ImageItem.objects.get(id=self.image_item.id)
         self.assertEqual(img.image_alt_text, 'A descriptive alt text')
 
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
@@ -56,7 +56,7 @@ class TestProcessContentImages(TestCase):
         self.assertTrue(len(ctx.exception.errors) >= 1)
 
         # image alt text should still be blank/None
-        img = ImageItem.objects.get(course_id=self.course_id, image_id=111)
+        img = ImageItem.objects.get(id=self.image_item.id)
         self.assertTrue(img.image_alt_text in (None, ''))
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.ProcessContentImages')
@@ -94,7 +94,7 @@ class TestProcessContentImages(TestCase):
         mock_manager.canvas_api = mock_canvas_api
         
         mock_get_images.return_value = ([], [], [])
-        mock_unpack.return_value = None
+        mock_unpack.return_value = True
         
         # Make retrieve_and_store_alt_text raise ImageContentExtractionException
         mock_retrieve_alt.side_effect = ImageContentExtractionException(
@@ -135,7 +135,7 @@ class TestProcessContentImages(TestCase):
         self.assertEqual(results, {})
 
         # DB record should NOT be updated (should still be None)
-        img_record = ImageItem.objects.get(course_id=self.course_id, image_id=111)
+        img_record = ImageItem.objects.get(id=self.image_item.id)
         self.assertIsNone(img_record.image_alt_text)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
@@ -163,7 +163,7 @@ class TestProcessContentImages(TestCase):
         
         # Should have one result
         self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]['img'].image_id, 111)
+        self.assertEqual(results[0]['img'].id, self.image_item.id)
         # alt_text should be empty string, not None
         self.assertEqual(results[0]['alt_text'], '')
 
@@ -175,8 +175,8 @@ class TestProcessContentImages(TestCase):
         import io
         
         # Add another image
-        ImageItem.objects.create(
-            course_id=self.course_id, content_item_id=1, image_id=222, image_url='http://example.com/img2.jpg'
+        image_item_2 = ImageItem.objects.create(
+            course=self.image_item.course, content_item=self.image_item.content_item, image_url='http://example.com/img2.jpg'
         )
         
         img = Image.new('RGB', (10, 10), color=(255, 0, 0))
@@ -197,9 +197,9 @@ class TestProcessContentImages(TestCase):
         self.assertEqual(results['http://example.com/img.jpg']['image_alt_text'], 'First image alt text')
 
         # First image should be updated
-        img1 = ImageItem.objects.get(image_id=111)
+        img1 = ImageItem.objects.get(id=self.image_item.id)
         self.assertEqual(img1.image_alt_text, 'First image alt text')
         
         # Second image should NOT be updated (remain None)
-        img2 = ImageItem.objects.get(image_id=222)
+        img2 = ImageItem.objects.get(id=image_item_2.id)
         self.assertIsNone(img2.image_alt_text)

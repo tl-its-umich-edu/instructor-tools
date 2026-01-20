@@ -16,30 +16,28 @@ class TestGetContentImagesQuiz(TestCase):
     def test_quiz_type_includes_quiz_questions(self):
         cs = CourseScan.objects.create(course_id=3333)
         quiz = ContentItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ,
             content_id=1000,
             content_name='Quiz1',
             content_parent_id=None,
         )
         ImageItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_item=quiz,
-            image_id=1000,
             image_url='https://example.com/quiz.png'
         )
 
         quiz_question = ContentItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ_QUESTION,
             content_id=1001,
             content_name='Q1',
             content_parent_id=quiz.content_id,
         )
         ImageItem.objects.create(
-            course_id=cs.course_id,
+            course=cs,
             content_item=quiz_question,
-            image_id=1001,
             image_url='https://example.com/q1.png'
         )
 

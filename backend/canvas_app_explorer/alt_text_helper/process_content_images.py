@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import io
+from urllib.parse import urlparse
 from typing import Any, Dict, List, Tuple, Optional
 from django.conf import settings
 from constance import config
@@ -102,16 +103,21 @@ class ProcessContentImages:
             raise e
 
     async def get_image_content_async(self, img_url):
-        headers = self._auth_header
-        if not headers:
-            err = ValueError(f"Auth header missing for image {img_url}")
-            logger.error(err)
-            return err
-
         if not img_url:
             err = ValueError(f"No image URL provided for image {img_url}")
             logger.error(err)
             return err
+
+        # Determine if we need auth headers based on domain
+        domain = urlparse(img_url).netloc
+        if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain:
+            headers = self._auth_header
+            if not headers:
+                err = ValueError(f"Auth header missing for image {img_url}")
+                logger.error(err)
+                return err
+        else:
+            headers = {}
 
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:

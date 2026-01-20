@@ -152,13 +152,10 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
             for content_item in items_qs:
                 images = []
                 for img in content_item.images.all():
-                    # If canvas-provided image_id is missing, synthesize a stable id by combining
-                    # the content item's canvas id and the DB row id (e.g. "<content_id>-<image_pk>")
-                    image_id_val = img.image_id if img.image_id is not None else f"{content_item.content_id}-{img.id}"
                     image_url = img.image_url
                     images.append({
                         'image_url': image_url,
-                        'image_id': image_id_val,
+                        'image_id': img.id,
                         'image_alt_text': img.image_alt_text,
                     })
 

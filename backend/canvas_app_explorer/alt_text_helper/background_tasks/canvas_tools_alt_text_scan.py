@@ -2,7 +2,7 @@ import asyncio
 import logging
 from django.db import transaction
 from urllib.parse import urlparse, parse_qs, urlencode
-from typing import List, Dict, Any, Optional, Tuple, TypeVar, Callable, Union
+from typing import List, Dict, Any, Optional, TypeVar, Callable, Union
 from asgiref.sync import async_to_sync
 from django.test import RequestFactory
 from django.contrib.auth.models import User
@@ -51,6 +51,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     req_user: User = get_user_model().objects.get(pk=user_id)
     canvas_callback_url = task.get('canvas_callback_url')
     request = _create_background_request(req_user, canvas_callback_url, course_id)
+    
     try:
         manager = MANAGER_FACTORY.create_manager(request)
         canvas_api: Canvas = manager.canvas_api
@@ -65,7 +66,12 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
     results = get_courses_images(course)
-    unpack_and_store_content_images(results, course)
+    state_of_content_fetch: bool = unpack_and_store_content_images(results, course)
+
+    # this check is helping not to move to alt text retrieval if there was an error in fetching content images
+    if not state_of_content_fetch:
+        logger.error(f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.")
+        return
     
     try:
         retrieve_and_store_alt_text(course, bearer_token=bearer_token)
@@ -123,7 +129,7 @@ def retrieve_and_store_alt_text(course: Course, bearer_token: Optional[str] = No
     images_with_alt_text = process_content_images.retrieve_images_with_alt_text()
     return images_with_alt_text
 
-def unpack_and_store_content_images(results, course: Course):
+def unpack_and_store_content_images(results, course: Course) -> bool:
      # unpack results (assignments, pages) and handle exceptions returned by gather. gather maintain call order
     assignments, pages, quizzes = results
 
@@ -141,7 +147,7 @@ def unpack_and_store_content_images(results, course: Course):
 
     if error_when_fetching_images:
         update_course_scan(course.id, CourseScanStatus.FAILED.value)
-        return
+        return False
     
     combined = assignments + pages + quizzes
     logger.debug("Combined items count: %s", combined)
@@ -156,6 +162,7 @@ def unpack_and_store_content_images(results, course: Course):
 
     # DB call to persist initial ContentItem and ImageItem records
     save_scan_results(course.id, filtered_content_with_images)
+    return True
 
 def update_course_scan(course_id, status) -> None:
     """
@@ -195,7 +202,6 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
             
             # 2. Create ContentItem and ImageItem
             for item in items:
-                logger.info(f"Creating ContentItem content_type {item.get('type')}, content_id {item.get('id')}, content_name {item.get('name')}")
                 content_item = ContentItem.objects.create(
                     course_id=course_id,
                     content_type=item.get('type'),
@@ -205,7 +211,6 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
                 )
                 
                 for img in item['images']:
-                    logger.info(f"Creating ImageItem content_item_id {content_item.id}, image_url {img}")
                     ImageItem.objects.create(
                         course_id=course_id,
                         content_item=content_item,
@@ -218,10 +223,10 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
   
 async def fetch_content_items_async(fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
     """
-    Generic async wrapper that runs the synchronous `fn(course|quiz)` in a thread and
-    returns a list (or empty list on error). `fn` should be a callable like
-    `get_assignments`, `get_pages`,  `get_quizzes`, `get_quiz_questions` that 
-    accepts a Course\Quiz  and returns a list.
+   Generic async wrapper that runs the synchronous `fn(course|quiz)` in a thread and
+   returns a list (or empty list on error). `fn` should be a callable like
+   `get_assignments`, `get_pages`,  `get_quizzes`, `get_quiz_questions` that 
+   accepts a Course or Quiz and returns a list.
     """
     try:
         return await asyncio.to_thread(fn, ctx)
@@ -392,7 +397,6 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
 
         download_path = f"/files/{file_id}/download"
         download_url = f"{parsed.scheme}://{parsed.netloc}{download_path}?{urlencode(flat_qs)}"
-        logger.info(f"Parsed img src URL '{img_src}' to download URL: '{download_url}'")
         return download_url
     except Exception as e:
         logger.error(f"Error parsing img src URL '{img_src}': {e}")
@@ -417,14 +421,12 @@ def extract_images_from_html(html_content: str) -> List[str]:
         if img_alt and not img_alt.lower().endswith(image_extensions):
             continue
 
-        if img_src:
+        domain = urlparse(img_src).netloc
+        if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain:
             download_url = _parse_canvas_file_src(img_src)
-
-            # images_found.append({
-            #     "download_url": download_url
-            # })
-            images_found.append(download_url)
-
+        else:
+            download_url = img_src
+        images_found.append(download_url)
     
     logger.info(images_found)
     return images_found

@@ -9,9 +9,10 @@ class DummyProcessImages(ProcessContentImages):
         # don't need canvas_api parameter anymore
         super().__init__(course_id=course_id)
 
-    async def get_image_content_async(self, image_id, img_url):
+    async def get_image_content_async(self, img_url):
         # Mock the async fetch for testing
-        if image_id == 1:
+        # Fail on the first image, succeed on the second
+        if img_url == 'https://example.com/1':
             return Exception('fetch failed')
         from PIL import Image
         import io
@@ -27,13 +28,14 @@ class TestGetContentImages(TestCase):
         self.course_scan = CourseScan.objects.create(course_id=1)
         self.content_item = ContentItem.objects.create(course=self.course_scan, content_type='page', content_id=10, content_name='C')
 
-        ImageItem.objects.create(course=self.course_scan, content_item=self.content_item, image_id=1, image_url='https://example.com/1')
-        ImageItem.objects.create(course=self.course_scan, content_item=self.content_item, image_id=2, image_url='https://example.com/2')
+        self.image_item_1 = ImageItem.objects.create(course=self.course_scan, content_item=self.content_item, image_url='https://example.com/1')
+        self.image_item_2 = ImageItem.objects.create(course=self.course_scan, content_item=self.content_item, image_url='https://example.com/2')
 
     def test_retrieve_images_updates_successful_and_raises_on_errors(self):
         proc = DummyProcessImages(course_id=1)
         # stub alt_text_generator to deterministic value
-        proc.alt_text_processor.generate_alt_text = lambda b64: 'GENERATED'
+        # The generate_alt_text receives a PIL Image object, not bytes
+        proc.alt_text_processor.generate_alt_text = lambda img: 'GENERATED'
 
         with self.assertRaises(ImageContentExtractionException) as cm:
             proc.retrieve_images_with_alt_text()
@@ -47,5 +49,5 @@ class TestGetContentImages(TestCase):
         self.assertEqual(len(exc.errors), 1)
 
         # the second ImageItem should be updated with the generated alt text
-        img2 = ImageItem.objects.get(image_id=2)
+        img2 = ImageItem.objects.get(id=self.image_item_2.id)
         self.assertEqual(img2.image_alt_text, 'GENERATED')
