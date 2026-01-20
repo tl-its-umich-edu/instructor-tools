@@ -65,15 +65,29 @@ def debugpy_django_q(func: Callable) -> Callable:
             try:
                 import debugpy
                 
-                logger.info(f"Enabling debugpy for task '{func.__name__}' on port {settings.DEBUG_DJANGO_Q_PORT}")
+                # Try to find an available port starting from the configured port
+                port = settings.DEBUG_DJANGO_Q_PORT
+                max_attempts = 10
                 
-                # Listen for debugger connection
-                debugpy.listen(('0.0.0.0', settings.DEBUG_DJANGO_Q_PORT))
-                logger.info(f"debugpy listening on port {settings.DEBUG_DJANGO_Q_PORT}, waiting up to {settings.DEBUGPY_DJANGO_Q_TIMEOUT}s for debugger to attach...")
-                
-                # Wait for debugger to attach with timeout
-                debugpy.wait_for_client(timeout=settings.DEBUGPY_DJANGO_Q_TIMEOUT)
-                logger.info("Debugger attached, continuing task execution")
+                for attempt in range(max_attempts):
+                    try:
+                        logger.info(f"Enabling debugpy for task '{func.__name__}' on port {port}")
+                        
+                        # Listen for debugger connection
+                        debugpy.listen(('0.0.0.0', port))
+                        logger.info(f"debugpy listening on port {port}, waiting up to {settings.DEBUGPY_DJANGO_Q_TIMEOUT}s for debugger to attach...")
+                        
+                        # Wait for debugger to attach with timeout
+                        debugpy.wait_for_client(timeout=settings.DEBUGPY_DJANGO_Q_TIMEOUT)
+                        logger.info("Debugger attached, continuing task execution")
+                        break
+                    except OSError as port_error:
+                        if attempt < max_attempts - 1:
+                            logger.debug(f"Port {port} in use, trying port {port + 1}")
+                            port += 1
+                        else:
+                            logger.warning(f"Could not find available port after {max_attempts} attempts")
+                            raise port_error
                 
             except ImportError:
                 logger.warning("debugpy not installed, skipping debug mode for django_q task")
