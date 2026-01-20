@@ -58,7 +58,6 @@ INSTALLED_APPS = [
     'rest_framework_tracking',
     'django_q',
     'constance',
-    'constance.backends.database',
 ]
 
 MIDDLEWARE = [
