@@ -412,7 +412,7 @@ option with no further explanation.""").strip(),
         'Number of concurrent image processing tasks (note: values over 4 were not tested and may timeout)'
     ),
     'HELP_URL': (
-        os.getenv('HELP_URL', ''),
+        os.getenv('HELP_URL', 'https://github.com/tl-its-umich-edu/canvas-app-explorer'),
         'URL for external help resource'
     ),
 }
