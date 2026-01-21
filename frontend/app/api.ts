@@ -147,7 +147,7 @@ async function getContentImages(contentType: 'assignment' | 'page' | 'quiz'): Pr
 async function updateAltTextSubmitReview(data: ContentReviewRequest[]): Promise<void> {
   const url = `${API_BASE}/alt-text/review`;
   const requestInit: RequestInit = {
-    method: 'POST',
+    method: 'PUT',
     body: JSON.stringify(data),
     headers: {
       ...BASE_MUTATION_HEADERS,
@@ -155,10 +155,10 @@ async function updateAltTextSubmitReview(data: ContentReviewRequest[]): Promise<
     }
   };
   const res = await fetch(url, requestInit);
-  // if (!res.ok) {
-  //   console.error(res);
-  //   throw new Error(await createErrorMessage(res));
-  // }
+  if (!res.ok) {
+    console.error(res);
+    throw new Error(await createErrorMessage(res));
+  }
   return;
 }
 
