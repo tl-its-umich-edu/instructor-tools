@@ -13,13 +13,23 @@ from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseSc
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
-from backend.canvas_app_explorer.serializers import ContentQuerySerializer
+from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer
 
 logger = logging.getLogger(__name__)
 
 MANAGER_FACTORY = DjangoCourseLtiManagerFactory(f'https://{settings.CANVAS_OAUTH_CANVAS_DOMAIN}')
 
-class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
+class CourseIdRequiredMixin:
+    def _require_course_id(self, request: Request):
+        """Return a tuple (course_id, None) or (None, Response) when missing privileges."""
+        course_id = request.session.get('course_id')
+        if course_id is None:
+            message = "you don't have access for this course"
+            logger.error(message)
+            return None, Response(status=HTTPStatus.BAD_REQUEST, data={"status_code": HTTPStatus.BAD_REQUEST, "message": message})
+        return course_id, None
+
+class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -57,15 +67,6 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
             message = f"Failed to initiate course scan due to {e}"
             logger.error(message)
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})
-    
-    def _require_course_id(self, request: Request):
-        """Return a tuple (course_id, None) or (None, Response) when missing privileges."""
-        course_id = request.session.get('course_id')
-        if course_id is None:
-            message = "you don't have access for this course"
-            logger.error(message)
-            return None, Response(status=HTTPStatus.BAD_REQUEST, data={"status_code": HTTPStatus.BAD_REQUEST, "message": message})
-        return course_id, None
     
     def get_last_scan(self, request: Request) -> Response:
         course_id, error_resp = self._require_course_id(request)
@@ -117,7 +118,7 @@ class AltTextScanViewSet(LoggingMixin,viewsets.ViewSet):
             logger.error(f"Problem appending course content to scan for course id f{course_id}")
             raise e
 
-class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
+class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -127,7 +128,9 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
         ]
     )
     def get_content_images(self, request: Request) -> Response:
-        course_id = request.session.get('course_id')
+        course_id, error_resp = self._require_course_id(request)
+        if error_resp:
+            return error_resp
         # Support both DRF Request (has .query_params) and Django WSGIRequest (has .GET)
         params = getattr(request, 'query_params', request.GET)
         serializer = ContentQuerySerializer(data=params)
@@ -172,3 +175,16 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin,viewsets.ViewSet):
         except (DatabaseError, Exception) as e:
             logger.error(f"Failed to fetch content images from DB for course {course_id} and content_type {content_type}: {e}")
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": str(e)})
+
+    def alt_text_update(self, request: Request) -> Response:
+        course_id, error_resp = self._require_course_id(request)
+        if error_resp:
+            return error_resp
+        
+        serializer = ReviewContentItemSerializer(data=request.data, many=True)
+        if not serializer.is_valid():
+             return Response(status=HTTPStatus.BAD_REQUEST, data={"message": serializer.errors})
+        
+        return Response(status=HTTPStatus.OK)
+
+

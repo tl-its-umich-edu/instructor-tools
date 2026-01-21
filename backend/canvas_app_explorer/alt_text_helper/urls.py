@@ -15,4 +15,10 @@ urlpatterns = [
             'get': 'get_content_images'}),
         name='alt_text_get_content_images'
     ),
+    path(
+        'review',
+        views.AltTextContentGetAndUpdateViewSet.as_view({
+            'put': 'alt_text_update'}),
+        name='alt_text_update'
+    ),
 ]

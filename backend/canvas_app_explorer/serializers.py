@@ -88,3 +88,13 @@ class ContentQuerySerializer(serializers.Serializer):
     content_type = serializers.ChoiceField(
         choices=ContentItem.CONTENT_TYPE_CHOICES
     )
+
+class ReviewImageItemSerializer(serializers.Serializer):
+    image_id = serializers.IntegerField(required=True)
+    action = serializers.ChoiceField(choices=['approve', 'skip'], required=True)
+    approved_alt_text = serializers.CharField(allow_blank=True, required=False)
+
+class ReviewContentItemSerializer(serializers.Serializer):
+    content_id = serializers.IntegerField(required=False)
+    content_type = serializers.ChoiceField(choices=ContentItem.CONTENT_TYPE_CHOICES, required=False)
+    images = ReviewImageItemSerializer(many=True)
