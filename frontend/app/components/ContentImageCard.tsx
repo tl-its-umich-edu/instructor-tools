@@ -1,39 +1,150 @@
-import React from 'react';
-import { Card, CardMedia, CardContent, TextField, Box } from '@mui/material';
-import type { ContentImage } from '../interfaces';
+import React, { useState, useEffect } from 'react';
+import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip } from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import type { ActionType, ContentImageEnriched } from '../interfaces';
 
-interface Props {
-  image: ContentImage;
-  width?: number | string; // e.g. 320 or '100%'
-  altText?: string | null;
-  onAltTextChange?: (newText: string) => void;
+const StyledCard = styled(Card)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%',
+  borderRadius: theme.spacing(1.5),
+  border: '2px solid',
+  borderColor: theme.palette.divider,
+}));
+
+const ActionButton = styled(Button)<{ selected?: boolean }>(({ theme, selected }) => ({
+  flex: 1,
+  minWidth: 0,
+  padding: theme.spacing(1, 1.5),
+  fontSize: '0.875rem',
+  fontWeight: 500,
+  textTransform: 'none',
+  borderRadius: theme.spacing(0.75),
+  border: '1px solid',
+  borderColor: selected ? theme.palette.primary.main : theme.palette.divider,
+  backgroundColor: selected ? theme.palette.primary.main : 'transparent',
+  color: selected ? theme.palette.primary.contrastText : theme.palette.text.primary,
+  '&:hover': {
+    borderColor: theme.palette.primary.main,
+    backgroundColor: selected ? theme.palette.primary.dark : theme.palette.action.hover,
+  },
+}));
+
+const StatusChip = styled(Chip)(() => ({
+  alignSelf: 'flex-start',
+  fontWeight: 500,
+  fontSize: '0.75rem',
+}));
+
+const CardHeader = styled(Box)(({ theme }) => ({
+  padding: theme.spacing(2),
+  paddingBottom: theme.spacing(1),
+  borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+interface ContentImageCardProps {
+  contentImage: ContentImageEnriched;
+  action: ActionType;
+  altText: string;
+  onActionChange: (action: ActionType) => void;
+  onAltTextChange: (newText: string) => void;
 }
 
-export default function ContentImageCard({ image, width = 320, altText, onAltTextChange }: Props) {
-  const displayAlt = altText !== undefined ? altText ?? '' : image.image_alt_text ?? '';
+export default function ContentImageCard({ 
+  contentImage,
+  action = 'unreviewed',
+  altText,
+  onActionChange,
+  onAltTextChange 
+}: ContentImageCardProps) {
+  const [localAltText, setLocalAltText] = useState<string>(altText ?? '');
+
+  // Sync local state with prop when it changes
+  useEffect(() => {
+    if (altText !== undefined && altText !== null) {
+      setLocalAltText(altText);
+    }
+  }, [altText]);
+
+  const handleActionChange = (newAction: ActionType) => {
+    if (onActionChange) {
+      onActionChange(newAction);
+    }
+  };
+
+  const handleAltTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setLocalAltText(newValue);
+    if (onAltTextChange) {
+      onAltTextChange(newValue);
+    }
+  };
+
+  const getStatusChip = () => {
+    if (action === 'approve') {
+      return <StatusChip icon={<CheckIcon />} label="Approved" color="primary" size="small" />;
+    } else if (action === 'skip') {
+      return <StatusChip icon={<AccessTimeIcon />} label="Skipped for now" size="small" />;
+    }
+    return <StatusChip label="Not yet reviewed" size="small" />;
+  };
 
   return (
-    <Card sx={{ width, display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+    <StyledCard>
+      <CardHeader>
+        <Typography variant="subtitle1" fontWeight={600} noWrap>
+          {contentImage.content_name || 'Untitled Item'}
+        </Typography>
+      </CardHeader>
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1 }}>
         <CardMedia
           component="img"
-          image={image.image_url}
-          alt={displayAlt || String(image.image_id)}
+          image={contentImage.image_url}
+          alt={localAltText || String(contentImage.image_id)}
           sx={{ width: '100%', height: 240, objectFit: 'contain' }}
         />
       </Box>
       <CardContent sx={{ pt: 1, flexGrow: 1 }}>
-        <TextField
-          label="Alt text"
-          value={displayAlt}
-          onChange={(e) => onAltTextChange && onAltTextChange(e.target.value)}
-          size="small"
-          fullWidth
-          multiline
-          rows={3}
-          inputProps={{ maxLength: 150 }}
-        />
+        <Box>
+          <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5, marginBottom: 0.5}}>
+            <Typography variant="body2">
+              Alt Text Label:
+            </Typography>
+            {getStatusChip()}
+          </Box>
+          <TextField
+            value={localAltText}
+            onChange={handleAltTextChange}
+            size="small"
+            fullWidth
+            multiline
+            rows={2}
+            inputProps={{ maxLength: 300 }}
+            placeholder="Enter alt text description..."
+          />
+          <Typography variant="body2">
+            {localAltText.length} / 300
+          </Typography>
+        </Box>
+        <Typography>Select for this alt text label:</Typography>
+        <Box sx={{display: 'flex', gap: 1, width: '100%',}}>
+          <ActionButton 
+            selected={action === 'approve'}
+            startIcon={<CheckIcon />}
+            onClick={() => handleActionChange('approve')}
+          >
+            Approve
+          </ActionButton>
+          <ActionButton 
+            selected={action === 'skip'}
+            startIcon={<AccessTimeIcon />}
+            onClick={() => handleActionChange('skip')}
+          >
+            Skip
+          </ActionButton>
+        </Box>
       </CardContent>
-    </Card>
+    </StyledCard>
   );
 }

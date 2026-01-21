@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan, ContentItemResponse} from './interfaces';
+import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan, ContentItem, ContentReviewRequest} from './interfaces';
 
 const API_BASE = '/api';
 const JSON_MIME_TYPE = 'application/json';
@@ -133,15 +133,33 @@ async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLast
   }
 }
 
-async function getContentImages(contentType: 'assignment' | 'page' | 'quiz'): Promise<ContentItemResponse[]> {
+async function getContentImages(contentType: 'assignment' | 'page' | 'quiz'): Promise<ContentItem[]> {
   const url = `${API_BASE}/alt-text/content-images?content_type=${encodeURIComponent(contentType)}`;
   const res = await fetch(url);
   if (!res.ok) {
     console.error(res);
     throw new Error(await createErrorMessage(res));
   }
-  const data: { content_items: ContentItemResponse[] } = await res.json();
+  const data: { content_items: ContentItem[] } = await res.json();
   return data.content_items;
 }
 
-export { getTools, updateToolNav, getCategories, updateAltTextStartScan, getAltTextLastScan, getContentImages };
+async function updateAltTextSubmitReview(data: ContentReviewRequest[]): Promise<void> {
+  const url = `${API_BASE}/alt-text/review`;
+  const requestInit: RequestInit = {
+    method: 'POST',
+    body: JSON.stringify(data),
+    headers: {
+      ...BASE_MUTATION_HEADERS,
+      'X-CSRFTOKEN': getCSRFToken() ?? ''
+    }
+  };
+  const res = await fetch(url, requestInit);
+  // if (!res.ok) {
+  //   console.error(res);
+  //   throw new Error(await createErrorMessage(res));
+  // }
+  return;
+}
+
+export { getTools, updateToolNav, getCategories, updateAltTextStartScan, getAltTextLastScan, getContentImages, updateAltTextSubmitReview };
