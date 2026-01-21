@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
 import ReviewSelectForm from './ReviewSelectForm';
 import AltTextReview from './AltTextReview';
-import { ContentCategoryForReview, COURSE_SCAN_POLL_DURATION } from '../constants';
+import { CONTENT_CATEGORY_FOR_REVIEW, ContentCategoryForReview, COURSE_SCAN_POLL_DURATION } from '../constants';
 
 const TitleBlock = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(3),
@@ -20,10 +20,11 @@ interface AltTextHomeProps {
   globals: Globals
 }
 
-function AltTextHome (props: AltTextHomeProps) {
+function AltTextHome(props: AltTextHomeProps) {
   const {course_id, user, help_url} = props.globals;
   const [scanPending, setScanPending] = useState(false);
-  const [reviewCategoryStarted, setReviewCategoryStarted] = useState<ContentCategoryForReview>();
+  const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
+  const [reviewCategoryStarted, setReviewCategoryStarted] = useState(false);
 
   const { data: lastScan, 
     isLoading: lastScanIsLoading, 
@@ -65,15 +66,17 @@ function AltTextHome (props: AltTextHomeProps) {
   });
 
   const handleStartScan = async () => {
+    setScanPending(true);
     await mutate();
   };
 
-  const handleStartReview = (category: ContentCategoryForReview ) => {
-    setReviewCategoryStarted(category);
+  const handleStartReview = () => {
+    setReviewCategoryStarted(true);
   };
 
   const handleEndReview = () => {
-    setReviewCategoryStarted(undefined);
+    setSelectedCategory(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
+    setReviewCategoryStarted(false);
   };
 
   return (
@@ -87,7 +90,7 @@ function AltTextHome (props: AltTextHomeProps) {
         (
           <>
             <AltTextReview 
-              categoryForReview={reviewCategoryStarted}
+              categoryForReview={selectedCategory}
               onEndReview={handleEndReview}
             />
           </>
@@ -121,8 +124,10 @@ function AltTextHome (props: AltTextHomeProps) {
                 {lastScan && (
                   <ReviewSelectForm
                     scanPending={scanPending}
+                    selectedCategory={selectedCategory}
                     lastScan={lastScan} 
-                    handleStartReview={handleStartReview}/>
+                    handleStartReview={handleStartReview}
+                    handleChangeCategory={(category) => setSelectedCategory(category)}/>
                 )}
               </>
             )}

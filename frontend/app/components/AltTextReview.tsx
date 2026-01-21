@@ -82,13 +82,12 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
     return 'quiz';
   };
 
-  const { data: contentItems, isLoading, error } = useQuery<ContentItem[], Error>({
+  const { data: contentItems, isFetching, error } = useQuery<ContentItem[], Error>({
     queryKey: ['contentImages', categoryForReview],
     queryFn: () => getContentImages(contentTypeFromCategory(categoryForReview)),
     enabled: !!categoryForReview,
     retry: false,
     retryOnMount: false, 
-    staleTime: Infinity,
     onSuccess: (data) => {
       // Flatten and transform images
       const newImages = data.flatMap(ci =>
@@ -178,10 +177,10 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
 
   const errors = [error].filter(e => e !== null) as Error[];
   let feedbackBlock;
-  if (isLoading || errors.length > 0) {
+  if (isFetching || errors.length > 0) {
     feedbackBlock = (
       <Box sx={{ margin: 2 }}>
-        {isLoading && <LinearProgress id='tool-card-container-loading' sx={{ marginBottom: 2 }} />}
+        {isFetching && <LinearProgress id='tool-card-container-loading' sx={{ marginBottom: 2 }} />}
         {errors.length > 0 && <Box sx={{ marginBottom: 1 }}><ErrorsDisplay errors={errors} /></Box>}
       </Box>
     );

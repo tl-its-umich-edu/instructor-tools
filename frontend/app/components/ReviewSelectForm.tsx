@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AltTextLastScanCourseContentItem, AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import { Button, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { CONTENT_CATEGORY_FOR_REVIEW, ContentCategoryForReview } from '../constants';
@@ -7,22 +7,34 @@ import { CONTENT_CATEGORY_FOR_REVIEW, ContentCategoryForReview } from '../consta
 interface ReveiwSelectFormProps {
     scanPending: boolean;
     lastScan: ScanDetail;
-    handleStartReview: (categorySelected:ContentCategoryForReview) => void;
+    selectedCategory: ContentCategoryForReview;
+    handleStartReview: (selectedCategory:ContentCategoryForReview) => void;
+    handleChangeCategory: (selectedCategory:ContentCategoryForReview) => void;
 }
 
-export default function ReviewSelectForm({ scanPending, lastScan, handleStartReview }:ReveiwSelectFormProps) {
-  const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
-  
+export default function ReviewSelectForm({ scanPending, lastScan, selectedCategory, handleStartReview, handleChangeCategory }:ReveiwSelectFormProps) {
+  const imageSum = (contentItems: AltTextLastScanCourseContentItem[]): number => 
+    contentItems.reduce((sum, item) => sum + item.image_count, 0);
+
+  // tuple associating Category value to respective label & sum of images to review
+  const categoryToSumLabel: Record<ContentCategoryForReview, [string, number]> = useMemo(() => ({
+    [CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS]: ['Assignments', imageSum(lastScan.course_content.assignment_list)],
+    [CONTENT_CATEGORY_FOR_REVIEW.PAGES]: ['Pages', imageSum(lastScan.course_content.page_list)],
+    [CONTENT_CATEGORY_FOR_REVIEW.CLASSIC_QUIZZES]: ['Classic Quizzes',
+      imageSum(lastScan.course_content.quiz_list) + imageSum(lastScan.course_content.quiz_question_list)
+    ],
+  }), [lastScan.course_content]);
+
+  const [numImagesSelected, setNumImagesSelected] = useState<number>(categoryToSumLabel[selectedCategory][1]);
+
+  useEffect(() =>{
+    setNumImagesSelected(categoryToSumLabel[selectedCategory][1]);
+  }, [selectedCategory, categoryToSumLabel]);
+
   const handleSubmit = () => {
     if (selectedCategory) {
       handleStartReview(selectedCategory);
     }
-  };
-  
-  const imageSum = (contentItems : AltTextLastScanCourseContentItem[]) => {
-    let result = 0;
-    contentItems.forEach((item) => result += item.image_count);
-    return result;
   };
 
   return (
@@ -40,23 +52,21 @@ export default function ReviewSelectForm({ scanPending, lastScan, handleStartRev
             value={selectedCategory}
             label="Content Category"
             disabled={scanPending}
-            onChange={(e) => setSelectedCategory(e.target.value as ContentCategoryForReview)}
+            onChange={(e) => handleChangeCategory(e.target.value as ContentCategoryForReview)}
           >
-            <MenuItem value={CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS}>
-                  Assignments - ({imageSum(lastScan.course_content.assignment_list)} images)
-            </MenuItem>
-            <MenuItem value={CONTENT_CATEGORY_FOR_REVIEW.PAGES}>
-                  Pages - ({imageSum(lastScan.course_content.page_list)} images)
-            </MenuItem>
-            <MenuItem value={CONTENT_CATEGORY_FOR_REVIEW.CLASSIC_QUIZZES}>
-                  Classic Quizzes - ({imageSum(lastScan.course_content.quiz_list)+imageSum(lastScan.course_content.quiz_question_list)} images)
-            </MenuItem>
+            {Object.entries(categoryToSumLabel).map(([category, [label, sum]]) => {
+              return (
+                <MenuItem key={category} value={category}>
+                  {label} - ({sum} images)
+                </MenuItem>
+              );
+            })}
           </Select>
         </FormControl>
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={scanPending}
+          disabled={(numImagesSelected === 0) || scanPending}
         >
             Begin Review
         </Button>
