@@ -14,6 +14,7 @@ from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
 from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer
+from backend.canvas_app_explorer.alt_text_helper.alt_text_update import AltTextUpate
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +185,13 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
         serializer = ReviewContentItemSerializer(data=request.data, many=True)
         if not serializer.is_valid():
              return Response(status=HTTPStatus.BAD_REQUEST, data={"message": serializer.errors})
-        
-        return Response(status=HTTPStatus.OK)
+
+        try:
+             service = AltTextUpate(course_id, serializer.validated_data)
+             service.process()
+             return Response(status=HTTPStatus.OK)
+        except Exception as e:
+            logger.error(f"Failed to submit review: {e}")
+            return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"message": str(e)})
 
 
