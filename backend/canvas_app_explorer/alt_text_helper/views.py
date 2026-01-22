@@ -3,6 +3,7 @@ from http import HTTPStatus
 import logging
 from canvasapi import Canvas
 from canvasapi.course import Course
+
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import authentication, permissions, viewsets
 from rest_framework.request import Request
@@ -195,7 +196,7 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
              manager = MANAGER_FACTORY.create_manager(request)
              canvas_api: Canvas = manager.canvas_api
              course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
-             service = AltTextUpate(course, serializer.validated_data, content_types, canvas_api)
+             service = AltTextUpate(course_id, canvas_api, serializer.validated_data, content_types)
              service.process_alt_text_update()
              return Response(status=HTTPStatus.OK)
         except Exception as e:

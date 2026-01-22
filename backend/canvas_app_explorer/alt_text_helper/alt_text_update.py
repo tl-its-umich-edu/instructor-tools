@@ -16,8 +16,7 @@ class ImagePayload(TypedDict):
     image_id: str
     action: Literal["approve", "skip"]
     approved_alt_text: str
-    image_url_like_canvas_UI: str | None
-    domain_type: Literal["internal", "external"]
+    image_url_for_update: str 
 
 class ContentPayload(TypedDict):
     content_id: int
@@ -28,11 +27,11 @@ class ContentPayload(TypedDict):
     
 PER_PAGE = 100
 class AltTextUpate:
-    def __init__(self, course: Course, content_with_alt_text: List[ContentPayload], content_types: List[str], canvas_api: Canvas) -> None:
-        self.course = course
+    def __init__(self, course_id: int, canvas_api: Canvas, content_with_alt_text: List[ContentPayload], content_types: List[str]) -> None:
+        self.course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
+        self.canvas_api = canvas_api
         self.content_with_alt_text: List[ContentPayload] = self._enrich_content_with_ui_urls(content_with_alt_text)
         self.content_types: List[str] = content_types
-        self.canvas_api = canvas_api
     
     def process_alt_text_update(self) -> None:
         """
@@ -63,12 +62,13 @@ class AltTextUpate:
         for page in pages_filtered:
             extracted_pages.append({
                 "id": page.page_id,
+                "url": page.url,
                 "name": page.title,
-                "html": page.body
+                "html": page.body,
             })
-            logger.info(f"Page ID: {page.page_id}, Title: {page.title}, html: {page.body}")
+            logger.info(f"Page ID: {page.page_id}, Title: {page.title}")
         
-        self._process_extracted_content(extracted_pages)
+        self._update_page_alt_text(extracted_pages)
 
     def _process_assignment(self) -> None:
         logger.info("Processing assignment alt text update for course_id %s", self.course.id)
@@ -82,25 +82,47 @@ class AltTextUpate:
             extracted_assignments.append({
                 "id": assignment.id,
                 "name": assignment.name,
-                "html": assignment.description
+                "html": assignment.description,
             })
-            logger.info(f"Assignment ID: {assignment.id}, Name: {assignment.name}, html: {assignment.description}")
+            logger.info(f"Assignment ID: {assignment.id}, Name: {assignment.name}")
             
-        self._process_extracted_content(extracted_assignments)
+        self._update_assignment_alt_text(extracted_assignments)
 
-    def _process_extracted_content(self, content_list: List[dict]) -> None:
-        """
-        Process the extracted content items (pages, assignments, etc.) to update alt text.
-        """
+    
+    def _update_assignment_alt_text(self, content_list: List[dict]) -> None:
+        logger.info("Updating assignment alt text for course_id %s %s", self.course.id, content_list)
         for content in content_list:
-            html_content = content.get("html")
-            if not html_content:
-                continue
-            
-            soup = BeautifulSoup(html_content, "html.parser")
-            logger.info(soup)
-            for img in soup.find_all("img"):
-                logger.info(f"Found image tag: {img}")
+            logger.info(f"Updating Assignment ID: {content['id']}")
+            assignment = Assignment(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
+            soup = BeautifulSoup(content['html'], 'html.parser')
+            images = soup.find_all('img')
+            for img in images:
+                for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content['id'])['images']:
+                    if img.get('src') == image_payload['image_url_for_update']:
+                        if image_payload['action'] == 'approve':
+                            img['alt'] = image_payload['approved_alt_text']
+            updated_description = str(soup)
+            logger.info(f"Updated description for Assignment ID {content['id']}: {updated_description}")
+            assignment.edit(assignment={'description': updated_description})
+            logger.info(f"Updated alt text for Assignment ID: {content['id']}")
+    
+    def _update_page_alt_text(self, content_list: List[dict]) -> None:
+        logger.info("Updating page alt text for course_id %s %s", self.course.id, content_list)
+        for content in content_list:
+            logger.info(f"Updating Page ID: {content['id']}")
+            page = Page(self.canvas_api._Canvas__requester, {'url': content['url'], 'course_id': self.course.id, 'body': content['html']})
+            soup = BeautifulSoup(content['html'], 'html.parser')
+            images = soup.find_all('img')
+            for img in images:
+                for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content['id'])['images']:
+                    if img.get('src') == image_payload['image_url_for_update']:
+                        if image_payload['action'] == 'approve':
+                            img['alt'] = image_payload['approved_alt_text']
+            updated_body = str(soup)
+            logger.info(f"Updated body for Page ID {content['id']}: {updated_body}")
+            page.edit(wiki_page={'body': updated_body})
+            logger.info(f"Updated alt text for Page ID: {content['id']}")
+
 
     def _process_quiz(self, quiz_types: List[str]) -> None:
         logger.info("Processing quiz alt text update for course_id %s with quiz types %s", self.course.id, quiz_types)
@@ -124,8 +146,7 @@ class AltTextUpate:
     def _enrich_content_with_ui_urls(self, content_list: List[ContentPayload]) -> List[ContentPayload]:
         """
         this method enriches each image in the content list with a URL that mimics how Canvas UI would display it.
-        It adds new variable to indicate if the image URL is internal (hosted on the same domain as the Canvas instance) or external.
-        If the image is approved and internal, it transforms the URL to a format suitable for Canvas UI preview. otherwise, it sets the URL to None.
+        If the image is approved it transforms the URL to a format suitable for Canvas UI preview. otherwise, it sets the original URL (doesn't matter what URL is it's skipped ).
         
         :param self: Description
         :param content_list: Description
@@ -135,17 +156,21 @@ class AltTextUpate:
         """
         for content in content_list:
             for image in content['images']:
-                image['image_url_like_canvas_UI'] = None
-                image['domain_type'] = 'external'
+                image['image_url_for_update'] = None
                 
                 parsed = None
                 # Check domain type
                 try:
                     parsed = urlparse(image['image_url'])
                     if parsed.netloc == settings.CANVAS_OAUTH_CANVAS_DOMAIN:
-                        image['domain_type'] = 'internal'
                         if image.get('action') == 'approve':
-                            image['image_url_like_canvas_UI'] = self._transform_image_url(parsed)
+                            image['image_url_for_update'] = self._transform_image_url(parsed)
+                        else:
+                            # If action is skip, retain original URL for reference
+                            image['image_url_for_update'] = image['image_url']
+                    else:
+                        # External image when we update we always image_url_for_update to match and update alt text there
+                        image['image_url_for_update'] = image['image_url']
                 except Exception as e:
                     logger.error(f"Failed to parse image URL {image['image_url']}: {e}")
                     raise e
