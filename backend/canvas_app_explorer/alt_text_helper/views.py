@@ -1,6 +1,8 @@
 
 from http import HTTPStatus
 import logging
+from canvasapi import Canvas
+from canvasapi.course import Course
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import authentication, permissions, viewsets
 from rest_framework.request import Request
@@ -187,8 +189,14 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
              return Response(status=HTTPStatus.BAD_REQUEST, data={"message": serializer.errors})
 
         try:
-             service = AltTextUpate(course_id, serializer.validated_data)
-             service.process()
+             # Extract unique content types from the payload
+             content_types = list({item.get('content_type') for item in serializer.validated_data if item.get('content_type')})
+             logger.info(f"Processing alt text update for course_id {course_id} and content_types {content_types}")
+             manager = MANAGER_FACTORY.create_manager(request)
+             canvas_api: Canvas = manager.canvas_api
+             course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
+             service = AltTextUpate(course, serializer.validated_data, content_types, canvas_api)
+             service.process_alt_text_update()
              return Response(status=HTTPStatus.OK)
         except Exception as e:
             logger.error(f"Failed to submit review: {e}")
