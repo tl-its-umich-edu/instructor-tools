@@ -1,9 +1,13 @@
 from django.test import SimpleTestCase
+from unittest.mock import MagicMock
 from backend.canvas_app_explorer.alt_text_helper.alt_text_update import AltTextUpate
 
 class TestAltTextUpdate(SimpleTestCase):
     def setUp(self):
         self.course_id = 12345
+        self.mock_course = MagicMock()
+        self.mock_course.id = self.course_id
+        self.mock_canvas = MagicMock()
 
     def test_process_payload(self):
         payload = [
@@ -58,12 +62,12 @@ class TestAltTextUpdate(SimpleTestCase):
         ]
         
         content_types = ['quiz', 'quiz_question']
-        service = AltTextUpate(self.course_id, payload, content_types)
+        service = AltTextUpate(self.mock_course, payload, content_types, self.mock_canvas)
         service.process_alt_text_update()
         
         # Since logic was removed, we just ensure it initializes and runs without error.
         self.assertEqual(service.content_with_alt_text, payload)
-        self.assertEqual(service.course_id, self.course_id)
+        self.assertEqual(service.course.id, self.course_id)
         self.assertEqual(service.content_types, content_types)
     
     def test_process_payload_assignment(self):
@@ -91,11 +95,11 @@ class TestAltTextUpdate(SimpleTestCase):
         ]
         
         content_types = ['assignment']
-        service = AltTextUpate(self.course_id, payload, content_types)
+        service = AltTextUpate(self.mock_course, payload, content_types, self.mock_canvas)
         service.process_alt_text_update()
         
         self.assertEqual(service.content_with_alt_text, payload)
-        self.assertEqual(service.course_id, self.course_id)
+        self.assertEqual(service.course.id, self.course_id)
         self.assertEqual(service.content_types, content_types)
 
     def test_process_payload_page(self):
@@ -131,10 +135,41 @@ class TestAltTextUpdate(SimpleTestCase):
         ]
         
         content_types = ['page']
-        service = AltTextUpate(self.course_id, payload, content_types)
+        service = AltTextUpate(self.mock_course, payload, content_types, self.mock_canvas)
         service.process_alt_text_update()
         
         self.assertEqual(service.content_with_alt_text, payload)
-        self.assertEqual(service.course_id, self.course_id)
+        self.assertEqual(service.course.id, self.course_id)
         self.assertEqual(service.content_types[0], content_types[0])
+
+    def test_enrich_content_with_ui_urls(self):
+        payload = [
+          {
+            "content_id": 1,
+            "content_name": "Test Assignment",
+            "content_parent_id": None,
+            "content_type": "assignment",
+            "images": [
+              {
+                "image_url": "https://canvas.instructure.com/files/44125891/download?verifier=tazYTEaXP0KncoKZQPwE82BGDUcbQ0qHpsbn00tT&download_frd=1",
+                "image_id": "1",
+                "action": "approve",
+                "approved_alt_text": "Alt text"
+              },
+               {
+                "image_url": "https://canvas.instructure.com/images/thumbnails/123/456",
+                "image_id": "2",
+                "action": "approve",
+                "approved_alt_text": "Alt text 2"
+              }
+            ]
+          }
+        ]
+        content_types = ['assignment']
+        service = AltTextUpate(self.mock_course, payload, content_types, self.mock_canvas)
+        
+        expected_url = f"https://canvas.instructure.com/courses/{self.course_id}/files/44125891/preview?verifier=tazYTEaXP0KncoKZQPwE82BGDUcbQ0qHpsbn00tT"
+        
+        self.assertEqual(service.content_with_alt_text[0]['images'][0]['image_url_like_canvas_UI'], expected_url)
+        self.assertEqual(service.content_with_alt_text[0]['images'][1]['image_url_like_canvas_UI'], "https://canvas.instructure.com/images/thumbnails/123/456")
 
