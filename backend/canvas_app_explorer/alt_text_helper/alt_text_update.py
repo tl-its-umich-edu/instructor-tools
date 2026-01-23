@@ -4,6 +4,7 @@ from canvasapi import Canvas
 from canvasapi.course import Course
 from canvasapi.page import Page
 from canvasapi.assignment import Assignment
+from canvasapi.quiz import Quiz
 from typing import List, Literal, TypedDict
 from bs4 import BeautifulSoup
 
@@ -53,7 +54,8 @@ class AltTextUpate:
 
     def _process_page(self) -> None:
         logger.info("Processing page alt text update for course_id %s", self.course.id)
-        page_ids = self._get_approved_content_ids()
+        approved_content = self._get_approved_content_ids()
+        page_ids = {item["content_id"] for item in approved_content}
         pages: Page = list(self.course.get_pages(include=['body'], per_page=PER_PAGE))
         # this filters Content: pages from API call to only those with approved images content IDs. 
         pages_filtered: Page = [p for p in pages if getattr(p, "page_id", None) in page_ids]
@@ -71,8 +73,8 @@ class AltTextUpate:
         self._update_page_alt_text(extracted_pages)
 
     def _process_assignment(self) -> None:
-        logger.info("Processing assignment alt text update for course_id %s", self.course.id)
-        assignment_ids = self._get_approved_content_ids()
+        approved_content = self._get_approved_content_ids()
+        assignment_ids = {item["content_id"] for item in approved_content}
         assignments: Assignment = list(self.course.get_assignments(per_page=PER_PAGE))
         # this filters Content: assignments from API call to only those with approved images content IDs.
         assignments_filtered: Assignment = [a for a in assignments if a.id in assignment_ids]
@@ -89,59 +91,130 @@ class AltTextUpate:
         self._update_assignment_alt_text(extracted_assignments)
 
     
+    def _process_quiz(self, quiz_types: List[str]) -> None:
+        logger.info("Processing quiz alt text update for course_id %s with quiz types %s", self.course.id, quiz_types)
+        approved_content = self._get_approved_content_ids()
+        
+        # 1. Process Quizzes (Description)
+        quiz_ids_to_update = {c['content_id'] for c in approved_content if c['content_type'] == 'quiz'}
+        
+        if quiz_ids_to_update:
+            quizzes: Quiz = list(self.course.get_quizzes(per_page=PER_PAGE))
+            quizzes_filtered: Quiz = [q for q in quizzes if q.id in quiz_ids_to_update]
+            
+            extracted_quizzes = []
+            for quiz in quizzes_filtered:
+                extracted_quizzes.append({
+                    "id": quiz.id,
+                    "name": quiz.title,
+                    "html": quiz.description
+                })
+                logger.info(f"Quiz ID: {quiz.id}, Title: {quiz.title}")
+            self._update_quiz_alt_text(extracted_quizzes)
+
+        # 2. Process Quiz Questions
+        question_items = [c for c in approved_content if c['content_type'] == 'quiz_question']
+        # Group by parent_id (quiz_id)
+        quiz_parent_ids = {c['content_parent_id'] for c in question_items if c.get('content_parent_id')}
+        
+        for quiz_id in quiz_parent_ids:
+            # Mock Quiz Object using the user provided logic
+            made_quiz = Quiz(self.canvas_api._Canvas__requester, {'id': quiz_id, 'course_id': self.course.id})
+            
+            # Real API call for questions
+            questions = list(made_quiz.get_questions(per_page=PER_PAGE))
+            
+            # Filter questions belonging to this quiz that need updates
+            target_question_ids = {c['content_id'] for c in question_items if str(c.get('content_parent_id')) == str(quiz_id)}
+            # Note: ensure type matching for IDs (str vs int). Canvas IDs are ints, content_parent_id might be str from TypedDict
+            
+            questions_filtered = [q for q in questions if q.id in target_question_ids]
+            
+            extracted_questions = []
+            for question in questions_filtered:
+                extracted_questions.append({
+                    "id": question.id,
+                    "name": question.question_name,
+                    "html": question.question_text
+                })
+                logger.info(f"Quiz Question ID: {question.id}, Name: {question.question_name}")
+            
+            self._update_quiz_question_alt_text(extracted_questions, made_quiz)
+
+    def _update_quiz_alt_text(self, content_list: List[dict]) -> None:
+        logger.info("Updating quiz alt text for course_id %s %s", self.course.id, content_list)
+        for content in content_list:
+            logger.info(f"Updating Quiz ID: {content['id']}")
+            updated_description = self._update_alt_text_html(content)
+            quiz = Quiz(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
+            quiz.edit(quiz={'description': updated_description})
+
+    def _update_quiz_question_alt_text(self, content_list: List[dict], quiz: Quiz) -> None:
+        logger.info("Updating quiz question alt text for quiz_id %s %s", quiz.id, content_list)
+        for content in content_list:
+            logger.info(f"Updating Quiz Question ID: {content['id']}")
+            updated_text = self._update_alt_text_html(content)
+            # Use edit_question on the quiz object
+            quiz.edit_question(content['id'], question={'question_text': updated_text})
+    
+
+
     def _update_assignment_alt_text(self, content_list: List[dict]) -> None:
         logger.info("Updating assignment alt text for course_id %s %s", self.course.id, content_list)
         for content in content_list:
             logger.info(f"Updating Assignment ID: {content['id']}")
+            updated_description = self._update_alt_text_html(content)
             assignment = Assignment(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
-            soup = BeautifulSoup(content['html'], 'html.parser')
-            images = soup.find_all('img')
-            for img in images:
-                for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content['id'])['images']:
-                    if img.get('src') == image_payload['image_url_for_update']:
-                        if image_payload['action'] == 'approve':
-                            img['alt'] = image_payload['approved_alt_text']
-            updated_description = str(soup)
-            logger.info(f"Updated description for Assignment ID {content['id']}: {updated_description}")
             assignment.edit(assignment={'description': updated_description})
-            logger.info(f"Updated alt text for Assignment ID: {content['id']}")
+
     
     def _update_page_alt_text(self, content_list: List[dict]) -> None:
         logger.info("Updating page alt text for course_id %s %s", self.course.id, content_list)
         for content in content_list:
             logger.info(f"Updating Page ID: {content['id']}")
+            updated_body = self._update_alt_text_html(content)
             page = Page(self.canvas_api._Canvas__requester, {'url': content['url'], 'course_id': self.course.id, 'body': content['html']})
-            soup = BeautifulSoup(content['html'], 'html.parser')
-            images = soup.find_all('img')
-            for img in images:
-                for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content['id'])['images']:
-                    if img.get('src') == image_payload['image_url_for_update']:
-                        if image_payload['action'] == 'approve':
-                            img['alt'] = image_payload['approved_alt_text']
-            updated_body = str(soup)
-            logger.info(f"Updated body for Page ID {content['id']}: {updated_body}")
             page.edit(wiki_page={'body': updated_body})
-            logger.info(f"Updated alt text for Page ID: {content['id']}")
 
-
-    def _process_quiz(self, quiz_types: List[str]) -> None:
-        logger.info("Processing quiz alt text update for course_id %s with quiz types %s", self.course.id, quiz_types)
     
-    def _get_approved_content_ids(self) -> set[int]:
+    def _update_alt_text_html(self, content):
+        """
+        This returns updated HTML content with  alt text changes for images that are approved only.
+        
+        :param self: Description
+        :param content: Description
+        :return: Description
+        :rtype: Any
+        """
+        soup = BeautifulSoup(content['html'], 'html.parser')
+        images = soup.find_all('img')
+        for img in images:
+            for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content['id'])['images']:
+                if img.get('src') == image_payload['image_url_for_update']:
+                    if image_payload['action'] == 'approve':
+                        img['alt'] = image_payload['approved_alt_text']
+        updated_description = str(soup)
+        return updated_description
+    
+    def _get_approved_content_ids(self) -> List[dict]:
         """
         This will only return content IDs where at least one image has been approved. A content can have multiple images,
         but if there is a mix of approved and skipped images, we still want to process the content to update the approved ones.
         Further along the update will only update the images that were approved.
         
         :param self: Description
-        :return: Description
-        :rtype: set[int]
+        :return: List of dicts containing content_id, content_parent_id and content_type
+        :rtype: List[dict]
         """
-        return {
-            c["content_id"]
+        return [
+            {
+                "content_id": c["content_id"],
+                "content_parent_id": c.get("content_parent_id"),
+                "content_type": c["content_type"]
+            }
             for c in self.content_with_alt_text
             if any(img["action"] == "approve" for img in c["images"])
-        }
+        ]
     
     def _enrich_content_with_ui_urls(self, content_list: List[ContentPayload]) -> List[ContentPayload]:
         """
