@@ -71,7 +71,7 @@ class AltTextUpate:
             })
             logger.info(f"Page ID: {page.page_id}, Title: {page.title}")
         
-        self._update_page_alt_text(extracted_pages)
+        self._update_page_alt_text(extracted_pages, pages_filtered)
 
     def _process_assignment(self) -> None:
         approved_content = self._get_approved_content_ids()
@@ -89,7 +89,7 @@ class AltTextUpate:
             })
             logger.info(f"Assignment ID: {assignment.id}, Name: {assignment.name}")
             
-        self._update_assignment_alt_text(extracted_assignments)
+        self._update_assignment_alt_text(extracted_assignments, assignments_filtered)
 
     
     def _process_quiz(self, quiz_types: List[str]) -> None:
@@ -167,21 +167,22 @@ class AltTextUpate:
             quiz_question.edit(question={'question_text': updated_text})
     
 
-    def _update_assignment_alt_text(self, content_list: List[dict]) -> None:
+    def _update_assignment_alt_text(self, content_list: List[dict], assignments_filtered: List[dict]) -> None:
         logger.info("Updating assignment alt text for course_id %s %s", self.course.id, content_list)
         for content in content_list:
             logger.info(f"Updating Assignment ID: {content['id']}")
             updated_description = self._update_alt_text_html(content)
-            assignment = Assignment(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
+            assignment: Assignment = assignments_filtered[[a.id for a in assignments_filtered].index(content['id'])]
+            # assignment = Assignment(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
             assignment.edit(assignment={'description': updated_description})
 
-    
-    def _update_page_alt_text(self, content_list: List[dict]) -> None:
+    def _update_page_alt_text(self, content_list: List[dict], pages_filtered: List[dict]) -> None:
         logger.info("Updating page alt text for course_id %s %s", self.course.id, content_list)
         for content in content_list:
             logger.info(f"Updating Page ID: {content['id']}")
             updated_body = self._update_alt_text_html(content)
-            page = Page(self.canvas_api._Canvas__requester, {'url': content['url'], 'course_id': self.course.id, 'body': content['html']})
+            page: Page = pages_filtered[[p.page_id for p in pages_filtered].index(content['id'])]
+            # page = Page(self.canvas_api._Canvas__requester, {'url': content['url'], 'course_id': self.course.id, 'body': content['html']})
             page.edit(wiki_page={'body': updated_body})
 
     
