@@ -5,6 +5,7 @@ from canvasapi.course import Course
 from canvasapi.page import Page
 from canvasapi.assignment import Assignment
 from canvasapi.quiz import Quiz
+from canvasapi.quiz import QuizQuestion
 from typing import List, Literal, TypedDict
 from bs4 import BeautifulSoup
 
@@ -114,6 +115,9 @@ class AltTextUpate:
 
         # 2. Process Quiz Questions
         question_items = [c for c in approved_content if c['content_type'] == 'quiz_question']
+
+        if not question_items:
+            return
         # Group by parent_id (quiz_id)
         quiz_parent_ids = {c['content_parent_id'] for c in question_items if c.get('content_parent_id')}
         
@@ -129,17 +133,19 @@ class AltTextUpate:
             # Note: ensure type matching for IDs (str vs int). Canvas IDs are ints, content_parent_id might be str from TypedDict
             
             questions_filtered = [q for q in questions if q.id in target_question_ids]
+            logger.info(f"Found {len(questions_filtered)} questions to update for Quiz Questions: {questions_filtered}")
             
             extracted_questions = []
             for question in questions_filtered:
                 extracted_questions.append({
                     "id": question.id,
+                    "quiz_id": quiz_id,
                     "name": question.question_name,
                     "html": question.question_text
                 })
                 logger.info(f"Quiz Question ID: {question.id}, Name: {question.question_name}")
             
-            self._update_quiz_question_alt_text(extracted_questions, made_quiz)
+            self._update_quiz_question_alt_text(extracted_questions)
 
     def _update_quiz_alt_text(self, content_list: List[dict]) -> None:
         logger.info("Updating quiz alt text for course_id %s %s", self.course.id, content_list)
@@ -149,15 +155,17 @@ class AltTextUpate:
             quiz = Quiz(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
             quiz.edit(quiz={'description': updated_description})
 
-    def _update_quiz_question_alt_text(self, content_list: List[dict], quiz: Quiz) -> None:
-        logger.info("Updating quiz question alt text for quiz_id %s %s", quiz.id, content_list)
+    def _update_quiz_question_alt_text(self, content_list: List[dict]) -> None:
+        logger.info("Updating quiz question alt text for quiz_id %s", content_list)
         for content in content_list:
             logger.info(f"Updating Quiz Question ID: {content['id']}")
             updated_text = self._update_alt_text_html(content)
+            # quiz = Quiz(self.canvas_api._Canvas__requester, {'id': content['quiz_id'], 'course_id': self.course.id})
+            quiz_question = QuizQuestion(self.canvas_api._Canvas__requester, {'id': content['id'], 'quiz_id': content['quiz_id'], 
+                                                                              'course_id': self.course.id, 'question_name': 'place_holder'})
             # Use edit_question on the quiz object
-            quiz.edit_question(content['id'], question={'question_text': updated_text})
+            quiz_question.edit(question={'question_text': updated_text})
     
-
 
     def _update_assignment_alt_text(self, content_list: List[dict]) -> None:
         logger.info("Updating assignment alt text for course_id %s %s", self.course.id, content_list)
@@ -206,7 +214,7 @@ class AltTextUpate:
         :return: List of dicts containing content_id, content_parent_id and content_type
         :rtype: List[dict]
         """
-        return [
+        approved_contents = [
             {
                 "content_id": c["content_id"],
                 "content_parent_id": c.get("content_parent_id"),
@@ -215,6 +223,8 @@ class AltTextUpate:
             for c in self.content_with_alt_text
             if any(img["action"] == "approve" for img in c["images"])
         ]
+        logger.info(f"Approved content IDs: {approved_contents}")
+        return approved_contents
     
     def _enrich_content_with_ui_urls(self, content_list: List[ContentPayload]) -> List[ContentPayload]:
         """
