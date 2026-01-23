@@ -145,7 +145,7 @@ async function getContentImages(contentType: 'assignment' | 'page' | 'quiz'): Pr
 }
 
 async function updateAltTextSubmitReview(data: ContentReviewRequest[]): Promise<void> {
-  const url = `${API_BASE}/alt-text/review`;
+  const url = `${API_BASE}/alt-text/labels-update`;
   const requestInit: RequestInit = {
     method: 'PUT',
     body: JSON.stringify(data),

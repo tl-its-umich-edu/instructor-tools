@@ -247,7 +247,7 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
                   const state = reviewStates[key];
 
                   return (
-                    <Grid item xs={12} sm={6} lg={6} key={`${imgData.content_name}-${key}`}>
+                    <Grid item xs={12} sm={6} lg={6} key={`${imgData.content_name || 'Untitled'}-${key}`}>
                       <ContentImageCard
                         contentImage={imgData}
                         action={state.action}

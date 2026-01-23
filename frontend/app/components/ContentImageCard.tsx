@@ -94,7 +94,7 @@ export default function ContentImageCard({
     <StyledCard>
       <CardHeader>
         <Typography variant="subtitle1" fontWeight={600} noWrap>
-          {contentImage.content_name || 'Untitled Item'}
+          {contentImage.content_name || 'Untitled'}
         </Typography>
       </CardHeader>
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1 }}>
@@ -127,7 +127,6 @@ export default function ContentImageCard({
             {localAltText.length} / 300
           </Typography>
         </Box>
-        <Typography>Select for this alt text label:</Typography>
         <Box sx={{display: 'flex', gap: 1, width: '100%',}}>
           <ActionButton 
             selected={action === 'approve'}

@@ -91,7 +91,7 @@ export default function ReviewSummary({
         groupedByContent[content_id] = {
           content_id,
           content_name,
-          content_parent_id: String(content_parent_id),
+          content_parent_id,
           content_type,
           images: []
         };
@@ -154,7 +154,7 @@ export default function ReviewSummary({
               <IconWrapper>
                 <CheckIcon color="primary" />
               </IconWrapper>
-              <SummaryLabel>Approved Alt Text Labels</SummaryLabel>
+              <SummaryLabel>Approved</SummaryLabel>
               <SummaryNumber>{summary.approved}</SummaryNumber>
             </SummaryCard>
 
@@ -162,7 +162,7 @@ export default function ReviewSummary({
               <IconWrapper>
                 <EditIcon color="primary" />
               </IconWrapper>
-              <SummaryLabel>Manually Edited</SummaryLabel>
+              <SummaryLabel>Edited</SummaryLabel>
               <SummaryNumber>{summary.modified}</SummaryNumber>
             </SummaryCard>
 
@@ -170,7 +170,7 @@ export default function ReviewSummary({
               <IconWrapper>
                 <AccessTimeIcon color="action" />
               </IconWrapper>
-              <SummaryLabel>Skipped for Later</SummaryLabel>
+              <SummaryLabel>Skipped</SummaryLabel>
               <SummaryNumber>{summary.skipped}</SummaryNumber>
             </SummaryCard>
           </SummaryGrid>

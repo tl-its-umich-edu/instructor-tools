@@ -86,7 +86,7 @@ interface ContentImage {
 
 interface ContentItem {
   content_id: number
-  content_name: string
+  content_name: string | null
   content_parent_id: number | null
   content_type: string
   images: ContentImage[]
@@ -94,7 +94,7 @@ interface ContentItem {
 
 interface ContentImageEnriched extends ContentImage {
   content_id: number
-  content_name: string
+  content_name: string | null
   content_parent_id: number | null
   content_type: string
 }
@@ -115,8 +115,8 @@ interface ContentReviewRequestImageAction {
 }
 interface ContentReviewRequest {
   content_id: number
-  content_name: string
-  content_parent_id: string
+  content_name: string | null
+  content_parent_id: number | null
   content_type: string
   images: ContentReviewRequestImageAction[]
 }
@@ -124,4 +124,4 @@ interface ContentReviewRequest {
 export type { Globals, Tool, User, ToolCategory, ToolFiltersState, 
   AltTextScan, AltTextLastScanDetail, AltTextLastScanCourseContentItem, 
   ContentImage, ContentItem, ContentImageEnriched, ActionType, ContentImageReviewState,
-  ContentReviewRequest,};
+  ContentReviewRequest };
