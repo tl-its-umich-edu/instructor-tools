@@ -213,7 +213,14 @@ class TestParsingImageContentHTML(TestCase):
                 raw_results = async_to_sync(get_courses_images)(dummy_course)
             
             # Check for the specific warning
-            async_sync_warnings = [warning for warning in w 
-                                  if "async_to_sync was passed a non-async-marked callable" in str(warning.message)]
-            self.assertEqual(len(async_sync_warnings), 0, 
-                            "async_to_sync should not warn about non-async callables")
+            async_sync_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, UserWarning)
+                and "async_to_sync was passed a non-async-marked callable" in str(warning.message)
+            ]
+            self.assertEqual(
+                len(async_sync_warnings),
+                0,
+                "async_to_sync should not warn about non-async callables",
+            )
