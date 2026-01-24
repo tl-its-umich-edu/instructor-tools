@@ -1,4 +1,6 @@
+from collections.abc import Callable
 import logging
+import asyncio 
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 from canvasapi import Canvas
 from canvasapi.course import Course
@@ -6,12 +8,16 @@ from canvasapi.page import Page
 from canvasapi.assignment import Assignment
 from canvasapi.quiz import Quiz
 from canvasapi.quiz import QuizQuestion
-from typing import List, Literal, TypedDict
+from canvasapi.exceptions import CanvasException
+from asgiref.sync import async_to_sync
+from typing import List, Literal, TypeVar, TypedDict, Union
 from bs4 import BeautifulSoup
 
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
+R = TypeVar("R")
 
 class ImagePayload(TypedDict):
     image_url: str
@@ -57,7 +63,11 @@ class AltTextUpate:
         logger.info("Processing page alt text update for course_id %s", self.course.id)
         approved_content = self._get_approved_content_ids()
         page_ids = {item["content_id"] for item in approved_content}
-        pages: Page = list(self.course.get_pages(include=['body'], per_page=PER_PAGE))
+        try:
+            pages: Page = list(self.course.get_pages(include=['body'], per_page=PER_PAGE))
+        except (CanvasException, Exception) as e:
+            logger.error(f"Failed to fetch pages for course ID {self.course.id}: {e}")
+            raise e
         # this filters Content: pages from API call to only those with approved images content IDs. 
         pages_filtered: Page = [p for p in pages if getattr(p, "page_id", None) in page_ids]
         
@@ -71,25 +81,40 @@ class AltTextUpate:
             })
             logger.info(f"Page ID: {page.page_id}, Title: {page.title}")
         
-        self._update_page_alt_text(extracted_pages, pages_filtered)
+        page_alt_text_update_results = self._update_page_alt_text(pages_filtered)
+        
+        exceptions = []
+        for page, result in zip(pages_filtered, page_alt_text_update_results):
+            if isinstance(result, Exception):
+                exceptions.append(f"Page {page.page_id} with name {page.title} failed due to {result}") 
+        if exceptions:
+            all_errors = "; ".join(exceptions)
+            logger.error(f"Error updating page alt text: {all_errors}")
+            raise Exception(all_errors)
 
     def _process_assignment(self) -> None:
         approved_content = self._get_approved_content_ids()
         assignment_ids = {item["content_id"] for item in approved_content}
-        assignments: Assignment = list(self.course.get_assignments(per_page=PER_PAGE))
-        # this filters Content: assignments from API call to only those with approved images content IDs.
-        assignments_filtered: Assignment = [a for a in assignments if a.id in assignment_ids]
+        # making api calls for fetching assignments
+        try:
+            assignments: Assignment = list(self.course.get_assignments(per_page=PER_PAGE))
+        except (CanvasException, Exception) as e:
+            logger.error(f"Failed to fetch assignments for course ID {self.course.id}: {e}")
+            raise e
         
-        extracted_assignments = []
-        for assignment in assignments_filtered:
-            extracted_assignments.append({
-                "id": assignment.id,
-                "name": assignment.name,
-                "html": assignment.description,
-            })
-            logger.info(f"Assignment ID: {assignment.id}, Name: {assignment.name}")
-            
-        self._update_assignment_alt_text(extracted_assignments, assignments_filtered)
+        # this filters Content: assignments from API call to only those with approved images content IDs.
+        approved_assignment: Assignment = [a for a in assignments if a.id in assignment_ids]
+        assign_alt_text_update_results = self._update_assignment_alt_text(approved_assignment)
+        
+        exceptions = []
+        for assignment, result in zip(approved_assignment, assign_alt_text_update_results):
+            if isinstance(result, Exception):
+                exceptions.append(f"Assignment {assignment.id} with name {assignment.name} failed due to {result}")
+        
+        if exceptions:
+            all_errors = "; ".join(exceptions)
+            logger.error(f"Error updating assignment alt text: {all_errors}")
+            raise Exception(all_errors)
 
     
     def _process_quiz(self, quiz_types: List[str]) -> None:
@@ -166,27 +191,52 @@ class AltTextUpate:
             # Use edit_question on the quiz object
             quiz_question.edit(question={'question_text': updated_text})
     
+    @async_to_sync
+    async def _update_assignment_alt_text(self, approved_assignments: List[Assignment]) -> None:
+        async with asyncio.Semaphore(10):
+            assign_update_tasks = [self.update_content_items_async(self._update_assignment_alt_text_sync, assignment) 
+                                   for assignment in approved_assignments]
+            return await asyncio.gather(*assign_update_tasks, return_exceptions=True)
+    
 
-    def _update_assignment_alt_text(self, content_list: List[dict], assignments_filtered: List[dict]) -> None:
-        logger.info("Updating assignment alt text for course_id %s %s", self.course.id, content_list)
-        for content in content_list:
-            logger.info(f"Updating Assignment ID: {content['id']}")
-            updated_description = self._update_alt_text_html(content)
-            assignment: Assignment = assignments_filtered[[a.id for a in assignments_filtered].index(content['id'])]
-            # assignment = Assignment(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
-            assignment.edit(assignment={'description': updated_description})
+    def _update_assignment_alt_text_sync(self, approved_assignment: Assignment) -> None:
+        try:
+            updated_description = self._update_alt_text_html(approved_assignment.id, approved_assignment.description)
+            return approved_assignment.edit(assignment={'description': updated_description})
+        except (CanvasException, Exception) as e:
+            logger.error(f"Failed to update assignment ID {approved_assignment.id}: {e}")
+            raise e
 
-    def _update_page_alt_text(self, content_list: List[dict], pages_filtered: List[dict]) -> None:
-        logger.info("Updating page alt text for course_id %s %s", self.course.id, content_list)
-        for content in content_list:
-            logger.info(f"Updating Page ID: {content['id']}")
-            updated_body = self._update_alt_text_html(content)
-            page: Page = pages_filtered[[p.page_id for p in pages_filtered].index(content['id'])]
-            # page = Page(self.canvas_api._Canvas__requester, {'url': content['url'], 'course_id': self.course.id, 'body': content['html']})
-            page.edit(wiki_page={'body': updated_body})
+    async def update_content_items_async(self, fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
+        """
+        Generic async wrapper that runs the synchronous `fn(course|quiz)` in a thread and
+        returns a list (or empty list on error). `fn` should be a callable like
+        `get_assignments`, `get_pages`,  `get_quizzes`, `get_quiz_questions` that 
+        accepts a Course or Quiz and returns a list.
+        """
+        try:
+            return await asyncio.to_thread(fn, ctx)
+        except (CanvasException, Exception) as e:
+            logger.error("Error updating content items using %s: %s", getattr(fn, '__name__', str(fn)), e)
+            return e
+    
+    @async_to_sync
+    async def _update_page_alt_text(self, approved_pages: List[Page]) -> None:
+        async with asyncio.Semaphore(10):
+            page_update_tasks = [self.update_content_items_async(self._update_page_alt_text_sync, page) 
+                                 for page in approved_pages]
+            return await asyncio.gather(*page_update_tasks, return_exceptions=True)
+    
+    def _update_page_alt_text_sync(self, page: Page) -> None:
+        try:
+            updated_body = self._update_alt_text_html(page.page_id, page.body)
+            return page.edit(wiki_page={'body': updated_body})
+        except (CanvasException, Exception) as e:
+            logger.error(f"Failed to update page ID {page.page_id}: {e}")
+            raise e
 
     
-    def _update_alt_text_html(self, content):
+    def _update_alt_text_html(self, content_id, content_html: str) -> str:
         """
         This returns updated HTML content with  alt text changes for images that are approved only.
         
@@ -195,15 +245,16 @@ class AltTextUpate:
         :return: Description
         :rtype: Any
         """
-        soup = BeautifulSoup(content['html'], 'html.parser')
+        soup = BeautifulSoup(content_html, 'html.parser')
         images = soup.find_all('img')
         for img in images:
-            for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content['id'])['images']:
+            for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content_id)['images']:
                 if img.get('src') == image_payload['image_url_for_update']:
                     if image_payload['action'] == 'approve':
                         img['alt'] = image_payload['approved_alt_text']
         updated_description = str(soup)
         return updated_description
+    
     
     def _get_approved_content_ids(self) -> List[dict]:
         """
