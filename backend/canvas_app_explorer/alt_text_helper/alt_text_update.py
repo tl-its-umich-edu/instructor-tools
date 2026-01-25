@@ -48,7 +48,8 @@ class AltTextUpdate:
     def process_alt_text_update(self) -> bool|List[ContentPayload]:
         """
         Process the validated alt text review data.
-        Returns the report with success/failure status for each image.
+        Returns True if all updates succeeded, otherwise returns the report with failure details.
+        Checks for failures by looking for is_alt_text_updated=False or alt_text_failed_error_message set.
         """
         quiz_types = [t for t in self.content_types if t in ["quiz", "quiz_question"]]
 
@@ -64,9 +65,16 @@ class AltTextUpdate:
                 logger.warning("No valid content types found for alt text update")
         except Exception as e:
             logger.error(f"Error processing alt text update for course ID {self.course.id}: {e}")
-            return self.content_alt_text_update_report
         
-        return True
+        # Check if there are any failures in the report
+        # A failure is indicated by either is_alt_text_updated=False or alt_text_failed_error_message being set
+        has_failures = any(
+            img.get('is_alt_text_updated') == False or img.get('alt_text_failed_error_message') is not None
+            for content in self.content_alt_text_update_report 
+            for img in content['images']
+        )
+        
+        return self.content_alt_text_update_report if has_failures else True
 
 
     def _process_page(self) -> None:
@@ -139,15 +147,35 @@ class AltTextUpdate:
         approved_quizzes = {c['content_id'] for c in approved_content if c['content_type'] == 'quiz'}
         approved_quiz_questions = [c for c in approved_content if c['content_type'] == 'quiz_question']
 
-        # it is not impoertant to fetch quizzes if there are no approved quizzes to update
+        # it is not important to fetch quizzes if there are no approved quizzes to update
         if approved_quizzes:
-            quizzes_result = self._get_quizzes()
-            if isinstance(quizzes_result, Exception):
-                logger.error(f"Failed to fetch quizzes: {quizzes_result}")
-            else:
+            error_quizzes_fetch = False
+            try: 
+                quizzes_result = list(self.course.get_quizzes(per_page=PER_PAGE))
+            except (CanvasException, Exception) as e:
+                logger.error(f"Failed to fetch quizzes : {e}")
+                # Mark all approved quiz images as failed due to fetch error
+                quiz_errors = [{"content_id": qid, "error_message": str(e)} for qid in approved_quizzes]
+                self._mark_content_images_failed(quiz_errors, "quiz")
+                error_quizzes_fetch = True
+
+            if not error_quizzes_fetch:
                 quizzes_to_update = self._filter_approved_quizzes_for_update(quizzes_result, approved_quizzes)
                 for q in quizzes_to_update: logger.info(f"Quiz to Update Id {q.id} Name: {q.title}")
                 quizzes_alt_text_update_results = self._update_quiz_alt_text(quizzes_to_update)
+                
+                # Track failed quizzes by preparing error list with content_id and error message
+                quiz_errors = []
+                for quiz, result in zip(quizzes_to_update, quizzes_alt_text_update_results):
+                    if isinstance(result, Exception):
+                        quiz_errors.append({
+                            "content_id": quiz.id,
+                            "error_message": str(result)
+                        })
+                
+                # Mark all failed quizzes in report
+                if quiz_errors:
+                    self._mark_content_images_failed(quiz_errors, "quiz")
         
         # 2. Process Quiz Questions Results if there are approved quiz questions
         if approved_quiz_questions:
@@ -198,12 +226,6 @@ class AltTextUpdate:
     def _filter_approved_questions_for_update(self, questions: List[QuizQuestion], approved_question_ids: set) -> List[QuizQuestion]:
         return [q for q in questions if q.id in approved_question_ids]
     
-    def _get_quizzes(self) -> List[Quiz]:
-        try:
-            return list(self.course.get_quizzes(per_page=PER_PAGE))
-        except (CanvasException, Exception) as e:
-            logger.error(f"Failed to fetch quizzes for course ID {self.course.id}: {e}")
-            raise e
         
     
     @async_to_sync
