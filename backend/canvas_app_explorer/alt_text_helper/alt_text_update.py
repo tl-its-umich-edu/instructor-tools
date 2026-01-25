@@ -10,7 +10,7 @@ from canvasapi.quiz import Quiz
 from canvasapi.quiz import QuizQuestion
 from canvasapi.exceptions import CanvasException
 from asgiref.sync import async_to_sync
-from typing import List, Literal, TypeVar, TypedDict, Union
+from typing import Any, Dict, List, Literal, NotRequired, TypeVar, TypedDict, Union
 from bs4 import BeautifulSoup
 
 from django.conf import settings
@@ -24,7 +24,10 @@ class ImagePayload(TypedDict):
     image_id: str
     action: Literal["approve", "skip"]
     approved_alt_text: str
-    image_url_for_update: str 
+    # Original Payload doesn't add it, only needed for internal processing
+    image_url_for_update: NotRequired[str]
+    is_alt_text_updated: NotRequired[bool | None]
+    alt_text_failed_error_message: NotRequired[str | None]
 
 class ContentPayload(TypedDict):
     content_id: int
@@ -34,29 +37,36 @@ class ContentPayload(TypedDict):
     images: List[ImagePayload]
     
 PER_PAGE = 100
-class AltTextUpate:
+class AltTextUpdate:
     def __init__(self, course_id: int, canvas_api: Canvas, content_with_alt_text: List[ContentPayload], content_types: List[str]) -> None:
         self.course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
         self.canvas_api = canvas_api
         self.content_with_alt_text: List[ContentPayload] = self._enrich_content_with_ui_urls(content_with_alt_text)
+        self.content_alt_text_update_report: List[ContentPayload] = self.content_with_alt_text
         self.content_types: List[str] = content_types
     
-    def process_alt_text_update(self) -> None:
+    def process_alt_text_update(self) -> bool|List[ContentPayload]:
         """
         Process the validated alt text review data.
+        Returns the report with success/failure status for each image.
         """
         quiz_types = [t for t in self.content_types if t in ["quiz", "quiz_question"]]
 
         logger.info(f'self.content_with_alt_text: {self.content_with_alt_text}')
-
-        if "page" in self.content_types:
-            self._process_page()
-        elif "assignment" in self.content_types:
-            self._process_assignment()
-        elif quiz_types:
-            self._process_quiz_and_questions(quiz_types)
-        else: 
-            logger.warning("No valid content types found for alt text update")
+        try:
+            if "page" in self.content_types:
+                self._process_page()
+            elif "assignment" in self.content_types:
+                self._process_assignment()
+            elif quiz_types:
+                self._process_quiz_and_questions(quiz_types)
+            else: 
+                logger.warning("No valid content types found for alt text update")
+        except Exception as e:
+            logger.error(f"Error processing alt text update for course ID {self.course.id}: {e}")
+            return self.content_alt_text_update_report
+        
+        return True
 
 
     def _process_page(self) -> None:
@@ -67,21 +77,30 @@ class AltTextUpate:
             pages: Page = list(self.course.get_pages(include=['body'], per_page=PER_PAGE))
         except (CanvasException, Exception) as e:
             logger.error(f"Failed to fetch pages for course ID {self.course.id}: {e}")
+            # Mark all approved page images as failed due to fetch error
+            page_errors = [{"content_id": pid, "error_message": str(e)} for pid in page_ids]
+            self._mark_content_images_failed(page_errors, "page")
             raise e
         # this filters Content: pages from API call to only those with approved images content IDs. 
         approved_pages: Page = [p for p in pages if getattr(p, "page_id", None) in page_ids]
         page_alt_text_update_results = self._update_page_alt_text(approved_pages)
         
-        exceptions = []
+        # Track failed pages by preparing error list with content_id and error message
+        page_errors = []
         for page, result in zip(approved_pages, page_alt_text_update_results):
             if isinstance(result, Exception):
-                exceptions.append(f"Page {page.page_id} with name {page.title} failed due to {result}") 
-        if exceptions:
-            all_errors = "; ".join(exceptions)
-            logger.error(f"Error updating page alt text: {all_errors}")
-            raise Exception(all_errors)
+                page_errors.append({
+                    "content_id": page.page_id,
+                    "error_message": str(result)
+                })
+        
+        # Mark all failed pages in report
+        if page_errors:
+            self._mark_content_images_failed(page_errors, "page")
+            raise Exception(f"Error updating page alt text for course ID {self.course.id}")
 
     def _process_assignment(self) -> None:
+        logger.info("Processing assignment alt text update for course_id %s", self.course.id)
         approved_content = self._get_approved_content_ids()
         assignment_ids = {item["content_id"] for item in approved_content}
         # making api calls for fetching assignments
@@ -89,21 +108,28 @@ class AltTextUpate:
             assignments: Assignment = list(self.course.get_assignments(per_page=PER_PAGE))
         except (CanvasException, Exception) as e:
             logger.error(f"Failed to fetch assignments for course ID {self.course.id}: {e}")
+            # Mark all approved assignment images as failed due to fetch error
+            assignment_errors = [{"content_id": aid, "error_message": str(e)} for aid in assignment_ids]
+            self._mark_content_images_failed(assignment_errors, "assignment")
             raise e
         
         # this filters Content: assignments from API call to only those with approved images content IDs.
         approved_assignment: Assignment = [a for a in assignments if a.id in assignment_ids]
         assign_alt_text_update_results = self._update_assignment_alt_text(approved_assignment)
         
-        exceptions = []
+        # Track failed assignments by preparing error list with content_id and error message
+        assignment_errors = []
         for assignment, result in zip(approved_assignment, assign_alt_text_update_results):
             if isinstance(result, Exception):
-                exceptions.append(f"Assignment {assignment.id} with name {assignment.name} failed due to {result}")
+                assignment_errors.append({
+                    "content_id": assignment.id,
+                    "error_message": str(result)
+                })
         
-        if exceptions:
-            all_errors = "; ".join(exceptions)
-            logger.error(f"Error updating assignment alt text: {all_errors}")
-            raise Exception(all_errors)
+        # Mark all failed assignments in report
+        if assignment_errors:
+            self._mark_content_images_failed(assignment_errors, "assignment")
+            raise Exception(f"Error updating assignment alt text for course ID {self.course.id}")
     
     def _process_quiz_and_questions(self, quiz_types: List[str]) -> None:
         logger.info("Processing quiz alt text update for course_id %s with quiz types %s", self.course.id, quiz_types)
@@ -121,7 +147,7 @@ class AltTextUpate:
             else:
                 quizzes_to_update = self._filter_approved_quizzes_for_update(quizzes_result, approved_quizzes)
                 for q in quizzes_to_update: logger.info(f"Quiz to Update Id {q.id} Name: {q.title}")
-                quizzes_alt_text_update_results = self._update_quiz_alt_text_new(quizzes_to_update)
+                quizzes_alt_text_update_results = self._update_quiz_alt_text(quizzes_to_update)
         
         # 2. Process Quiz Questions Results if there are approved quiz questions
         if approved_quiz_questions:
@@ -142,9 +168,30 @@ class AltTextUpate:
                 
                 for q in questions_to_update:
                     logger.info(f"Question Id {q.id} quiz id: {q.quiz_id}: Name: {q.question_name}")
-                questions_alt_text_update_results = self._update_quiz_question_alt_text_new(questions_to_update)
+                questions_alt_text_update_results = self._update_quiz_question_alt_text(questions_to_update)
         
        
+    def _mark_content_images_failed(self, content_errors: List[Dict[str, any]], content_type: str) -> None:
+        """
+        Mark all approved images in given content IDs as failed with their error messages.
+        Only marks images with action 'approve', skipped images remain unchanged.
+        
+        :param content_errors: List of dicts with 'content_id' and 'error_message' keys
+        :param content_type: Type of content ('page', 'assignment', 'quiz', 'quiz_question')
+        """
+        for error_dict in content_errors:
+            content_id = error_dict['content_id']
+            error_message = error_dict['error_message']
+            
+            for content in self.content_alt_text_update_report:
+                if content['content_id'] == content_id and content['content_type'] == content_type:
+                    for image in content['images']:
+                        if image.get('action') == 'approve':
+                            image['is_alt_text_updated'] = False
+                            image['alt_text_failed_error_message'] = error_message
+                    break
+    
+    
     def _filter_approved_quizzes_for_update(self, quizzes: List[Quiz], approved_quiz_ids: set) -> List[Quiz]:
         return [q for q in quizzes if q.id in approved_quiz_ids]
 
@@ -158,83 +205,6 @@ class AltTextUpate:
             logger.error(f"Failed to fetch quizzes for course ID {self.course.id}: {e}")
             raise e
         
-    
-    def process_quiz(self, quiz_types: List[str]) -> None:
-        logger.info("Processing quiz alt text update for course_id %s with quiz types %s", self.course.id, quiz_types)
-        approved_content = self._get_approved_content_ids()
-        
-        # 1. Process Quizzes (Description)
-        quiz_items_for_update = {c['content_id'] for c in approved_content if c['content_type'] == 'quiz'}
-        question_items_for_update = [c for c in approved_content if c['content_type'] == 'quiz_question']
-
-        results_get_quiz_and_questions = self.get_quiz_questions(quiz_items_for_update, question_items_for_update)
-        
-        if quiz_items_for_update:
-            quizzes: Quiz = list(self.course.get_quizzes(per_page=PER_PAGE))
-            quizzes_filtered: Quiz = [q for q in quizzes if q.id in quiz_items_for_update]
-            
-            extracted_quizzes = []
-            for quiz in quizzes_filtered:
-                extracted_quizzes.append({
-                    "id": quiz.id,
-                    "name": quiz.title,
-                    "html": quiz.description
-                })
-                logger.info(f"Quiz ID: {quiz.id}, Title: {quiz.title}")
-            self._update_quiz_alt_text(extracted_quizzes)
-
-        # 2. Process Quiz Questions
-
-        if not question_items_for_update:
-            return
-        # Group by parent_id (quiz_id)
-        quiz_parent_ids = {c['content_parent_id'] for c in question_items_for_update if c.get('content_parent_id')}
-        
-        for quiz_id in quiz_parent_ids:
-            # Mock Quiz Object using the user provided logic
-            made_quiz = Quiz(self.canvas_api._Canvas__requester, {'id': quiz_id, 'course_id': self.course.id})
-            
-            # Real API call for questions
-            questions = list(made_quiz.get_questions(per_page=PER_PAGE))
-            
-            # Filter questions belonging to this quiz that need updates
-            target_question_ids = {c['content_id'] for c in question_items_for_update if str(c.get('content_parent_id')) == str(quiz_id)}
-            # Note: ensure type matching for IDs (str vs int). Canvas IDs are ints, content_parent_id might be str from TypedDict
-            
-            questions_filtered = [q for q in questions if q.id in target_question_ids]
-            logger.info(f"Found {len(questions_filtered)} questions to update for Quiz Questions: {questions_filtered}")
-            
-            extracted_questions = []
-            for question in questions_filtered:
-                extracted_questions.append({
-                    "id": question.id,
-                    "quiz_id": quiz_id,
-                    "name": question.question_name,
-                    "html": question.question_text
-                })
-                logger.info(f"Quiz Question ID: {question.id}, Name: {question.question_name}")
-            
-            self._update_quiz_question_alt_text(extracted_questions)
-    
-    
-    def _update_quiz_alt_text(self, content_list: List[dict]) -> None:
-        logger.info("Updating quiz alt text for course_id %s %s", self.course.id, content_list)
-        for content in content_list:
-            logger.info(f"Updating Quiz ID: {content['id']}")
-            updated_description = self._update_alt_text_html(content)
-            quiz = Quiz(self.canvas_api._Canvas__requester, {'id': content['id'], 'course_id': self.course.id})
-            quiz.edit(quiz={'description': updated_description})
-
-    def _update_quiz_question_alt_text(self, content_list: List[dict]) -> None:
-        logger.info("Updating quiz question alt text for quiz_id %s", content_list)
-        for content in content_list:
-            logger.info(f"Updating Quiz Question ID: {content['id']}")
-            updated_text = self._update_alt_text_html(content)
-            # quiz = Quiz(self.canvas_api._Canvas__requester, {'id': content['quiz_id'], 'course_id': self.course.id})
-            quiz_question = QuizQuestion(self.canvas_api._Canvas__requester, {'id': content['id'], 'quiz_id': content['quiz_id'], 
-                                                                              'course_id': self.course.id, 'question_name': 'place_holder'})
-            # Use edit_question on the quiz object
-            quiz_question.edit(question={'question_text': updated_text})
     
     @async_to_sync
     async def get_quiz_questions(self, quiz_questions: List[dict]) -> None:
@@ -266,7 +236,7 @@ class AltTextUpate:
             raise e
     
     @async_to_sync
-    async def _update_quiz_alt_text_new(self, approved_quizzes: List[Quiz]) -> None:
+    async def _update_quiz_alt_text(self, approved_quizzes: List[Quiz]) -> None:
         async with asyncio.Semaphore(10):
             quiz_update_tasks = [self.update_content_items_async(self._update_quiz_alt_text_sync, quiz) 
                                  for quiz in approved_quizzes]
@@ -281,7 +251,7 @@ class AltTextUpate:
             raise e
         
     @async_to_sync
-    async def _update_quiz_question_alt_text_new(self, approved_quiz_questions: List[QuizQuestion]) -> None:
+    async def _update_quiz_question_alt_text(self, approved_quiz_questions: List[QuizQuestion]) -> None:
         async with asyncio.Semaphore(10):
             question_update_tasks = [self.update_content_items_async(self._update_quiz_question_alt_text_sync, question) 
                                      for question in approved_quiz_questions]

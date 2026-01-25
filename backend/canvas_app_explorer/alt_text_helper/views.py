@@ -12,12 +12,13 @@ from django.urls import reverse
 from rest_framework_tracking.mixins import LoggingMixin
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
+from rpds import List
 from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
 from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer
-from backend.canvas_app_explorer.alt_text_helper.alt_text_update import AltTextUpate
+from backend.canvas_app_explorer.alt_text_helper.alt_text_update import AltTextUpdate, ContentPayload
 
 logger = logging.getLogger(__name__)
 
@@ -195,10 +196,16 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
              logger.info(f"Processing alt text update for course_id {course_id} and content_types {content_types}")
              manager = MANAGER_FACTORY.create_manager(request)
              canvas_api: Canvas = manager.canvas_api
-             course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
-             service = AltTextUpate(course_id, canvas_api, serializer.validated_data, content_types)
-             service.process_alt_text_update()
-             return Response(status=HTTPStatus.OK)
+             service = AltTextUpdate(course_id, canvas_api, serializer.validated_data, content_types)
+             results_from_alt_text_update: bool|List[ContentPayload] = service.process_alt_text_update()
+             
+             if results_from_alt_text_update is True:
+                logger.info(f"Alt text update completed successfully for course_id {course_id}")
+                return Response(status=HTTPStatus.OK)
+             else:
+                 # All succeeded - return just 200 OK with no data
+                 logger.info(f"Alt text update completed successfully for course_id {course_id}")
+                 return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"message": str(results_from_alt_text_update)})
         except Exception as e:
             logger.error(f"Failed to submit review: {e}")
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"message": str(e)})
