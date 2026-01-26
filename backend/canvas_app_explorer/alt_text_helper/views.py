@@ -199,11 +199,11 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
              results_from_alt_text_update: bool|List[ContentPayload] = service.process_alt_text_update()
              
              if results_from_alt_text_update is True:
-                logger.info(f"Alt text update completed successfully for course_id {course_id}")
+                logger.info(f"Alt text update completed successfully for course_id {course_id} with content_types {content_types}")
                 return Response(status=HTTPStatus.OK)
              else:
                  # Alt text update failed and returned errors; propagate as 500 response
-                 logger.error(f"Alt text update failed for course_id {course_id}")
+                 logger.error(f"Alt text update failed for course_id {course_id} with content_types {content_types}")
                  return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"message": str(results_from_alt_text_update)})
         except Exception as e:
             logger.error(f"Failed to submit review: {e}")
