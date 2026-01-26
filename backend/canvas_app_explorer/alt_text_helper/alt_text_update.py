@@ -10,10 +10,12 @@ from canvasapi.quiz import Quiz
 from canvasapi.quiz import QuizQuestion
 from canvasapi.exceptions import CanvasException
 from asgiref.sync import async_to_sync
+from django.db.utils import DatabaseError
 from typing import Any, Dict, List, Literal, NotRequired, TypeVar, TypedDict, Union
 from bs4 import BeautifulSoup
 
 from django.conf import settings
+from backend.canvas_app_explorer.models import ImageItem, ContentItem
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -24,8 +26,7 @@ class ImagePayload(TypedDict):
     image_id: str
     action: Literal["approve", "skip"]
     approved_alt_text: str
-    # Original Payload doesn't add it, only needed for internal processing
-    image_url_for_update: NotRequired[str]
+    image_url_for_update: str
     is_alt_text_updated: NotRequired[bool | None]
     alt_text_failed_error_message: NotRequired[str | None]
 
@@ -38,7 +39,7 @@ class ContentPayload(TypedDict):
     
 PER_PAGE = 100
 class AltTextUpdate:
-    def __init__(self, course_id: int, canvas_api: Canvas, content_with_alt_text: List[ContentPayload], content_types: List[str]) -> None:
+    def __init__(self, course_id: int, canvas_api: Canvas, content_with_alt_text: List[Dict[str, Any]], content_types: List[str]) -> None:
         self.course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
         self.canvas_api = canvas_api
         self.content_with_alt_text: List[ContentPayload] = self._enrich_content_with_ui_urls(content_with_alt_text)
@@ -73,6 +74,8 @@ class AltTextUpdate:
             for content in self.content_alt_text_update_report 
             for img in content['images']
         )
+
+        self.delete_successfully_updated_items()
         
         return self.content_alt_text_update_report if has_failures else True
 
@@ -81,6 +84,11 @@ class AltTextUpdate:
         logger.info("Processing page alt text update for course_id %s", self.course.id)
         approved_content = self._get_approved_content_ids()
         page_ids = {item["content_id"] for item in approved_content}
+        
+        if not page_ids:
+            logger.info("No approved pages to process for course_id %s", self.course.id)
+            return
+        
         try:
             pages: Page = list(self.course.get_pages(include=['body'], per_page=PER_PAGE))
         except (CanvasException, Exception) as e:
@@ -111,6 +119,11 @@ class AltTextUpdate:
         logger.info("Processing assignment alt text update for course_id %s", self.course.id)
         approved_content = self._get_approved_content_ids()
         assignment_ids = {item["content_id"] for item in approved_content}
+        
+        if not assignment_ids:
+            logger.info("No approved assignments to process for course_id %s", self.course.id)
+            return
+        
         # making api calls for fetching assignments
         try:
             assignments: Assignment = list(self.course.get_assignments(per_page=PER_PAGE))
@@ -240,6 +253,59 @@ class AltTextUpdate:
                             image['is_alt_text_updated'] = False
                             image['alt_text_failed_error_message'] = error_message
                     break
+    
+    def delete_successfully_updated_items(self) -> None:
+        """
+        Delete ImageItem and ContentItem records for successfully updated images.
+        
+        Logic:
+        - Delete ImageItem records for images with action 'approve' or 'skip' that were successfully updated
+          (i.e., no is_alt_text_updated field or is_alt_text_updated is True/not False)
+        - After deleting images, check if any ContentItem has no remaining ImageItems
+        - If a ContentItem has no remaining images, delete that ContentItem as well
+        
+        Note: is_alt_text_updated field only appears when there's a failure (is_alt_text_updated=False).
+              If the field is absent or is True, the update was successful.
+        """
+        images_to_delete = []
+        content_ids_to_check = set()
+        
+        # Collect image IDs to delete
+        for content in self.content_alt_text_update_report:
+            content_id = content['content_id']
+            for image in content['images']:
+                action = image.get('action')
+                is_failed = image.get('is_alt_text_updated') == False
+                
+                # Delete if action is approve/skip AND NOT failed
+                if action in ['approve', 'skip'] and not is_failed:
+                    images_to_delete.append(image.get('image_id'))
+                    content_ids_to_check.add(content_id)
+        
+        if not images_to_delete:
+            logger.info("No successfully updated images to delete")
+            return
+        
+        try:
+            # Delete ImageItems by image_id
+            deleted_count, _ = ImageItem.objects.filter(id__in=images_to_delete).delete()
+            logger.info(f"Deleted {deleted_count} successfully updated ImageItem records")
+            
+            # Check for orphaned ContentItems and delete them
+            for content_id in content_ids_to_check:
+                # Check if this content still has any images
+                remaining_images = ImageItem.objects.filter(content_item__content_id=content_id).count()
+                
+                if remaining_images == 0:
+                    # No images left, safe to delete the ContentItem
+                    deleted_count, _ = ContentItem.objects.filter(content_id=content_id).delete()
+                    logger.info(f"Deleted orphaned ContentItem with content_id={content_id}")
+                else:
+                    logger.info(f"ContentItem with content_id={content_id} still has {remaining_images} images, keeping it")
+        
+        except (DatabaseError, Exception) as e:
+            logger.error(f"Error deleting content items from Database: {e}")
+
     
     
     def _filter_approved_quizzes_for_update(self, quizzes: List[Quiz], approved_quiz_ids: set) -> List[Quiz]:
