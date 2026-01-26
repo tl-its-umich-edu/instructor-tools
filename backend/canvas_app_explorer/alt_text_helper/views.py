@@ -2,7 +2,6 @@
 from http import HTTPStatus
 import logging
 from canvasapi import Canvas
-from canvasapi.course import Course
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework import authentication, permissions, viewsets
@@ -12,7 +11,7 @@ from django.urls import reverse
 from rest_framework_tracking.mixins import LoggingMixin
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
-from rpds import List
+from typing import List
 from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
@@ -203,8 +202,8 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
                 logger.info(f"Alt text update completed successfully for course_id {course_id}")
                 return Response(status=HTTPStatus.OK)
              else:
-                 # All succeeded - return just 200 OK with no data
-                 logger.info(f"Alt text update completed successfully for course_id {course_id}")
+                 # Alt text update failed and returned errors; propagate as 500 response
+                 logger.error(f"Alt text update failed for course_id {course_id}")
                  return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"message": str(results_from_alt_text_update)})
         except Exception as e:
             logger.error(f"Failed to submit review: {e}")

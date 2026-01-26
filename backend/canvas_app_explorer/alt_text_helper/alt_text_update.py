@@ -234,7 +234,7 @@ class AltTextUpdate:
                     self._mark_content_images_failed(question_errors, "quiz_question")
         
        
-    def _mark_content_images_failed(self, content_errors: List[Dict[str, any]], content_type: str) -> None:
+    def _mark_content_images_failed(self, content_errors: List[Dict[str, Any]], content_type: str) -> None:
         """
         Mark all approved images in given content IDs as failed with their error messages.
         Only marks images with action 'approve', skipped images remain unchanged.
@@ -422,12 +422,13 @@ class AltTextUpdate:
     
     def _update_alt_text_html(self, content_id, content_html: str) -> str:
         """
-        This returns updated HTML content with  alt text changes for images that are approved only.
+        Return HTML content updated with alt text changes for images that have been approved.
         
-        :param self: Description
-        :param content: Description
-        :return: Description
-        :rtype: Any
+        :param content_html: Original HTML string for the content item to be processed.
+        :param content_id: Identifier of the content item whose HTML is being updated; used to
+            look up the corresponding image approval data in ``self.content_with_alt_text``.
+        :return: The updated HTML string with ``alt`` attributes set for approved images.
+        :rtype: str
         """
         soup = BeautifulSoup(content_html, 'html.parser')
         images = soup.find_all('img')

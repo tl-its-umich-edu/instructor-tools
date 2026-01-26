@@ -17,7 +17,7 @@ import sys
 
 from django.core.management.utils import get_random_secret_key
 
-from backend.canvas_scopes import DEFAUlT_CANVAS_SCOPES
+from backend.canvas_scopes import DEFAULT_CANVAS_SCOPES
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -301,7 +301,7 @@ CANVAS_OAUTH_CANVAS_DOMAIN = os.getenv('CANVAS_OAUTH_CANVAS_DOMAIN', 'canvas.ins
 if isinstance((env_canvas_scopes := os.getenv('CANVAS_OAUTH_SCOPES')), str):
     CANVAS_OAUTH_SCOPES = env_canvas_scopes.split(',')
 else:
-    CANVAS_OAUTH_SCOPES = DEFAUlT_CANVAS_SCOPES
+    CANVAS_OAUTH_SCOPES = DEFAULT_CANVAS_SCOPES
 
 CANVAS_OAUTH_TOKEN_EXPIRATION_BUFFER = os.getenv('CANVAS_OAUTH_TOKEN_EXPIRATION_BUFFER', timedelta(minutes=15))
 CANVAS_OAUTH_ERROR_TEMPLATE = os.getenv('CANVAS_OAUTH_ERROR_TEMPLATE', 'canvas_app_explorer/oauth_error.html')
