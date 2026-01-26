@@ -179,24 +179,46 @@ class AltTextUpdate:
         
         # 2. Process Quiz Questions Results if there are approved quiz questions
         if approved_quiz_questions:
+            approved_question_ids = {c['content_id'] for c in approved_quiz_questions}
+            quiz_ids_list = [c['content_parent_id'] for c in approved_quiz_questions if c.get('content_parent_id')]
+            
             result_quiz_questions = self.get_quiz_questions(approved_quiz_questions)
-            if isinstance(result_quiz_questions, Exception):
-                logger.error(f"Failed to fetch quiz questions: {result_quiz_questions}")
+            # Flatten the results using zip - result_quiz_questions is a list of lists or exceptions
+            all_questions = []
+            failed_quiz_batches = []
+            for quiz_id, res in zip(quiz_ids_list, result_quiz_questions):
+                if isinstance(res, Exception):
+                    logger.error(f"Failed to fetch questions for quiz {quiz_id}: {res}")
+                    failed_quiz_batches.append(res)
+                else:
+                    all_questions.extend(res if res else [])
+            
+            # If there are any fetch errors, mark all questions as failed and skip update
+            if failed_quiz_batches:
+                question_errors = [{"content_id": qid, "error_message": str(failed_quiz_batches[0])} for qid in approved_question_ids]
+                self._mark_content_images_failed(question_errors, "quiz_question")
             else:
-                # Flatten the results - result_quiz_questions is a list of lists or exceptions
-                all_questions = []
-                for res in result_quiz_questions:
-                    if isinstance(res, Exception):
-                        logger.error(f"Failed to fetch a batch of quiz questions: {res}")
-                    else:
-                        all_questions.extend(res if res else [])
-                
-                approved_question_ids = {c['content_id'] for c in approved_quiz_questions}
                 questions_to_update = self._filter_approved_questions_for_update(all_questions, approved_question_ids)
                 
                 for q in questions_to_update:
                     logger.info(f"Question Id {q.id} quiz id: {q.quiz_id}: Name: {q.question_name}")
                 questions_alt_text_update_results = self._update_quiz_question_alt_text(questions_to_update)
+                
+                # Track failed questions by preparing error list with content_id and error message
+                question_errors = []
+                question_successes = []
+                for question, result in zip(questions_to_update, questions_alt_text_update_results):
+                    if isinstance(result, Exception):
+                        question_errors.append({
+                            "content_id": question.id,
+                            "error_message": str(result)
+                        })
+                    else:
+                        question_successes.append(question.id)
+                
+                # Mark all failed and successful questions in report
+                if question_errors:
+                    self._mark_content_images_failed(question_errors, "quiz_question")
         
        
     def _mark_content_images_failed(self, content_errors: List[Dict[str, any]], content_type: str) -> None:
