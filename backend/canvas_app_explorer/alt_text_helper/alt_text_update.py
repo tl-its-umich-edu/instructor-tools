@@ -11,15 +11,13 @@ from canvasapi.quiz import QuizQuestion
 from canvasapi.exceptions import CanvasException
 from asgiref.sync import async_to_sync
 from django.db.utils import DatabaseError
-from typing import Any, Dict, List, Literal, NotRequired, TypeVar, TypedDict, Union
+from typing import Any, Dict, List, Literal, NotRequired, TypedDict, Union
 from bs4 import BeautifulSoup
 
 from django.conf import settings
 from backend.canvas_app_explorer.models import ImageItem, ContentItem
 
 logger = logging.getLogger(__name__)
-T = TypeVar("T")
-R = TypeVar("R")
 
 class ImagePayload(TypedDict):
     image_url: str
@@ -391,7 +389,7 @@ class AltTextUpdate:
             logger.error(f"Failed to update assignment ID {approved_assignment.id}: {e}")
             raise e
 
-    async def update_content_items_async(self, fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
+    async def update_content_items_async[T, R](self, fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
         """
         Generic async wrapper that runs the synchronous `fn(course|quiz)` in a thread and
         returns a list (or empty list on error). `fn` should be a callable like
