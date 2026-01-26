@@ -21,7 +21,7 @@ beautifulsoup4==4.14.3 # For HTML parsing
 djangorestframework==3.16.1
 django-filter==25.1 # Filtering support. 25.2 doesn't support Django 4.2
 drf-spectacular==0.29.0
-markdown==3.10 # Markdown support for the browsable API
+markdown==3.10.1 # Markdown support for the browsable API
 
 # LTI
 pycryptodome==3.23.0 # For generating LTI keys
@@ -41,7 +41,7 @@ drf-api-tracking==1.8.4 # API tracking for DRF
 
 django-q2==1.9.0
 openai==2.15.0
-blessed==1.26.0
+blessed==1.27.0
 
 # httpx should be pulled in by openai, but adding explicitly to avoid issues
 # If the version goes above 1.0 will need to verify compatibility with openai package
