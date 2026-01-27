@@ -27,15 +27,32 @@ RUN apt-get update && \
     apt-get clean -y && \
     rm -rf /var/lib/apt/lists/*
 
-# Install MariaDB from the mariadb repository rather than using Debians 
-# https://mariadb.com/kb/en/mariadb-package-repository-setup-and-usage/
-RUN curl -LsS https://r.mariadb.com/downloads/mariadb_repo_setup | bash && \
-apt install -y --no-install-recommends libmariadb-dev
+# Use the official MariaDB mirrors directly (No script, no Cloudflare issues)
+# Need to update this when bookworm base is upgraded
+# 1. Install dependencies needed to add the repository
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    # 2. Add the MariaDB GPG Key
+    && curl -fsSL https://mariadb.org/mariadb_release_signing_key.asc | gpg --dearmor -o /etc/apt/keyrings/mariadb.gpg \
+    # 3. Define the repository (Hardcoded to bookworm for stability)
+    && echo "deb [arch=amd64,arm64 signed-by=/etc/apt/keyrings/mariadb.gpg] https://deb.mariadb.org/11.4/debian bookworm main" > /etc/apt/sources.list.d/mariadb.list \
+    # 4. Update and install the library
+    && apt-get update && apt-get install -y --no-install-recommends \
+    libmariadb-dev \
+    # 5. Cleanup to keep the image slim
+    && rm -rf /var/lib/apt/lists/*
+
+# 1. Add the Nodesource GPG Key
+RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    # 2. Add the Node.js 20.x Repository
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    # 3. Update and install
+    && apt-get update && apt-get install -y nodejs --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir -r requirements.txt
-
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-apt install -y nodejs
 
 WORKDIR /code
 
