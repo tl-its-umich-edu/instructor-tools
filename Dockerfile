@@ -15,6 +15,11 @@ RUN npm run build:frontend
 
 FROM python:3.13-slim-${DEBIAN_VERSION}
 
+# Redeclare build arguments for this stage
+ARG DEBIAN_VERSION
+ARG NODE_VERSION
+ARG MARIADB_VERSION
+
 # NOTE: requirements.txt not likely to change between dev builds
 COPY requirements.txt .
 RUN apt-get update && \
