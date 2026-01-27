@@ -1,5 +1,6 @@
 from django.test import TestCase
 from unittest.mock import patch, AsyncMock
+from asgiref.sync import async_to_sync
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import (
     extract_images_from_html,
     get_courses_images,
@@ -169,8 +170,8 @@ class TestParsingImageContentHTML(TestCase):
             dummy_course = Course(None, {'id': 403334})
 
             # 1. Call get_courses_images to get raw results
-            # Note: get_courses_images is already wrapped with @async_to_sync, so call it directly
-            raw_results = get_courses_images(dummy_course)
+            # Note: get_courses_images is async, so wrap it with async_to_sync
+            raw_results = async_to_sync(get_courses_images)(dummy_course)
 
             # 2. Call unpack_and_store_content_images which does the filtering and calls save_scan_results
             from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import unpack_and_store_content_images
@@ -196,3 +197,30 @@ class TestParsingImageContentHTML(TestCase):
             for item in payload:
                 self.assertGreater(len(item.get("images", [])), 0, 
                                  f"Item {item['id']} should have at least one image")
+    
+    def test_no_async_to_sync_warnings_on_async_functions(self):
+        """Ensure async_to_sync functions don't raise warnings about non-async callables."""
+        import warnings
+        
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            
+            # Call the async function via async_to_sync
+            from canvasapi.course import Course
+            dummy_course = Course(None, {'id': 403334})
+            
+            with patch("backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.fetch_content_items_async", new_callable=AsyncMock, return_value=[]):
+                raw_results = async_to_sync(get_courses_images)(dummy_course)
+            
+            # Check for the specific warning
+            async_sync_warnings = [
+                warning
+                for warning in w
+                if issubclass(warning.category, UserWarning)
+                and "async_to_sync was passed a non-async-marked callable" in str(warning.message)
+            ]
+            self.assertEqual(
+                len(async_sync_warnings),
+                0,
+                "async_to_sync should not warn about non-async callables",
+            )

@@ -133,8 +133,6 @@ class ProcessContentImages:
             logger.error(f"Error fetching image content for image_id {img_url}: {req_err}")
             return req_err
 
-    @async_to_sync
-    @log_execution_time
     async def _worker_async(self, image_models: List[ImageItem], concurrency: int) -> List[Dict[str, Any]]:
         """Process images concurrently using semaphore for concurrency control.
 
@@ -165,6 +163,7 @@ class ProcessContentImages:
         tasks = [_process_single_image(img) for img in image_models]
         return await asyncio.gather(*tasks, return_exceptions=False)
 
+    @log_execution_time
     def _process_images_concurrently(self, image_models: List[ImageItem]) -> List[Dict[str, Any]]:
         """Process images concurrently: fetch content and generate alt text for each, bounded.
 
@@ -173,7 +172,7 @@ class ProcessContentImages:
         - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
         """
         concurrency = config.IMAGE_PROCESSING_CONCURRENCY
-        return self._worker_async(image_models, concurrency)
+        return async_to_sync(self._worker_async)(image_models, concurrency)
 
     # https://www.buildwithmatija.com/blog/reduce-image-sizes-ai-processing-costs#the-smart-optimization-strategy
     def get_optimized_images(self, image_content, image_id):

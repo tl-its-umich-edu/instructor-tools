@@ -65,7 +65,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     # Fetch full course details to ensure attributes like course_code are present for logging
     course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
-    results = get_courses_images(course)
+    results = async_to_sync(get_courses_images)(course)
     state_of_content_fetch: bool = unpack_and_store_content_images(results, course)
 
     # this check is helping not to move to alt text retrieval if there was an error in fetching content images
@@ -102,7 +102,6 @@ def _create_background_request(req_user: User, canvas_callback_url: str, course_
     request.session = session
     return request
 
-@async_to_sync
 async def get_courses_images(course: Course):
     results = await asyncio.gather(
         fetch_content_items_async(get_assignments, course),
@@ -312,7 +311,7 @@ def get_quizzes(course: Course):
                 'quiz',
                 None)
 
-        quiz_question_results = get_quiz_questions(quizzes)
+        quiz_question_results = async_to_sync(get_quiz_questions)(quizzes)
         return process_quiz_with_questions(images_from_quizzes, quiz_question_results)
     except (CanvasException, Exception) as e:
         logger.error(f"Errors fetching Quizzes for course {course.id}: {e}")
@@ -335,7 +334,6 @@ def process_quiz_with_questions(quiz: List[Dict[str, Any]], questions: List[Dict
     else:
         return exceptions[0]
 
-@async_to_sync
 async def get_quiz_questions(quizzes: List[Quiz]):
     async with semaphore:
         quiz_q_tasks = [fetch_content_items_async(get_quiz_questions_sync, quiz) for quiz in quizzes]
