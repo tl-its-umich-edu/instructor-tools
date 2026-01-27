@@ -79,10 +79,10 @@ COPY --from=node-build /build/node_modules ./frontend/node_modules
 
 # Sets the local timezone of the docker image
 ARG TZ
-ENV TZ ${TZ:-America/Detroit}
+ENV TZ=${TZ:-America/Detroit}
 # By default run a build that won't have a running frontend process (only used in dev)
 ARG RUN_FRONTEND
-ENV RUN_FRONTEND ${RUN_FRONTEND:-false} 
+ENV RUN_FRONTEND=${RUN_FRONTEND:-false} 
 
 # Run collectstatic *only* if RUN_FRONTEND is not true
 RUN if [ "$RUN_FRONTEND" != "true" ]; then \
