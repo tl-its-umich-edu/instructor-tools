@@ -43,6 +43,7 @@ class AltTextUpdate:
         self.content_with_alt_text: List[ContentPayload] = self._enrich_content_with_ui_urls(content_with_alt_text)
         self.content_alt_text_update_report: List[ContentPayload] = self.content_with_alt_text
         self.content_types: List[str] = content_types
+        self.semaphore = asyncio.Semaphore(10)
     
     def process_alt_text_update(self) -> bool|List[ContentPayload]:
         """
@@ -316,7 +317,7 @@ class AltTextUpdate:
     
     @async_to_sync
     async def get_quiz_questions(self, quiz_questions: List[dict]) -> None:
-        async with asyncio.Semaphore(10):
+        async with self.semaphore:
             # Extract unique quiz IDs and fetch questions for each
             quiz_ids = {c['content_parent_id'] for c in quiz_questions if c.get('content_parent_id')}
             tasks = [
@@ -345,7 +346,7 @@ class AltTextUpdate:
     
     @async_to_sync
     async def _update_quiz_alt_text(self, approved_quizzes: List[Quiz]) -> None:
-        async with asyncio.Semaphore(10):
+        async with self.semaphore:
             quiz_update_tasks = [self.update_content_items_async(self._update_quiz_alt_text_sync, quiz) 
                                  for quiz in approved_quizzes]
             return await asyncio.gather(*quiz_update_tasks, return_exceptions=True)
@@ -360,7 +361,7 @@ class AltTextUpdate:
         
     @async_to_sync
     async def _update_quiz_question_alt_text(self, approved_quiz_questions: List[QuizQuestion]) -> None:
-        async with asyncio.Semaphore(10):
+        async with self.semaphore:
             question_update_tasks = [self.update_content_items_async(self._update_quiz_question_alt_text_sync, question) 
                                      for question in approved_quiz_questions]
             return await asyncio.gather(*question_update_tasks, return_exceptions=True)
@@ -375,7 +376,7 @@ class AltTextUpdate:
         
     @async_to_sync
     async def _update_assignment_alt_text(self, approved_assignments: List[Assignment]) -> None:
-        async with asyncio.Semaphore(10):
+        async with self.semaphore:
             assign_update_tasks = [self.update_content_items_async(self._update_assignment_alt_text_sync, assignment) 
                                    for assignment in approved_assignments]
             return await asyncio.gather(*assign_update_tasks, return_exceptions=True)
@@ -404,7 +405,7 @@ class AltTextUpdate:
     
     @async_to_sync
     async def _update_page_alt_text(self, approved_pages: List[Page]) -> None:
-        async with asyncio.Semaphore(10):
+        async with self.semaphore:
             page_update_tasks = [self.update_content_items_async(self._update_page_alt_text_sync, page) 
                                  for page in approved_pages]
             return await asyncio.gather(*page_update_tasks, return_exceptions=True)
