@@ -44,10 +44,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # 5. Cleanup to keep the image slim
     && rm -rf /var/lib/apt/lists/*
 
+# Configure Node.js version for the NodeSource repository
+ARG NODE_VERSION=20
+
 # 1. Add the Nodesource GPG Key
 RUN curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    # 2. Add the Node.js 20.x Repository
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    # 2. Add the Node.js Repository for the configured version
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
     # 3. Update and install
     && apt-get update && apt-get install -y nodejs --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
