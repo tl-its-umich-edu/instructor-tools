@@ -36,6 +36,12 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', get_random_secret_key())
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", 'false').lower() in ('true', '1', 't')
 
+# Debugpy settings
+DEBUGPY_ENABLE = os.getenv("DEBUGPY_ENABLE", 'false').lower() in ('true', '1', 'yes', 'on')
+DEBUGPY_PORT = int(os.getenv('DEBUGPY_PORT', 5020))
+DEBUG_DJANGO_Q_PORT = int(os.getenv('DEBUG_DJANGO_Q_PORT', 0)) or None
+DEBUGPY_DJANGO_Q_TIMEOUT = int(os.getenv('DEBUGPY_DJANGO_Q_TIMEOUT', 30))
+
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
 # Application definition
