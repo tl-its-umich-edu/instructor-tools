@@ -46,45 +46,53 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     # adding a status before start of the scan, if this DB action failed no need to stop next steps of fetching content images
     update_course_scan(course_id, CourseScanStatus.RUNNING.value)
 
-    # Fetch course content using the manager
-    user_id = task.get('user_id')
-    req_user: User = get_user_model().objects.get(pk=user_id)
-    canvas_callback_url = task.get('canvas_callback_url')
-    request = _create_background_request(req_user, canvas_callback_url, course_id)
-    
     try:
-        manager = MANAGER_FACTORY.create_manager(request)
-        canvas_api: Canvas = manager.canvas_api
-        bearer_token = manager.api_key
-    except (InvalidOAuthReturnError, Exception) as e:
-        logger.error(f"Error creating Canvas API for course_id {course_id}: {e}")
-        CanvasOAuth2Token.objects.filter(user=request.user).delete()
-        update_course_scan(course_id, CourseScanStatus.FAILED.value)
-        return
+        # Fetch course content using the manager
+        user_id = task.get('user_id')
+        req_user: User = get_user_model().objects.get(pk=user_id)
+        canvas_callback_url = task.get('canvas_callback_url')
+        request = _create_background_request(req_user, canvas_callback_url, course_id)
+        
+        try:
+            manager = MANAGER_FACTORY.create_manager(request)
+            canvas_api: Canvas = manager.canvas_api
+            bearer_token = manager.api_key
+        except (InvalidOAuthReturnError, Exception) as e:
+            logger.error(f"Error creating Canvas API for course_id {course_id}: {e}")
+            CanvasOAuth2Token.objects.filter(user=request.user).delete()
+            update_course_scan(course_id, CourseScanStatus.FAILED.value)
+            return
 
-    # Fetch full course details to ensure attributes like course_code are present for logging
-    course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
+        # Fetch full course details to ensure attributes like course_code are present for logging
+        course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
-    results = async_to_sync(get_courses_images)(course)
-    state_of_content_fetch: bool = unpack_and_store_content_images(results, course)
+        results = async_to_sync(get_courses_images)(course)
+        state_of_content_fetch: bool = unpack_and_store_content_images(results, course)
 
-    # this check is helping not to move to alt text retrieval if there was an error in fetching content images
-    if not state_of_content_fetch:
-        logger.error(f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.")
-        return
-    
-    try:
-        retrieve_and_store_alt_text(course, bearer_token=bearer_token)
-    except ImageContentExtractionException as e:
+        # this check is helping not to move to alt text retrieval if there was an error in fetching content images
+        if not state_of_content_fetch:
+            logger.error(f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.")
+            update_course_scan(course_id, CourseScanStatus.FAILED.value)
+            return
+        
+        try:
+            retrieve_and_store_alt_text(course, bearer_token=bearer_token)
+        except ImageContentExtractionException as e:
+            logger.error(
+                f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}",
+                exc_info=True
+            )
+            update_course_scan(course_id, CourseScanStatus.FAILED.value)
+            return
+
+        # Update that the course scan is completed
+        update_course_scan(course_id, CourseScanStatus.COMPLETED.value)
+    except Exception as e:
         logger.error(
-            f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}",
+            f"Unexpected error in fetch_and_scan_course for course_id {course_id}: {e}",
             exc_info=True
         )
         update_course_scan(course_id, CourseScanStatus.FAILED.value)
-        return
-
-    # Update that the course scan is completed
-    update_course_scan(course_id, CourseScanStatus.COMPLETED.value)
 
 
     
