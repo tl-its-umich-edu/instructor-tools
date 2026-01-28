@@ -14,7 +14,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        run: docker build . -f Dockerfile
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: instructor-tools:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Create minimal .env for tests
         run: |
@@ -29,8 +36,8 @@ jobs:
       - name: Start services
         run: docker compose up -d
 
-      - name: Run decorator tests
-        run: docker compose exec -T web python manage.py test backend.tests.test_decorators
+      - name: Run tests
+        run: docker compose exec -T web python manage.py test backend.tests
 
       - name: Cleanup
         if: always()
