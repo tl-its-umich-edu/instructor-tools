@@ -39,7 +39,7 @@ jobs:
       - name: Wait for MySQL to be ready
         run: |
           for i in {1..30}; do
-            if docker compose exec -T mysql mysqladmin ping -uroot -pcae_root_pw -h localhost > /dev/null 2>&1; then
+            if docker compose exec -T mysql mysqladmin ping -uroot -pcae_root_pw -h instructor_tools_mysql > /dev/null 2>&1; then
               echo "MySQL is ready"
               exit 0
             fi
