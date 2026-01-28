@@ -36,6 +36,20 @@ jobs:
       - name: Start services
         run: docker compose up -d
 
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            if docker compose exec -T mysql mysqladmin ping -uroot -pcae_root_pw -h localhost > /dev/null 2>&1; then
+              echo "MySQL is ready"
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+          echo "MySQL failed to start"
+          docker compose logs mysql
+          exit 1
+
       - name: Run tests
         run: docker compose exec -T web python manage.py test backend.tests
 
