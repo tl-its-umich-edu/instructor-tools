@@ -15,3 +15,12 @@ jobs:
 
       - name: Build Docker image
         run: docker build . -f Dockerfile
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Run decorator tests
+        run: docker compose exec -T web python manage.py test backend.tests.test_decorators
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down
