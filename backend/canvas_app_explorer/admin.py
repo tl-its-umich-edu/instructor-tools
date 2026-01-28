@@ -1,7 +1,7 @@
 # Register your models here.
 
 from django.contrib import admin
-from backend.canvas_app_explorer.models import LtiTool, CanvasPlacement, ToolCategory
+from backend.canvas_app_explorer.models import LtiTool, CanvasPlacement, ToolCategory, CourseScan
 
 class LtiToolAdmin(admin.ModelAdmin):
     fields = (
@@ -33,3 +33,11 @@ admin.site.register(CanvasPlacement, CanvasPlacementAdmin)
 class ToolCategoryAdmin(admin.ModelAdmin):
     pass
 admin.site.register(ToolCategory, ToolCategoryAdmin)
+
+class CourseScanAdmin(admin.ModelAdmin):
+    list_display = ('id', 'course_id', 'status', 'created_at', 'updated_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('course_id', 'q_task_id')
+    readonly_fields = ('id', 'created_at', 'updated_at')
+
+admin.site.register(CourseScan, CourseScanAdmin)
