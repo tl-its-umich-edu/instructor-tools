@@ -38,6 +38,6 @@ class CourseScanAdmin(admin.ModelAdmin):
     list_display = ('id', 'course_id', 'status', 'created_at', 'updated_at')
     list_filter = ('status', 'created_at')
     search_fields = ('course_id', 'q_task_id')
-    readonly_fields = ('id', 'created_at', 'updated_at')
+    readonly_fields = ('course_id', 'q_task_id', 'id', 'created_at', 'updated_at')
 
 admin.site.register(CourseScan, CourseScanAdmin)
