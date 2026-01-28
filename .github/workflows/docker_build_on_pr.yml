@@ -15,6 +15,17 @@ jobs:
 
       - name: Build Docker image
         run: docker build . -f Dockerfile
+
+      - name: Create minimal .env for tests
+        run: |
+          cat > .env << EOF
+          ALLOWED_HOSTS=localhost,127.0.0.1
+          DEBUG=True
+          CANVAS_OAUTH_CLIENT_ID=test_client_id
+          CANVAS_OAUTH_CLIENT_SECRET=test_client_secret
+          CANVAS_OAUTH_CANVAS_DOMAIN=test.instructure.com
+          EOF
+
       - name: Start services
         run: docker compose up -d
 
