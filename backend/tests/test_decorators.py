@@ -1,5 +1,7 @@
 import asyncio
 import logging
+import re
+import time
 from unittest.mock import patch, MagicMock
 from django.test import TestCase
 
@@ -114,7 +116,6 @@ class TestLogExecutionTimeDecorator(TestCase):
         """Test that execution time is reasonably accurate for sync functions"""
         @log_execution_time
         def slow_function():
-            import time
             time.sleep(0.05)
             return "done"
 
@@ -124,7 +125,6 @@ class TestLogExecutionTimeDecorator(TestCase):
             call_args = mock_logger.info.call_args[0][0]
             # Extract the number from the logged message
             # Message format: "function_name execution time: X.XX seconds"
-            import re
             match = re.search(r'(\d+\.\d+)', call_args)
             self.assertIsNotNone(match)
             execution_time = float(match.group(1))
@@ -144,7 +144,6 @@ class TestLogExecutionTimeDecorator(TestCase):
             
             call_args = mock_logger.info.call_args[0][0]
             # Extract the number from the logged message
-            import re
             match = re.search(r'(\d+\.\d+)', call_args)
             self.assertIsNotNone(match)
             execution_time = float(match.group(1))
