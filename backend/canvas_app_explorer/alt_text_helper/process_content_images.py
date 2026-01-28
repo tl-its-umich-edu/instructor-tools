@@ -133,6 +133,7 @@ class ProcessContentImages:
             logger.error(f"Error fetching image content for image_id {img_url}: {req_err}")
             return req_err
 
+    @log_execution_time
     async def _worker_async(self, image_models: List[ImageItem], concurrency: int) -> List[Dict[str, Any]]:
         """Process images concurrently using semaphore for concurrency control.
 
