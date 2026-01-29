@@ -74,7 +74,7 @@ docker-compose build
 docker-compose up
 
 # Access: http://localhost:5000/ (requires LTI launch from Canvas)
-# Swagger API docs: Right-click iframe → View Frame Source → change URL to /api/schema/swagger-ui
+# Swagger API docs: http://localhost:5000/api/schema/swagger-ui  (or append /api/schema/swagger-ui to your Canvas launch URL)
 ```
 
 ### IMPORTANT: All Commands Run in Docker
