@@ -526,7 +526,8 @@ class AltTextUpdate:
                         urlencode(new_query, doseq=True),
                         parsed.fragment
                     ))
-            return None
+            else:
+                return parsed.geturl()
         except Exception as e:
             logger.error(f"Failed to transform image URL {parsed.geturl()}: {e}")
             raise e

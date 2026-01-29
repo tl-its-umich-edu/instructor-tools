@@ -274,10 +274,9 @@ def get_pages(course: Course):
         pages = list(course.get_pages(include=['body'], per_page=PER_PAGE))
 
         logger.debug(f"Fetched {len(pages)} pages.")
-        for page in pages:
-            logger.info(f"Page ID: {page.page_id}, Title: {page.title}")
         images_from_pages = []
         for page in pages:
+            logger.info(f"Processing Page ID: {page.page_id}, Title: {page.title}")
             # Extract images from page body
             images_from_pages = append_image_items(
                 images_from_pages,
@@ -377,7 +376,8 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
                 file_id = parts[i + 1]
                 break
         if not file_id:
-            raise ValueError("File ID not found in URL path")
+            logger.warning(f"Found a Canvas Public files: {img_src}")
+            return img_src
 
         # preserve original query params (verifier, etc.)
         qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -421,12 +421,14 @@ def extract_images_from_html(html_content: str) -> List[str]:
 
         domain = urlparse(img_src).netloc
         if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain:
+            logger.info(f"Parsing Canvas file URL: {img_src}")
             download_url = _parse_canvas_file_src(img_src)
         else:
+            logger.info(f"Non-Canvas image URL found: {img_src}")
             download_url = img_src
         images_found.append(download_url)
     
-    logger.info(images_found)
+    if images_found: logger.info(images_found)
     return images_found
 
 # Helper function to append image items if images exist
