@@ -98,7 +98,6 @@ export default function ContentImageCard({
             href={contentImage.canvas_link_url}
             target="_blank"
             rel="noopener noreferrer"
-            variant="subtitle1"
             fontWeight={600}
             noWrap
             sx={{

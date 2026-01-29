@@ -18,7 +18,14 @@ const theme = createTheme({
   components: {
     MuiLink: {
       defaultProps: {
-        underline: 'hover'
+        underline: 'always'
+      },
+      styleOverrides: {
+        root: {
+          '&:hover': {
+            color: '#9a3324'
+          }
+        }
       }
     }
   }
