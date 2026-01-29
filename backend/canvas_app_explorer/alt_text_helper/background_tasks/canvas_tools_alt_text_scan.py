@@ -376,7 +376,7 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
                 file_id = parts[i + 1]
                 break
         if not file_id:
-            logger.warning(f"Found a Canvas Public files: {img_src}")
+            logger.warning(f"Found a Canvas Public file: {img_src}")
             return img_src
 
         # preserve original query params (verifier, etc.)
