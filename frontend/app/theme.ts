@@ -14,6 +14,13 @@ const theme = createTheme({
     success: {
       main: '#306430'
     }
+  },
+  components: {
+    MuiLink: {
+      defaultProps: {
+        underline: 'hover'
+      }
+    }
   }
 });
 

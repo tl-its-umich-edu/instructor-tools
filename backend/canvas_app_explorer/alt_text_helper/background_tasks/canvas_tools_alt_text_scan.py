@@ -36,8 +36,6 @@ IMAGE_EXTENSIONS = tuple(Image.registered_extensions().keys())
 semaphore = asyncio.Semaphore(10)
 
 
-
-@log_execution_time
 def fetch_and_scan_course(task: Dict[str, Any]):
     logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
       # mark CourseScan as running (create if missing)
