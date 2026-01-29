@@ -36,8 +36,8 @@ def generate_canvas_content_url(course_id: int, content_type: str, content_id: i
     elif content_type == 'quiz':
         return f'https://{canvas_domain}/courses/{course_id}/quizzes/{content_id}'
     elif content_type == 'quiz_question':
-        # Quiz question URLs point to the quiz with an anchor to the question
-        return f'https://{canvas_domain}/courses/{course_id}/quizzes/{content_parent_id}#question_{content_id}'
+        # Quiz question URLs point to the quiz edit page's question tab
+        return f'https://{canvas_domain}/courses/{course_id}/quizzes/{content_parent_id}/edit/#questions_tab'
     else:
         # Fallback to course overview
         return f'https://{canvas_domain}/courses/{course_id}'

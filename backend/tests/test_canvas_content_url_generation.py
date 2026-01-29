@@ -68,7 +68,7 @@ class TestGenerateCanvasContentUrl(TestCase):
             content_id=question_id,
             content_parent_id=quiz_id
         )
-        expected = f'https://{self.canvas_domain}/courses/{self.course_id}/quizzes/{quiz_id}#question_{question_id}'
+        expected = f'https://{self.canvas_domain}/courses/{self.course_id}/quizzes/{quiz_id}/edit/#questions_tab'
         self.assertEqual(url, expected)
 
     def test_generate_unknown_content_type_url(self):
@@ -266,7 +266,7 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         self.assertEqual(len(item['images']), 1)
 
         image = item['images'][0]
-        expected_url = f'https://{self.canvas_domain}/courses/{course_id}/quizzes/{quiz_id}#question_{question_id}'
+        expected_url = f'https://{self.canvas_domain}/courses/{course_id}/quizzes/{quiz_id}/edit/#questions_tab'
         self.assertEqual(image['canvas_link_url'], expected_url)
 
     def test_get_content_images_multiple_images_same_content(self):
