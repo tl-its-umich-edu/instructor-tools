@@ -104,11 +104,15 @@ export default function ContentImageCard({
               display: 'block',
             }}
           >
-            {contentImage.content_name || 'Untitled'}
+            {contentImage.content_parent_name 
+              ? `${contentImage.content_parent_name} : ${contentImage.content_name || 'Untitled'}` 
+              : (contentImage.content_name || 'Untitled')}
           </Link>
         ) : (
           <Typography variant="subtitle1" fontWeight={600} noWrap>
-            {contentImage.content_name || 'Untitled'}
+            {contentImage.content_parent_name 
+              ? `${contentImage.content_parent_name} : ${contentImage.content_name || 'Untitled'}` 
+              : (contentImage.content_name || 'Untitled')}
           </Typography>
         )}
       </CardHeader>
