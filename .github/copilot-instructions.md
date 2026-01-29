@@ -104,7 +104,7 @@ cd frontend && npm run watch
 ### Background Task Monitoring
 ```bash
 # Monitor task queue and workers
-python manage.py qinfo
+docker exec -it instructor_tools python manage.py qinfo
 
 # Via Django admin: /admin/ → Django Q → Task management
 ```
