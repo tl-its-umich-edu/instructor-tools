@@ -428,7 +428,8 @@ def extract_images_from_html(html_content: str) -> List[str]:
             download_url = img_src
         images_found.append(download_url)
     
-    if images_found: logger.info(images_found)
+    if images_found:
+        logger.info(images_found)
     return images_found
 
 # Helper function to append image items if images exist
