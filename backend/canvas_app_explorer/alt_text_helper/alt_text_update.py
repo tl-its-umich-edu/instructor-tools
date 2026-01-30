@@ -423,6 +423,10 @@ class AltTextUpdate:
         """
         Return HTML content updated with alt text changes for images that have been approved.
         
+        Matching logic:
+        - For Canvas file URLs (image_url_for_update is a file_id): checks if file_id is contained in img src
+        - For public Canvas images and external URLs: exact match on full URL
+        
         :param content_html: Original HTML string for the content item to be processed.
         :param content_id: Identifier of the content item whose HTML is being updated; used to
             look up the corresponding image approval data in ``self.content_with_alt_text``.
@@ -432,10 +436,30 @@ class AltTextUpdate:
         soup = BeautifulSoup(content_html, 'html.parser')
         images = soup.find_all('img')
         for img in images:
+            img_src = img.get('src', '')
             for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content_id)['images']:
-                if img.get('src') == image_payload['image_url_for_update']:
-                    if image_payload['action'] == 'approve':
-                        img['alt'] = image_payload['approved_alt_text']
+                url_for_update = image_payload['image_url_for_update']
+                
+                # Determine if url_for_update is a file_id (numeric string) or full URL
+                is_file_id = url_for_update and url_for_update.isdigit()
+                
+                matched = False
+                if is_file_id:
+                    # For file_id, check if it's contained in the img src
+                    # Matches /files/{file_id}/ pattern in any variation
+                    if f'/files/{url_for_update}/' in img_src or f'/files/{url_for_update}?' in img_src:
+                        matched = True
+                        logger.debug(f"Matched file_id {url_for_update} in img src {img_src}")
+                else:
+                    # For full URLs (public images, external images), exact match
+                    if img_src == url_for_update:
+                        matched = True
+                        logger.debug(f"Exact matched URL {url_for_update}")
+                
+                if matched and image_payload['action'] == 'approve':
+                    img['alt'] = image_payload['approved_alt_text']
+                    logger.info(f"Updated alt text for image in content {content_id}")
+                    
         updated_description = str(soup)
         return updated_description
     
@@ -498,36 +522,34 @@ class AltTextUpdate:
     
     def _transform_image_url(self, parsed) -> str | None:
         """
-        Transforms URL like:
-        https://domain/files/44125891/download?verifier=...&download_frd=1
-        to:
-        https://domain/courses/{course_id}/files/44125891/preview?verifier=...
+        Transforms Canvas file URLs to extract just the file_id.
+        
+        For file URLs (e.g., /files/{id}/download, /courses/{id}/files/{id}/preview, /users/{id}/files/{id}/preview):
+        Returns just the file_id as a string (e.g., "44125891")
+        
+        For public Canvas images (e.g., /images/play_overlay.png):
+        Returns the full URL as-is for exact matching
+        
+        For other URLs:
+        Returns the full URL as-is
         """
         try:
-            if '/files/' in parsed.path:
-                parts = parsed.path.split('/')
-                # parts example: ['', 'files', '44125891', 'download']
-                if len(parts) >= 3 and parts[1] == 'files':
-                    file_id = parts[2]
-                    new_path = f"/courses/{self.course.id}/files/{file_id}/preview"
-                    
-                    # Handle query params
-                    query_params = parse_qs(parsed.query)
-                    # Keep verifier, remove download_frd
-                    new_query = {}
-                    if 'verifier' in query_params:
-                        new_query['verifier'] = query_params['verifier']
-                    
-                    return urlunparse((
-                        parsed.scheme,
-                        parsed.netloc,
-                        new_path,
-                        parsed.params,
-                        urlencode(new_query, doseq=True),
-                        parsed.fragment
-                    ))
-            else:
-                return parsed.geturl()
+            parts = parsed.path.split('/')
+            # Remove empty strings from split
+            parts = [p for p in parts if p]
+            
+            # Check if it's a file URL pattern
+            if 'files' in parts:
+                # Find the file_id (comes right after 'files')
+                files_idx = parts.index('files')
+                if files_idx + 1 < len(parts):
+                    file_id = parts[files_idx + 1]
+                    # Return just the file_id for matching
+                    logger.debug(f"Extracted file_id {file_id} from URL {parsed.geturl()}")
+                    return file_id
+            
+            # For public Canvas images or other URLs, return full URL
+            return parsed.geturl()
         except Exception as e:
             logger.error(f"Failed to transform image URL {parsed.geturl()}: {e}")
             raise e

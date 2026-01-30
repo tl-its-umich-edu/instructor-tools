@@ -257,7 +257,7 @@ def get_assignments(course: Course):
                 images_from_assignments,
                 assignment.id,
                 assignment.name,
-                extract_images_from_html(assignment.description),
+                extract_images_from_html(assignment.description, course.id),
                 'assignment',
                 None)
         return images_from_assignments
@@ -282,7 +282,7 @@ def get_pages(course: Course):
                 images_from_pages,
                 page.page_id,
                 page.title,
-                extract_images_from_html(page.body),
+                extract_images_from_html(page.body, course.id),
                 'page',
                 None)
         return images_from_pages
@@ -306,7 +306,7 @@ def get_quizzes(course: Course):
                 images_from_quizzes,
                 quiz.id,
                 quiz.title,
-                extract_images_from_html(getattr(quiz, 'description', '')),
+                extract_images_from_html(getattr(quiz, 'description', ''), course.id),
                 'quiz',
                 None)
 
@@ -349,7 +349,7 @@ def get_quiz_questions_sync(quiz: Quiz):
                 images_from_questions,
                 question.id,
                 question.question_name,
-                extract_images_from_html(getattr(question, 'question_text', '')),
+                extract_images_from_html(getattr(question, 'question_text', ''), quiz.course_id),
                 'quiz_question',
                 quiz.id)
 
@@ -358,11 +358,60 @@ def get_quiz_questions_sync(quiz: Quiz):
         logger.error(f"Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
         raise e
 
+def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
+    """
+    Check if a Canvas image URL belongs to the current course.
+    
+    Always includes:
+    - Public Canvas images (e.g., /images/play_overlay.png, /images/book_stro/icon.png)
+    - User files (e.g., /users/{id}/files/{file_id})
+    - External images
+    
+    Only validates course_id for URLs with /courses/{course_id}/ pattern.
+    
+    :param img_src: The image source URL
+    :param current_course_id: The ID of the current course being processed
+    :return: True if the image belongs to the current course or is a public/user file, False otherwise
+    """
+    try:
+        parsed = urlparse(img_src)
+        parts = [p for p in parsed.path.split('/') if p]
+        
+        # Public Canvas images with any subdirectory depth - always include
+        # e.g., /images/play_overlay.png, /images/book_stro/icon.png, /images/foo/poo/bar.png
+        if 'images' in parts and 'courses' not in parts:
+            logger.debug(f"Including public Canvas image: {img_src}")
+            return True
+        
+        # User files (e.g., /users/{id}/files/{file_id}) - always include
+        if 'users' in parts and 'files' in parts:
+            logger.debug(f"Including user file: {img_src}")
+            return True
+        
+        # Look for /courses/{course_id}/ pattern and validate
+        if 'courses' in parts:
+            courses_idx = parts.index('courses')
+            if courses_idx + 1 < len(parts):
+                url_course_id = int(parts[courses_idx + 1])
+                if url_course_id != current_course_id:
+                    logger.info(f"Skipping image from different course: URL has course_id={url_course_id}, current course_id={current_course_id}")
+                    return False
+        return True
+    except (ValueError, IndexError) as e:
+        logger.warning(f"Could not parse course_id from URL {img_src}: {e}")
+        return True  # Include image if we can't parse, to avoid losing valid images
+
 def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
     """
-    Parse Canvas file preview URL like:
-    https://canvas-test.it.umich.edu/courses/403334/files/42932047/preview?verifier=...
-    Return download_url or None if not parseable.
+    Parse Canvas file preview URLs and convert to download URLs.
+    
+    Handles:
+    - Course files: /courses/{id}/files/{file_id}/preview
+    - User files: /users/{id}/files/{file_id}/preview
+    - Public images: /images/play_overlay.png (returned as-is)
+    
+    Extracts file_id and constructs download URL with verifier params preserved.
+    Returns download_url or original URL if not parseable.
     """
     if not img_src:
         return None
@@ -370,14 +419,19 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
         parsed = urlparse(img_src)
         # Path segments: ['', 'courses', '403334', 'files', '42932047', 'preview']
         parts = [p for p in parsed.path.split('/') if p]
+        
+        # Public Canvas images - return as-is without parsing
+        if 'images' in parts and 'courses' not in parts:
+            logger.debug(f"Using public Canvas image URL as-is: {img_src}")
+            return img_src
+        
         file_id = None
         for i, part in enumerate(parts):
             if part == 'files' and i + 1 < len(parts):
                 file_id = parts[i + 1]
                 break
         if not file_id:
-            logger.warning(f"Found a Canvas Public file: {img_src}")
-            return img_src
+            raise ValueError(f"File ID not found in URL path: {img_src}")
 
         # preserve original query params (verifier, etc.)
         qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -400,7 +454,7 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
         logger.error(f"Error parsing img src URL '{img_src}': {e}")
         raise e
 
-def extract_images_from_html(html_content: str) -> List[str]:
+def extract_images_from_html(html_content: str, course_id: int) -> List[str]:
     if not html_content:
         return []
     soup = BeautifulSoup(html_content, "html.parser")
@@ -421,6 +475,10 @@ def extract_images_from_html(html_content: str) -> List[str]:
 
         domain = urlparse(img_src).netloc
         if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain:
+            # Check if the image belongs to the current course
+            if not _is_image_from_current_course(img_src, course_id):
+                continue
+            
             logger.info(f"Parsing Canvas file URL: {img_src}")
             download_url = _parse_canvas_file_src(img_src)
         else:
