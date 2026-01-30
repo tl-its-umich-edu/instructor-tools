@@ -49,7 +49,7 @@ function TryInternalToolButton (props: ButtonProps & { url: string }) {
   const { url, ...remainingProps } = props;
   return (
     <Button
-      aria-label='Open internal tool'
+      aria-label='Launch internal tool'
       variant='contained'
       component={Link}
       to={url}
