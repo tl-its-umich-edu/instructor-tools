@@ -92,8 +92,8 @@ export default function ContentImageCard({
 
   const getContentTitle = () => {
     return contentImage.content_parent_name 
-      ? `${contentImage.content_parent_name} : ${contentImage.content_name || 'Untitled'}` 
-      : (contentImage.content_name || 'Untitled');
+      ? `${contentImage.content_parent_name} : ${contentImage.content_name}` 
+      : contentImage.content_name;
   };
 
   const contentTitle = getContentTitle();

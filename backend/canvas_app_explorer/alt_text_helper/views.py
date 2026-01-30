@@ -183,9 +183,12 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
                 if content_item.content_type == ContentItem.CONTENT_TYPE_QUIZ_QUESTION and content_item.content_parent_id:
                     content_parent_name = parent_map.get(content_item.content_parent_id)
 
+                # Set default content_name if missing
+                content_name = content_item.content_name or f"Untitled : {content_item.content_type.title()}"
+
                 content_items.append({
                     'content_id': content_item.content_id,
-                    'content_name': content_item.content_name,
+                    'content_name': content_name,
                     'content_parent_id': content_item.content_parent_id,
                     'content_parent_name': content_parent_name,
                     'content_type': content_item.content_type,
