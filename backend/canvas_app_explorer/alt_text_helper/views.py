@@ -157,6 +157,9 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
             items_qs = ContentItem.objects.filter(course_id=course_id, content_type__in=types_to_query).prefetch_related('images')
             content_items = []
 
+            # Build a simple map for parent name lookups (parent items are already in items_qs)
+            parent_map = {item.content_id: item.content_name for item in items_qs}
+
             for content_item in items_qs:
                 images = []
                 for img in content_item.images.all():
@@ -175,10 +178,19 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
                         'canvas_link_url': canvas_link_url,
                     })
 
+                # Look up parent name if this is a quiz question with a parent
+                content_parent_name = None
+                if content_item.content_type == ContentItem.CONTENT_TYPE_QUIZ_QUESTION and content_item.content_parent_id:
+                    content_parent_name = parent_map.get(content_item.content_parent_id)
+
+                # Set default content_name if missing
+                content_name = content_item.content_name or f"Untitled : {content_item.content_type.title()}"
+
                 content_items.append({
                     'content_id': content_item.content_id,
-                    'content_name': content_item.content_name,
+                    'content_name': content_name,
                     'content_parent_id': content_item.content_parent_id,
+                    'content_parent_name': content_parent_name,
                     'content_type': content_item.content_type,
                     'images': images,
                 })

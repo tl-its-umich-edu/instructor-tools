@@ -87,16 +87,18 @@ interface ContentImage {
 
 interface ContentItem {
   content_id: number
-  content_name: string | null
+  content_name: string
   content_parent_id: number | null
+  content_parent_name: string | null
   content_type: string
   images: ContentImage[]
 }
 
 interface ContentImageEnriched extends ContentImage {
   content_id: number
-  content_name: string | null
+  content_name: string
   content_parent_id: number | null
+  content_parent_name: string | null
   content_type: string
 }
 
@@ -118,6 +120,7 @@ interface ContentReviewRequest {
   content_id: number
   content_name: string | null
   content_parent_id: number | null
+  content_parent_name: string | null
   content_type: string
   images: ContentReviewRequestImageAction[]
 }
