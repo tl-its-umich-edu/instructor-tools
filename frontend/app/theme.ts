@@ -14,6 +14,20 @@ const theme = createTheme({
     success: {
       main: '#306430'
     }
+  },
+  components: {
+    MuiLink: {
+      defaultProps: {
+        underline: 'always'
+      },
+      styleOverrides: {
+        root: {
+          '&:hover': {
+            color: '#9a3324'
+          }
+        }
+      }
+    }
   }
 });
 

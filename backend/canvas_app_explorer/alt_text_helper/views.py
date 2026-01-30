@@ -1,6 +1,7 @@
 
 from http import HTTPStatus
 import logging
+from typing import List
 from canvasapi import Canvas
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter
@@ -11,13 +12,13 @@ from django.urls import reverse
 from rest_framework_tracking.mixins import LoggingMixin
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
-from typing import List
 from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
 from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer
 from backend.canvas_app_explorer.alt_text_helper.alt_text_update import AltTextUpdate, ContentPayload
+from backend.canvas_app_explorer.utils import generate_canvas_content_url
 
 logger = logging.getLogger(__name__)
 
@@ -160,10 +161,18 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
                 images = []
                 for img in content_item.images.all():
                     image_url = img.image_url
+                    # Generate Canvas link URL based on content type and IDs
+                    canvas_link_url = generate_canvas_content_url(
+                        course_id=course_id,
+                        content_type=content_item.content_type,
+                        content_id=content_item.content_id,
+                        content_parent_id=content_item.content_parent_id
+                    )
                     images.append({
                         'image_url': image_url,
                         'image_id': img.id,
                         'image_alt_text': img.image_alt_text,
+                        'canvas_link_url': canvas_link_url,
                     })
 
                 content_items.append({
