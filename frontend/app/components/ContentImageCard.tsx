@@ -90,6 +90,14 @@ export default function ContentImageCard({
     return <StatusChip label="Not yet reviewed" size="small" />;
   };
 
+  const getContentTitle = () => {
+    return contentImage.content_parent_name 
+      ? `${contentImage.content_parent_name} : ${contentImage.content_name || 'Untitled'}` 
+      : (contentImage.content_name || 'Untitled');
+  };
+
+  const contentTitle = getContentTitle();
+
   return (
     <StyledCard>
       <CardHeader>
@@ -104,15 +112,11 @@ export default function ContentImageCard({
               display: 'block',
             }}
           >
-            {contentImage.content_parent_name 
-              ? `${contentImage.content_parent_name} : ${contentImage.content_name || 'Untitled'}` 
-              : (contentImage.content_name || 'Untitled')}
+            {contentTitle}
           </Link>
         ) : (
           <Typography variant="subtitle1" fontWeight={600} noWrap>
-            {contentImage.content_parent_name 
-              ? `${contentImage.content_parent_name} : ${contentImage.content_name || 'Untitled'}` 
-              : (contentImage.content_name || 'Untitled')}
+            {contentTitle}
           </Typography>
         )}
       </CardHeader>
