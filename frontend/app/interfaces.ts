@@ -83,6 +83,7 @@ interface ContentImage {
   image_url: string
   image_id: number | string
   image_alt_text: string | null
+  canvas_link_url: string | null
 }
 
 interface ContentItem {

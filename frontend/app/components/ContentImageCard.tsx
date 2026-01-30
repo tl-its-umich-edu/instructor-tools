@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip } from '@mui/material';
+import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip, Link } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import type { ActionType, ContentImageEnriched } from '../interfaces';
@@ -93,9 +93,24 @@ export default function ContentImageCard({
   return (
     <StyledCard>
       <CardHeader>
-        <Typography variant="subtitle1" fontWeight={600} noWrap>
-          {contentImage.content_name || 'Untitled'}
-        </Typography>
+        {contentImage.canvas_link_url ? (
+          <Link
+            href={contentImage.canvas_link_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            fontWeight={600}
+            noWrap
+            sx={{
+              display: 'block',
+            }}
+          >
+            {contentImage.content_name || 'Untitled'}
+          </Link>
+        ) : (
+          <Typography variant="subtitle1" fontWeight={600} noWrap>
+            {contentImage.content_name || 'Untitled'}
+          </Typography>
+        )}
       </CardHeader>
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1 }}>
         <CardMedia
