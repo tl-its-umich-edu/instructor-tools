@@ -26,6 +26,7 @@ def cae_globals(request: HttpRequest) -> Dict[str, Any]:
             'account_id': account_id,
             'account_name': account_name,
             'help_url': config.HELP_URL,
+            'ai_services_url': config.AI_SERVICES_URL,
             'google_analytics_id': settings.GOOGLE_ANALYTICS_ID,
             'um_consent_manager_script_domain': settings.UM_CONSENT_MANAGER_SCRIPT_DOMAIN,
         }

@@ -143,11 +143,11 @@ export default function ContentImageCard({
             fullWidth
             multiline
             rows={2}
-            inputProps={{ maxLength: 300 }}
+            inputProps={{ maxLength: 1000 }}
             placeholder="Enter alt text description..."
           />
           <Typography variant="body2">
-            {localAltText.length} / 300
+            {localAltText.length} characters
           </Typography>
         </Box>
         <Box sx={{display: 'flex', gap: 1, width: '100%',}}>
