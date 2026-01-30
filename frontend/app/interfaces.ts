@@ -12,6 +12,7 @@ interface Globals {
   account_id: number | null
   account_name: string | null
   help_url: string
+  ai_services_url: string
   google_analytics_id: string
   um_consent_manager_script_domain: string
 }

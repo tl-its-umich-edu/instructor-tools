@@ -277,7 +277,7 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
                       onClick={() => setShowSummary(true)}
                       size="large"
                     >
-                  Go to Summary
+                  Preview & Save Changes
                     </Button>
                   ) : (
                     <Button

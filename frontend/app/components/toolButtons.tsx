@@ -51,12 +51,11 @@ function TryInternalToolButton (props: ButtonProps & { url: string }) {
     <Button
       aria-label='Open internal tool'
       variant='contained'
-      startIcon={<StartIcon/>}
       component={Link}
       to={url}
       {...remainingProps}
     >
-      Try It Out
+      Launch
     </Button>
   );
 }

@@ -165,7 +165,7 @@ function ToolsHome (props: ToolsHomeProps) {
         </div>
       </MainContainer>
       <Typography component='footer' sx={{ textAlign: 'center' }}>
-        Copyright © 2024 The Regents of the University of Michigan
+        Copyright © 2026 The Regents of the University of Michigan
       </Typography>
       <Snackbar open={showRefreshAlert} onClose={handleRefreshAlertClose} autoHideDuration={10000}>
         <Alert severity='info' elevation={2} onClose={handleRefreshAlertClose}>

@@ -4,6 +4,7 @@ import { styled } from '@mui/material/styles';
 import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import Refresh from '@mui/icons-material/Refresh';
 import theme from '../theme';
+import { imageSum } from '../utils';
 
 const ScanInfoContainer = styled(Box)(() => ({
   marginTop: theme.spacing(3),
@@ -38,7 +39,7 @@ export default function CourseScanComponent(props: CourseScanComponentProps) {
           onClick={handleStartScan}
           disabled={scanPending}
         >
-            Start Sync
+            Start Scan
         </Button>
       </Box>
     );
@@ -49,11 +50,18 @@ export default function CourseScanComponent(props: CourseScanComponentProps) {
 
   const descriptionBlock = (
     <Box aria-describedby='scan-description-loading'>
-      <Typography>Scan Task ID: {lastScan.id} -- First run on {scanCreated.toLocaleDateString()}</Typography>
-      <Typography>Assignment Count: {lastScan.course_content.assignment_list.length}</Typography>
-      <Typography>Pages Count: {lastScan.course_content.page_list.length}</Typography>
-      <Typography>Classic Quiz Count: {lastScan.course_content.quiz_list.length}</Typography>
-      <Typography>Classic Quiz Question Count: {lastScan.course_content.quiz_question_list.length}</Typography>
+      <Typography variant='body1'>
+        {lastScan.course_content.assignment_list.length} Assignments found -- <b>{imageSum(lastScan.course_content.assignment_list)} images</b> without alt text
+      </Typography>
+      <Typography variant='body1'>
+        {lastScan.course_content.page_list.length} Pages found -- <b>{imageSum(lastScan.course_content.page_list)} images</b> without alt text
+      </Typography>
+      <Typography variant='body1'>
+        {lastScan.course_content.quiz_list.length} Classic Quizzes found -- <b>{imageSum(lastScan.course_content.quiz_list)} images</b> without alt text
+      </Typography>
+      <Typography variant='body1'>
+        {lastScan.course_content.quiz_question_list.length} Classic Quiz Questions found -- <b>{imageSum(lastScan.course_content.quiz_question_list)} images</b> without alt text
+      </Typography>
     </Box>
   );
 
@@ -80,8 +88,8 @@ export default function CourseScanComponent(props: CourseScanComponentProps) {
           <AccordionSummary>
             <Grid container spacing={2} justifyContent='space-between' align-items='end'>
               <Grid item>
-                <Typography variant='h5'>Course Scan </Typography>
-                <Typography variant='body1'>Last Updated: {scanUpdated.toLocaleString()}</Typography>
+                <Typography variant='h5'>Course Scan ID: {lastScan.id} </Typography>
+                <Typography variant='body1'>Last Updated: {scanUpdated.toLocaleString()} (first created {scanCreated.toLocaleDateString()})</Typography>
               </Grid>
               <Grid item>
                 <Typography>Status: {status}</Typography>
