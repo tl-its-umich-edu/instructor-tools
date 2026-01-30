@@ -11,6 +11,10 @@ from backend.canvas_app_explorer.decorators import log_execution_time
 class TestLogExecutionTimeDecorator(TestCase):
     """Tests for the log_execution_time decorator"""
 
+    # Configurable sleep times for tests
+    MINIMAL_ASYNC_SLEEP = 0.01  # Minimal sleep for async functions that need to yield control
+    MEASURABLE_SLEEP = 0.05     # Sleep duration for timing accuracy tests
+
     def test_sync_function_execution_logging(self):
         """Test that sync functions log execution time"""
         @log_execution_time
@@ -59,7 +63,7 @@ class TestLogExecutionTimeDecorator(TestCase):
         """Test that async functions log execution time"""
         @log_execution_time
         async def async_function():
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(self.MINIMAL_ASYNC_SLEEP)
             return "async_result"
 
         with patch('backend.canvas_app_explorer.decorators.logger') as mock_logger:
@@ -79,7 +83,7 @@ class TestLogExecutionTimeDecorator(TestCase):
         """Test async function with arguments"""
         @log_execution_time
         async def async_function_with_args(a, b, c=None):
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(self.MINIMAL_ASYNC_SLEEP)
             return a + b + (c or 0)
 
         with patch('backend.canvas_app_explorer.decorators.logger') as mock_logger:
@@ -92,7 +96,7 @@ class TestLogExecutionTimeDecorator(TestCase):
         """Test that execution time is logged even if async function raises exception"""
         @log_execution_time
         async def async_function_with_error():
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(self.MINIMAL_ASYNC_SLEEP)
             raise ValueError("Test async error")
 
         with patch('backend.canvas_app_explorer.decorators.logger') as mock_logger:
@@ -116,7 +120,7 @@ class TestLogExecutionTimeDecorator(TestCase):
         """Test that execution time is reasonably accurate for sync functions"""
         @log_execution_time
         def slow_function():
-            time.sleep(0.05)
+            time.sleep(self.MEASURABLE_SLEEP)
             return "done"
 
         with patch('backend.canvas_app_explorer.decorators.logger') as mock_logger:
@@ -129,14 +133,14 @@ class TestLogExecutionTimeDecorator(TestCase):
             self.assertIsNotNone(match)
             execution_time = float(match.group(1))
             
-            # Verify execution time is at least 0.05 seconds
-            self.assertGreaterEqual(execution_time, 0.05)
+            # Verify execution time is at least the expected sleep duration
+            self.assertGreaterEqual(execution_time, self.MEASURABLE_SLEEP)
 
     def test_async_execution_time_accuracy(self):
         """Test that execution time is reasonably accurate for async functions"""
         @log_execution_time
         async def slow_async_function():
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(self.MEASURABLE_SLEEP)
             return "done"
 
         with patch('backend.canvas_app_explorer.decorators.logger') as mock_logger:
@@ -148,5 +152,5 @@ class TestLogExecutionTimeDecorator(TestCase):
             self.assertIsNotNone(match)
             execution_time = float(match.group(1))
             
-            # Verify execution time is at least 0.05 seconds
-            self.assertGreaterEqual(execution_time, 0.05)
+            # Verify execution time is at least the expected sleep duration
+            self.assertGreaterEqual(execution_time, self.MEASURABLE_SLEEP)

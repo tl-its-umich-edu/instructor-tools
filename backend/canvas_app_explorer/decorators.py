@@ -28,7 +28,7 @@ def log_execution_time(func: Callable) -> Callable:
             finally:
                 end_time: float = time.perf_counter()
                 duration = end_time - start_time
-                logger.info(f"{func.__name__} execution time: {duration:.2f} seconds")
+                logger.info(f"{func.__name__} (async) execution time: {duration:.2f} seconds")
         return async_wrapper
     else:
         @wraps(func)
@@ -40,5 +40,5 @@ def log_execution_time(func: Callable) -> Callable:
             finally:
                 end_time: float = time.perf_counter()
                 duration = end_time - start_time
-                logger.info(f"{func.__name__} execution time: {duration:.2f} seconds")
+                logger.info(f"{func.__name__} (sync) execution time: {duration:.2f} seconds")
         return sync_wrapper
