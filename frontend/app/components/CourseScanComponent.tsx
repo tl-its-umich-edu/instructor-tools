@@ -1,5 +1,5 @@
 import { Accordion, AccordionActions, AccordionDetails, AccordionSummary, Box, Button, Grid, LinearProgress, Stack, Typography } from '@mui/material';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { styled } from '@mui/material/styles';
 import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import Refresh from '@mui/icons-material/Refresh';
@@ -14,56 +14,48 @@ const ScanInfoContainer = styled(Box)(() => ({
   marginBottom: theme.spacing(3),
 }));
 
-interface CourseScanComponentProps {
+interface LastScanInfoProps {
     scanPending: boolean;
-    lastScan: ScanDetail | false;
+    lastScan: ScanDetail;
     handleStartScan: () => void;
 }
 
-export default function CourseScanComponent(props: CourseScanComponentProps) {
+export default function LastScanInfo(props: LastScanInfoProps) {
   const { scanPending, lastScan, handleStartScan } = props;
-
-  // Initial visit - no scan found
-  if (!lastScan) {
-    return (
-      <Box 
-        display="flex"
-        justifyContent="center"
-        flexDirection="column"
-        alignItems="center">
-        <Typography variant='body1' component='h2' sx={{ marginBottom: 3}}>
-              To begin, start a scan of your course below:
-        </Typography>
-        <Button 
-          variant='contained'
-          onClick={handleStartScan}
-          disabled={scanPending}
-        >
-            Start Scan
-        </Button>
-      </Box>
-    );
-  }
 
   const scanUpdated = new Date(lastScan.updated_at);
   const scanCreated = new Date(lastScan.created_at);
 
-  const descriptionBlock = (
-    <Box aria-describedby='scan-description-loading'>
-      <Typography variant='body1'>
-        {lastScan.course_content.assignment_list.length} Assignments found -- <b>{imageSum(lastScan.course_content.assignment_list)} images</b> without alt text
-      </Typography>
-      <Typography variant='body1'>
-        {lastScan.course_content.page_list.length} Pages found -- <b>{imageSum(lastScan.course_content.page_list)} images</b> without alt text
-      </Typography>
-      <Typography variant='body1'>
-        {lastScan.course_content.quiz_list.length} Classic Quizzes found -- <b>{imageSum(lastScan.course_content.quiz_list)} images</b> without alt text
-      </Typography>
-      <Typography variant='body1'>
-        {lastScan.course_content.quiz_question_list.length} Classic Quiz Questions found -- <b>{imageSum(lastScan.course_content.quiz_question_list)} images</b> without alt text
-      </Typography>
-    </Box>
-  );
+  const scanContentSummaries = useMemo(() => ([
+    {
+      key: 'assignments',
+      count: lastScan.course_content.assignment_list.length,
+      labelSingular: 'Assignment',
+      labelPlural: 'Assignments',
+      imagesWithoutAlt: imageSum(lastScan.course_content.assignment_list),
+    },
+    {
+      key: 'pages',
+      count: lastScan.course_content.page_list.length,
+      labelSingular: 'Page',
+      labelPlural: 'Pages',
+      imagesWithoutAlt: imageSum(lastScan.course_content.page_list),
+    },
+    {
+      key: 'classic_quizzes',
+      count: lastScan.course_content.quiz_list.length,
+      labelSingular: 'Classic Quiz',
+      labelPlural: 'Classic Quizzes',
+      imagesWithoutAlt: imageSum(lastScan.course_content.quiz_list),
+    },
+    {
+      key: 'classic_quiz_questions',
+      count: lastScan.course_content.quiz_question_list.length,
+      labelSingular: 'Classic Quiz Question',
+      labelPlural: 'Classic Quiz Questions',
+      imagesWithoutAlt: imageSum(lastScan.course_content.quiz_question_list),
+    },
+  ]), [lastScan.course_content]);
 
   const status = scanPending ? 'IN PROGRESS' :
     lastScan.status.toUpperCase();
@@ -100,7 +92,18 @@ export default function CourseScanComponent(props: CourseScanComponentProps) {
           <AccordionDetails>
             { scanPending ? 
               <LinearProgress id='scan-description-loading' />
-              :(lastScan && descriptionBlock)}
+              :(lastScan && 
+                <Box aria-describedby='scan-description-loading'>
+                  {scanContentSummaries.map((item) => (
+                    <Typography variant='body1' key={item.key}>
+                      {item.count} {item.count === 1 ? item.labelSingular : item.labelPlural}
+                      {item.imagesWithoutAlt > 0 && (
+                        <> -- <b>{item.imagesWithoutAlt} {item.imagesWithoutAlt === 1 ? 'image' : 'images'}</b> without alt text</>
+                      )}
+                    </Typography>
+                  ))}
+                </Box>
+              )}
           </AccordionDetails>
           <AccordionActions>
           </AccordionActions>
