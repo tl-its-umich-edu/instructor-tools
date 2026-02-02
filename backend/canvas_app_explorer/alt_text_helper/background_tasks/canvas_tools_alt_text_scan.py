@@ -465,6 +465,10 @@ def extract_images_from_html(html_content: str, course_id: int) -> List[str]:
         img_alt = (img.get("alt") or "").strip()
         img_role = (img.get("role") or "").strip().lower()
 
+        #ignore images without src
+        if not img_src:
+            continue
+
         # Skip decorative/presentation images
         if img_role == "presentation":
             continue
