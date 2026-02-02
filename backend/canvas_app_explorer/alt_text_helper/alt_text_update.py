@@ -440,14 +440,22 @@ class AltTextUpdate:
             for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content_id)['images']:
                 url_for_update = image_payload['image_url_for_update']
                 
+                # Skip if URL transformation failed (should not happen in normal flow)
+                if url_for_update is None:
+                    logger.warning(f"Skipping image with None url_for_update in content {content_id}")
+                    continue
+                
                 # Determine if url_for_update is a file_id (numeric string) or full URL
-                is_file_id = url_for_update and url_for_update.isdigit()
+                is_file_id = url_for_update.isdigit()
                 
                 matched = False
                 if is_file_id:
                     # For file_id, check if it's contained in the img src
-                    # Matches /files/{file_id}/ pattern in any variation
-                    if f'/files/{url_for_update}/' in img_src or f'/files/{url_for_update}?' in img_src:
+                    # Matches /files/{file_id} followed by /, ?, or end of string
+                    file_pattern = f'/files/{url_for_update}'
+                    if (file_pattern + '/' in img_src or 
+                        file_pattern + '?' in img_src or 
+                        img_src.endswith(file_pattern)):
                         matched = True
                         logger.debug(f"Matched file_id {url_for_update} in img src {img_src}")
                 else:
