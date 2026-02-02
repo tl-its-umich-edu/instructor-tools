@@ -276,7 +276,7 @@ def get_pages(course: Course):
         logger.debug(f"Fetched {len(pages)} pages.")
         images_from_pages = []
         for page in pages:
-            logger.info(f"Processing Page ID: {page.page_id}, Title: {page.title}")
+            logger.debug(f"Processing Page ID: {page.page_id}, Title: {page.title}")
             # Extract images from page body
             images_from_pages = append_image_items(
                 images_from_pages,
@@ -398,7 +398,7 @@ def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
         return True
     except (ValueError, IndexError) as e:
         logger.warning(f"Could not parse course_id from URL {img_src}: {e}")
-        return False  # Include image if we can't parse, to avoid losing valid images
+        return False  # ignore image if we can't parse, to avoid losing valid images
 
 def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
     """
