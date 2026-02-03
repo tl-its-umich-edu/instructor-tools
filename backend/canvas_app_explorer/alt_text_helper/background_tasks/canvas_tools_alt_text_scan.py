@@ -467,6 +467,7 @@ def extract_images_from_html(html_content: str, course_id: int) -> List[str]:
 
         # ignore images without src
         if not img_src:
+            logger.info("Skipping img tag without src attribute.")
             continue
 
         # Skip decorative/presentation images
