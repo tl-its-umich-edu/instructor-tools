@@ -121,7 +121,8 @@ class ProcessContentImages:
 
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                resp = await client.get(img_url, headers=headers)
+                # resp = await client.get(img_url, headers=headers)
+                resp = await client.get(img_url)
                 resp.raise_for_status()
                 image_content = resp.content
                 optimized_image_content = self.get_optimized_images(image_content, img_url)
