@@ -27,6 +27,7 @@ class ProcessContentImages:
         self.course_id = course_id
         self.max_dimension: int = config.IMAGE_MAX_DIMENSION
         self.jpeg_quality: int = config.IMAGE_JPEG_QUALITY
+        self.use_canvas_token: bool = config.USE_CANVAS_TOKEN
         self.alt_text_processor = AltTextProcessor()
         # Explicit header or token provided by caller — prefer these over internal discovery
         self._auth_header = auth_header
@@ -108,21 +109,25 @@ class ProcessContentImages:
             logger.error(err)
             return err
 
-        # Determine if we need auth headers based on domain
+        # Determine if we need auth headers based on domain and config
         domain = urlparse(img_url).netloc
-        if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain:
+        logger.info(f"Fetching image from img_url: {img_url}, use_canvas_token: {self.use_canvas_token}")
+        if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain and self.use_canvas_token:
             headers = self._auth_header
             if not headers:
                 err = ValueError(f"Auth header missing for image {img_url}")
                 logger.error(err)
                 return err
         else:
-            headers = {}
+            headers = None
 
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                # resp = await client.get(img_url, headers=headers)
-                resp = await client.get(img_url)
+                # Only pass headers parameter if headers is not None
+                if headers:
+                    resp = await client.get(img_url, headers=headers)
+                else:
+                    resp = await client.get(img_url)
                 resp.raise_for_status()
                 image_content = resp.content
                 optimized_image_content = self.get_optimized_images(image_content, img_url)

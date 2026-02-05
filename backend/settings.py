@@ -418,8 +418,13 @@ option with no further explanation.""").strip(),
     'AI_SERVICES_URL': (
         os.getenv('AI_SERVICES_URL', 'https://its.umich.edu/computing/ai'),
         'URL for more information about AI services by ITS'
+    ),
+    'USE_CANVAS_TOKEN': (
+        os.getenv('USE_CANVAS_TOKEN', 'false').lower() in ('true', '1', 't'),
+        'Whether to use Canvas authentication token when fetching images from Canvas'
     )
 }
+print("CONSTANCE_CONFIG USE_CANVAS_TOKEN:", CONSTANCE_CONFIG['USE_CANVAS_TOKEN'][0])
 
 # Use in-memory backend for constance during tests to avoid database migration issues
 if 'test' in sys.argv:
