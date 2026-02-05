@@ -424,8 +424,6 @@ option with no further explanation.""").strip(),
         'Whether to use Canvas authentication token when fetching images from Canvas'
     )
 }
-print("CONSTANCE_CONFIG USE_CANVAS_TOKEN:", CONSTANCE_CONFIG['USE_CANVAS_TOKEN'][0])
-
 # Use in-memory backend for constance during tests to avoid database migration issues
 if 'test' in sys.argv:
     CONSTANCE_BACKEND = 'constance.backends.memory.MemoryBackend'

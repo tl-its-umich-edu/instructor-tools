@@ -111,7 +111,7 @@ class ProcessContentImages:
 
         # Determine if we need auth headers based on domain and config
         domain = urlparse(img_url).netloc
-        logger.info(f"Fetching image from img_url: {img_url}, use_canvas_token: {self.use_canvas_token}")
+        logger.debug(f"Fetching image from img_url: {img_url}, use_canvas_token: {self.use_canvas_token}")
         if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain and self.use_canvas_token:
             headers = self._auth_header
             if not headers:
