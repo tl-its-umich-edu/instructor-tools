@@ -21,6 +21,9 @@ class ToolCategory(models.Model):
     category_name = models.CharField(max_length=150)
     def __str__(self):
         return self.category_name
+    class Meta:
+        verbose_name = "Tool Category"
+        verbose_name_plural = "Tool Categories"
 class LogoImage(models.Model):
     bytes = models.TextField()
     filename = models.CharField(max_length=255)
