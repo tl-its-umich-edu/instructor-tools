@@ -24,7 +24,6 @@ class ToolCategory(models.Model):
     class Meta:
         verbose_name = "Tool Category"
         verbose_name_plural = "Tool Categories"
-        
 class LogoImage(models.Model):
     bytes = models.TextField()
     filename = models.CharField(max_length=255)
