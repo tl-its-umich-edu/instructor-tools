@@ -14,4 +14,45 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        run: docker build . -f Dockerfile
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          load: true
+          tags: instructor-tools:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Create minimal .env for tests
+        run: |
+          cat > .env << EOF
+          ALLOWED_HOSTS=localhost,127.0.0.1
+          DEBUG=True
+          CANVAS_OAUTH_CLIENT_ID=test_client_id
+          CANVAS_OAUTH_CLIENT_SECRET=test_client_secret
+          CANVAS_OAUTH_CANVAS_DOMAIN=test.instructure.com
+          EOF
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for MySQL to be ready
+        run: |
+          for i in {1..30}; do
+            if docker compose exec -T mysql mysqladmin ping -uroot -pcae_root_pw -h instructor_tools_mysql > /dev/null 2>&1; then
+              echo "MySQL is ready"
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+          echo "MySQL failed to start"
+          docker compose logs mysql
+          exit 1
+
+      - name: Run tests
+        run: docker compose exec -T web python manage.py test backend.tests
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down
