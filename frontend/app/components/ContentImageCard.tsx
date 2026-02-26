@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip } from '@mui/material';
+import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip, Link } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import type { ActionType, ContentImageEnriched } from '../interfaces';
@@ -90,12 +90,35 @@ export default function ContentImageCard({
     return <StatusChip label="Not yet reviewed" size="small" />;
   };
 
+  const getContentTitle = () => {
+    return contentImage.content_parent_name 
+      ? `${contentImage.content_parent_name} : ${contentImage.content_name}` 
+      : contentImage.content_name;
+  };
+
+  const contentTitle = getContentTitle();
+
   return (
     <StyledCard>
       <CardHeader>
-        <Typography variant="subtitle1" fontWeight={600} noWrap>
-          {contentImage.content_name || 'Untitled'}
-        </Typography>
+        {contentImage.canvas_link_url ? (
+          <Link
+            href={contentImage.canvas_link_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            fontWeight={600}
+            noWrap
+            sx={{
+              display: 'block',
+            }}
+          >
+            {contentTitle}
+          </Link>
+        ) : (
+          <Typography variant="subtitle1" fontWeight={600} noWrap>
+            {contentTitle}
+          </Typography>
+        )}
       </CardHeader>
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1 }}>
         <CardMedia
@@ -120,11 +143,11 @@ export default function ContentImageCard({
             fullWidth
             multiline
             rows={2}
-            inputProps={{ maxLength: 300 }}
+            inputProps={{ maxLength: 1000 }}
             placeholder="Enter alt text description..."
           />
           <Typography variant="body2">
-            {localAltText.length} / 300
+            {localAltText.length} characters
           </Typography>
         </Box>
         <Box sx={{display: 'flex', gap: 1, width: '100%',}}>

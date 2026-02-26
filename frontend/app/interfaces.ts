@@ -12,6 +12,7 @@ interface Globals {
   account_id: number | null
   account_name: string | null
   help_url: string
+  ai_services_url: string
   google_analytics_id: string
   um_consent_manager_script_domain: string
 }
@@ -82,20 +83,23 @@ interface ContentImage {
   image_url: string
   image_id: number | string
   image_alt_text: string | null
+  canvas_link_url: string | null
 }
 
 interface ContentItem {
   content_id: number
-  content_name: string | null
+  content_name: string
   content_parent_id: number | null
+  content_parent_name: string | null
   content_type: string
   images: ContentImage[]
 }
 
 interface ContentImageEnriched extends ContentImage {
   content_id: number
-  content_name: string | null
+  content_name: string
   content_parent_id: number | null
+  content_parent_name: string | null
   content_type: string
 }
 
@@ -117,6 +121,7 @@ interface ContentReviewRequest {
   content_id: number
   content_name: string | null
   content_parent_id: number | null
+  content_parent_name: string | null
   content_type: string
   images: ContentReviewRequestImageAction[]
 }

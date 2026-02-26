@@ -44,47 +44,45 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     course_id = int(task.get('course_id'))
 
     # adding a status before start of the scan, if this DB action failed no need to stop next steps of fetching content images
-    update_course_scan(course_id, CourseScanStatus.RUNNING.value)
+    update_course_scan(course_id, CourseScanStatus.RUNNING)
 
-    # Fetch course content using the manager
-    user_id = task.get('user_id')
-    req_user: User = get_user_model().objects.get(pk=user_id)
-    canvas_callback_url = task.get('canvas_callback_url')
-    request = _create_background_request(req_user, canvas_callback_url, course_id)
-    
     try:
-        manager = MANAGER_FACTORY.create_manager(request)
-        canvas_api: Canvas = manager.canvas_api
-        bearer_token = manager.api_key
-    except (InvalidOAuthReturnError, Exception) as e:
-        logger.error(f"Error creating Canvas API for course_id {course_id}: {e}")
-        CanvasOAuth2Token.objects.filter(user=request.user).delete()
-        update_course_scan(course_id, CourseScanStatus.FAILED.value)
-        return
+        # Fetch course content using the manager
+        user_id = task.get('user_id')
+        req_user: User = get_user_model().objects.get(pk=user_id)
+        canvas_callback_url = task.get('canvas_callback_url')
+        request = _create_background_request(req_user, canvas_callback_url, course_id)
+        
+        try:
+            manager = MANAGER_FACTORY.create_manager(request)
+            canvas_api: Canvas = manager.canvas_api
+            bearer_token = manager.api_key
+        except (InvalidOAuthReturnError, Exception) as e:
+            update_course_scan(course_id, CourseScanStatus.FAILED, f"Error creating Canvas API for course_id {course_id}: {e}")
+            CanvasOAuth2Token.objects.filter(user=request.user).delete()
+            return
 
-    # Fetch full course details to ensure attributes like course_code are present for logging
-    course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
+        # Fetch full course details to ensure attributes like course_code are present for logging
+        course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
-    results = async_to_sync(get_courses_images)(course)
-    state_of_content_fetch: bool = unpack_and_store_content_images(results, course)
+        results = async_to_sync(get_courses_images)(course)
+        state_of_content_fetch: bool = unpack_and_store_content_images(results, course)
 
-    # this check is helping not to move to alt text retrieval if there was an error in fetching content images
-    if not state_of_content_fetch:
-        logger.error(f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.")
-        return
-    
-    try:
-        retrieve_and_store_alt_text(course, bearer_token=bearer_token)
-    except ImageContentExtractionException as e:
-        logger.error(
-            f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}",
-            exc_info=True
-        )
-        update_course_scan(course_id, CourseScanStatus.FAILED.value)
-        return
+        # this check is helping not to move to alt text retrieval if there was an error in fetching content images
+        if not state_of_content_fetch:
+            update_course_scan(course_id, CourseScanStatus.FAILED, f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.")
+            return
+        
+        try:
+            retrieve_and_store_alt_text(course, bearer_token=bearer_token)
+        except ImageContentExtractionException as e:
+            update_course_scan(course_id, CourseScanStatus.FAILED, f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}")
+            return
 
-    # Update that the course scan is completed
-    update_course_scan(course_id, CourseScanStatus.COMPLETED.value)
+        # Update that the course scan is completed
+        update_course_scan(course_id, CourseScanStatus.COMPLETED)
+    except Exception as e:
+        update_course_scan(course_id, CourseScanStatus.FAILED, f"Unexpected error in fetch_and_scan_course for course_id {course_id}: {e}")
 
 
     
@@ -145,7 +143,7 @@ def unpack_and_store_content_images(results, course: Course) -> bool:
     error_when_fetching_images = any(_has_fetch_error(r) for r in (assignments, pages, quizzes))
 
     if error_when_fetching_images:
-        update_course_scan(course.id, CourseScanStatus.FAILED.value)
+        update_course_scan(course.id, CourseScanStatus.FAILED)
         return False
     
     combined = assignments + pages + quizzes
@@ -163,25 +161,27 @@ def unpack_and_store_content_images(results, course: Course) -> bool:
     save_scan_results(course.id, filtered_content_with_images)
     return True
 
-def update_course_scan(course_id, status) -> None:
+def update_course_scan(course_id: int, status: CourseScanStatus, error_message: Optional[str] = None) -> None:
     """
-    This function updates or creates a CourseScan record with the given status.
-    status can be 'pending', 'running', 'completed', 'failed', etc.
-    with failed status, it indicates that the scan is not successful so if there ContentItems or ImageItems records are there then they are not deleted.
+    Update or create a CourseScan record with the given status and log accordingly.
     
     :param course_id: Course ID
-    :param status: status of the scan
+    :param status: status of the scan (CourseScanStatus enum)
+    :param error_message: Optional error message to log when status is FAILED
     """
     try:
         obj, created = CourseScan.objects.update_or_create(
             course_id=course_id,
-            defaults={
-                'status': status,
-            }
+            defaults={'status': status.value}
         )
-        logger.info(f"{obj} created: {created}")
+        if status == CourseScanStatus.FAILED:
+            logger.error(error_message or f"Scan marked as FAILED for course_id {course_id}")
+        elif status == CourseScanStatus.COMPLETED:
+            logger.info(f"Scan completed successfully for course_id {course_id}")
+        else:
+            logger.debug(f"Scan status updated to {status.value} for course_id {course_id}")
     except (DatabaseError, Exception) as e:
-        logger.error(f"Error updating CourseScan for course_id {course_id} to status {status}: {e}")
+        logger.error(f"Error updating CourseScan for course_id {course_id} to status {status.value}: {e}")
     
 def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
     """
@@ -257,7 +257,7 @@ def get_assignments(course: Course):
                 images_from_assignments,
                 assignment.id,
                 assignment.name,
-                extract_images_from_html(assignment.description),
+                extract_images_from_html(assignment.description, course.id),
                 'assignment',
                 None)
         return images_from_assignments
@@ -274,16 +274,15 @@ def get_pages(course: Course):
         pages = list(course.get_pages(include=['body'], per_page=PER_PAGE))
 
         logger.debug(f"Fetched {len(pages)} pages.")
-        for page in pages:
-            logger.info(f"Page ID: {page.page_id}, Title: {page.title}")
         images_from_pages = []
         for page in pages:
+            logger.debug(f"Processing Page ID: {page.page_id}, Title: {page.title}")
             # Extract images from page body
             images_from_pages = append_image_items(
                 images_from_pages,
                 page.page_id,
                 page.title,
-                extract_images_from_html(page.body),
+                extract_images_from_html(page.body, course.id),
                 'page',
                 None)
         return images_from_pages
@@ -307,7 +306,7 @@ def get_quizzes(course: Course):
                 images_from_quizzes,
                 quiz.id,
                 quiz.title,
-                extract_images_from_html(getattr(quiz, 'description', '')),
+                extract_images_from_html(getattr(quiz, 'description', ''), course.id),
                 'quiz',
                 None)
 
@@ -350,7 +349,7 @@ def get_quiz_questions_sync(quiz: Quiz):
                 images_from_questions,
                 question.id,
                 question.question_name,
-                extract_images_from_html(getattr(question, 'question_text', '')),
+                extract_images_from_html(getattr(question, 'question_text', ''), quiz.course_id),
                 'quiz_question',
                 quiz.id)
 
@@ -359,11 +358,59 @@ def get_quiz_questions_sync(quiz: Quiz):
         logger.error(f"Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
         raise e
 
+def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
+    """
+    Check if a Canvas image URL belongs to the current course.
+    
+    Always includes:
+    - Public Canvas images (e.g., /images/play_overlay.png, /images/book_stro/icon.png)
+    - User files (e.g., /users/{id}/files/{file_id})
+    
+    Only validates course_id for URLs with /courses/{course_id}/ pattern.
+    
+    :param img_src: The image source URL
+    :param current_course_id: The ID of the current course being processed
+    :return: True if the image belongs to the current course or is a public/user file, False otherwise
+    """
+    try:
+        parsed = urlparse(img_src)
+        parts = [p for p in parsed.path.split('/') if p]
+        
+        # Public Canvas images with any subdirectory depth - always include
+        # e.g., /images/play_overlay.png, /images/book_stro/icon.png, /images/foo/poo/bar.png
+        if 'images' in parts and 'courses' not in parts:
+            logger.debug(f"Including public Canvas image: {img_src}")
+            return True
+        
+        # User files (e.g., /users/{id}/files/{file_id}) - always include
+        if 'users' in parts and 'files' in parts:
+            logger.debug(f"Including user file: {img_src}")
+            return True
+        
+        # Look for /courses/{course_id}/ pattern and validate
+        if 'courses' in parts:
+            courses_idx = parts.index('courses')
+            if courses_idx + 1 < len(parts):
+                url_course_id = int(parts[courses_idx + 1])
+                if url_course_id != current_course_id:
+                    logger.info(f"Skipping image from different course: URL has course_id={url_course_id}, current course_id={current_course_id}")
+                    return False
+        return True
+    except (ValueError, IndexError) as e:
+        logger.warning(f"Could not parse course_id from URL {img_src}: {e}")
+        return False  # ignore image if we can't parse, to avoid losing valid images
+
 def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
     """
-    Parse Canvas file preview URL like:
-    https://canvas-test.it.umich.edu/courses/403334/files/42932047/preview?verifier=...
-    Return download_url or None if not parseable.
+    Parse Canvas file preview URLs and convert to download URLs.
+    
+    Handles:
+    - Course files: /courses/{id}/files/{file_id}/preview
+    - User files: /users/{id}/files/{file_id}/preview
+    - Public images: /images/play_overlay.png (returned as-is)
+    
+    Extracts file_id and constructs download URL with verifier params preserved.
+    Returns download_url or original URL if not parseable.
     """
     if not img_src:
         return None
@@ -371,13 +418,19 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
         parsed = urlparse(img_src)
         # Path segments: ['', 'courses', '403334', 'files', '42932047', 'preview']
         parts = [p for p in parsed.path.split('/') if p]
+        
+        # Public Canvas images - return as-is without parsing
+        if 'images' in parts and 'courses' not in parts:
+            logger.debug(f"Using public Canvas image URL as-is: {img_src}")
+            return img_src
+        
         file_id = None
         for i, part in enumerate(parts):
             if part == 'files' and i + 1 < len(parts):
                 file_id = parts[i + 1]
                 break
         if not file_id:
-            raise ValueError("File ID not found in URL path")
+            raise ValueError(f"File ID not found in URL path: {img_src}")
 
         # preserve original query params (verifier, etc.)
         qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -400,7 +453,7 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
         logger.error(f"Error parsing img src URL '{img_src}': {e}")
         raise e
 
-def extract_images_from_html(html_content: str) -> List[str]:
+def extract_images_from_html(html_content: str, course_id: int) -> List[str]:
     if not html_content:
         return []
     soup = BeautifulSoup(html_content, "html.parser")
@@ -412,6 +465,11 @@ def extract_images_from_html(html_content: str) -> List[str]:
         img_alt = (img.get("alt") or "").strip()
         img_role = (img.get("role") or "").strip().lower()
 
+        # ignore images without src
+        if not img_src:
+            logger.info("Skipping img tag without src attribute.")
+            continue
+
         # Skip decorative/presentation images
         if img_role == "presentation":
             continue
@@ -421,12 +479,19 @@ def extract_images_from_html(html_content: str) -> List[str]:
 
         domain = urlparse(img_src).netloc
         if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain:
+            # Check if the image belongs to the current course
+            if not _is_image_from_current_course(img_src, course_id):
+                continue
+            
+            logger.info(f"Parsing Canvas file URL: {img_src}")
             download_url = _parse_canvas_file_src(img_src)
         else:
+            logger.info(f"Non-Canvas image URL found: {img_src}")
             download_url = img_src
         images_found.append(download_url)
     
-    logger.info(images_found)
+    if images_found:
+        logger.info(images_found)
     return images_found
 
 # Helper function to append image items if images exist

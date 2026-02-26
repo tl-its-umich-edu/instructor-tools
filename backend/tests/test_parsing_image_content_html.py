@@ -18,7 +18,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html)
+        images = extract_images_from_html(html, course_id=403334)
         self.assertIsInstance(images, list)
         self.assertEqual(len(images), 2)
 
@@ -39,7 +39,7 @@ class TestParsingImageContentHTML(TestCase):
         )
 
         # By default presentation images are skipped
-        images_default = extract_images_from_html(html)
+        images_default = extract_images_from_html(html, course_id=403334)
         # Only normal-image should be returned (presentation skipped)
         self.assertEqual(len(images_default), 0)
 
@@ -52,7 +52,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html)
+        images = extract_images_from_html(html, course_id=403334)
         self.assertIsInstance(images, list)
         # presentation-role image should not be included by default
         self.assertEqual(len(images), 0)
@@ -67,7 +67,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html)
+        images = extract_images_from_html(html, course_id=403334)
         self.assertIsInstance(images, list)
         # presentation-role image should not be included by default
         self.assertEqual(len(images), 1)
@@ -87,7 +87,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html)
+        images = extract_images_from_html(html, course_id=403334)
         self.assertIsInstance(images, list)
         # All three images should be picked up since they have filenames with image extensions
         self.assertEqual(len(images), 3)

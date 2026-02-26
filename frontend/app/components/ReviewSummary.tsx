@@ -85,13 +85,14 @@ export default function ReviewSummary({
       const contentImage = imagesById[key];
       if (!contentImage) return;
 
-      const { content_id, content_name, content_parent_id, content_type } = contentImage;
+      const { content_id, content_name, content_parent_id, content_parent_name, content_type } = contentImage;
 
       if (!groupedByContent[content_id]) {
         groupedByContent[content_id] = {
           content_id,
           content_name,
           content_parent_id,
+          content_parent_name,
           content_type,
           images: []
         };
@@ -134,7 +135,7 @@ export default function ReviewSummary({
               Review Summary
         </Typography>
         <Typography variant="body1" color="text.secondary">
-              Review your changes before final submission
+              Review your changes before final submission. <b>You cannot edit alt text in this app after saving approved changes.</b> To update alt text labels after saving, edit content in the course directly. 
         </Typography>
       </Box>
 

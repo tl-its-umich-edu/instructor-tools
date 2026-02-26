@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AltTextLastScanCourseContentItem, AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import { Button, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { CONTENT_CATEGORY_FOR_REVIEW, ContentCategoryForReview } from '../constants';
+import { imageSum } from '../utils';
 
 
 interface ReveiwSelectFormProps {
@@ -13,9 +14,6 @@ interface ReveiwSelectFormProps {
 }
 
 export default function ReviewSelectForm({ scanPending, lastScan, selectedCategory, handleStartReview, handleChangeCategory }:ReveiwSelectFormProps) {
-  const imageSum = (contentItems: AltTextLastScanCourseContentItem[]): number => 
-    contentItems.reduce((sum, item) => sum + item.image_count, 0);
-
   // tuple associating Category value to respective label & sum of images to review
   const categoryToSumLabel: Record<ContentCategoryForReview, [string, number]> = useMemo(() => ({
     [CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS]: ['Assignments', imageSum(lastScan.course_content.assignment_list)],

@@ -21,6 +21,9 @@ class ToolCategory(models.Model):
     category_name = models.CharField(max_length=150)
     def __str__(self):
         return self.category_name
+    class Meta:
+        verbose_name = "Tool Category"
+        verbose_name_plural = "Tool Categories"
 class LogoImage(models.Model):
     bytes = models.TextField()
     filename = models.CharField(max_length=255)
@@ -60,6 +63,13 @@ class LtiTool(models.Model):
         delete_file_if_needed(self, 'logo_image')
         delete_file_if_needed(self, 'main_image')
 
+class CourseScanStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    RUNNING = "running", "Running"
+    FAILED = "failed", "Failed"
+    COMPLETED = "completed", "Completed"
+
+
 class CourseScan(models.Model):
     # Big primary key
     id = models.BigAutoField(primary_key=True)
@@ -68,7 +78,7 @@ class CourseScan(models.Model):
     # ID returned by the scan task system (e.g. django-q task id)
     q_task_id = models.CharField(max_length=255, blank=True, null=True)
     # Simple status string (pending, running, completed, failed)
-    status = models.CharField(max_length=50, default='pending')
+    status = models.CharField(max_length=50, default=CourseScanStatus.PENDING, choices=CourseScanStatus.choices)
     # When the scan was created
     created_at = models.DateTimeField(auto_now_add=True)
     # When the scan was last updated
@@ -80,12 +90,6 @@ class CourseScan(models.Model):
 
     def __str__(self):
         return f"CourseScan(id={self.id}, course_id={self.course_id}, q_task_id={self.q_task_id}, status={self.status})"
-
-class CourseScanStatus(models.TextChoices):
-    PENDING = "pending", "Pending"
-    RUNNING = "running", "Running"
-    FAILED = "failed", "Failed"
-    COMPLETED = "completed", "Completed"
 
 
 

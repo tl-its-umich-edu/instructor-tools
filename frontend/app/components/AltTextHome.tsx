@@ -1,10 +1,10 @@
-import { Box, Divider, LinearProgress, Typography } from '@mui/material';
+import { Box, Button, Divider, LinearProgress, Link, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import React, { useState } from 'react';
 import ErrorsDisplay from './ErrorsDisplay';
 import { Globals } from '../interfaces';
 import HeaderAppBar from './HeaderAppBar';
-import CourseScanComponent from './CourseScanComponent';
+import LastScanInfo from './CourseScanComponent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
 import ReviewSelectForm from './ReviewSelectForm';
@@ -21,7 +21,7 @@ interface AltTextHomeProps {
 }
 
 function AltTextHome(props: AltTextHomeProps) {
-  const {course_id, user, help_url} = props.globals;
+  const { course_id, user, help_url, ai_services_url } = props.globals;
   const [scanPending, setScanPending] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
   const [reviewCategoryStarted, setReviewCategoryStarted] = useState(false);
@@ -100,8 +100,13 @@ function AltTextHome(props: AltTextHomeProps) {
               <Typography variant='h6' component='h2' sx={{ marginBottom: 1}}>
               Use AI suggestions to quickly apply alt-text labels to course images
               </Typography>
-              <Typography variant='body1' component='h2'>
-              AI Disclaimer: Learn more generative AI powered by UMGPT toolkit
+              <Typography variant='body2'>
+              AI Disclaimer: This application uses UM-GPT toolkit to gather LLM-suggested alt text, powered by Azure OpenAI API.
+              </Typography>
+              <Typography variant='body2'>
+                <Link href={ai_services_url} target="_blank" rel="noopener">
+                  Click here to learn more
+                </Link> about ITS Generative AI services. 
               </Typography>
             </TitleBlock>
             <Divider sx={{ marginBottom: 3}}/>
@@ -116,18 +121,42 @@ function AltTextHome(props: AltTextHomeProps) {
             )}
             {lastScan !== undefined && (
               <>
-                <CourseScanComponent
-                  scanPending={scanPending}
-                  lastScan={lastScan} 
-                  handleStartScan={handleStartScan}
-                />
-                {lastScan && (
-                  <ReviewSelectForm
-                    scanPending={scanPending}
-                    selectedCategory={selectedCategory}
-                    lastScan={lastScan} 
-                    handleStartReview={handleStartReview}
-                    handleChangeCategory={(category) => setSelectedCategory(category)}/>
+                {lastScan === false ? (
+                  <Box 
+                    display="flex"
+                    justifyContent="center"
+                    flexDirection="column"
+                    alignItems="center"
+                    sx={{ marginBottom: 3 }}
+                  >
+                    <Typography variant='body1' component='h2' sx={{ marginBottom: 3}}>
+                      To begin, start a scan of your course below:
+                    </Typography>
+                    <Button 
+                      variant='contained'
+                      onClick={handleStartScan}
+                      disabled={scanPending}
+                    >
+                      Start Scan
+                    </Button>
+                  </Box>
+                ) : (
+                  <>
+                    <LastScanInfo
+                      scanPending={scanPending}
+                      lastScan={lastScan}
+                      handleStartScan={handleStartScan}
+                    />
+                    {lastScan && (
+                      <ReviewSelectForm
+                        scanPending={scanPending}
+                        selectedCategory={selectedCategory}
+                        lastScan={lastScan}
+                        handleStartReview={handleStartReview}
+                        handleChangeCategory={(category) => setSelectedCategory(category)}
+                      />
+                    )}
+                  </>
                 )}
               </>
             )}

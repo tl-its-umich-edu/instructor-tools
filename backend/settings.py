@@ -415,8 +415,15 @@ option with no further explanation.""").strip(),
         os.getenv('HELP_URL', 'https://github.com/tl-its-umich-edu/canvas-app-explorer'),
         'URL for external help resource'
     ),
+    'AI_SERVICES_URL': (
+        os.getenv('AI_SERVICES_URL', 'https://its.umich.edu/computing/ai'),
+        'URL for more information about AI services by ITS'
+    ),
+    'USE_CANVAS_TOKEN': (
+        os.getenv('USE_CANVAS_TOKEN', 'false').lower() in ('true', '1', 't'),
+        'Whether to use Canvas authentication token when fetching images from Canvas'
+    )
 }
-
 # Use in-memory backend for constance during tests to avoid database migration issues
 if 'test' in sys.argv:
     CONSTANCE_BACKEND = 'constance.backends.memory.MemoryBackend'

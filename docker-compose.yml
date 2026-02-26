@@ -36,6 +36,8 @@ services:
     environment:
       - DEBUG=True
       - RUN_FRONTEND=true
+      - RUN_QWORKER_DEV_MODE=true
+
   redis:
     image: redis:7
     volumes:

@@ -60,3 +60,8 @@ docker exec -it instructor_tools python manage.py test
     4. `Q_CLUSTER_BULK` - Sets the number of messages each cluster tries to get from the broker per call.
     5. `Q_CLUSTER_MAX_ATTEMPTS` - Maximum number of retry attempts for a task after failure (default: 1)
     6. `Q_CLUSTER_NAME` - Cluster Name
+
+
+## Acknowledgment:
+
+The concept for the Alt Text Helper tool was inspired by a proof‑of‑concept project created by Chris Smith (@ smithcth), Help Desk Supervisor in the Office of Online & Digital Education at the University of Michigan–Flint. We appreciate his guidance and collaboration on implementing the LTI version of the Alt Text Helper tool.

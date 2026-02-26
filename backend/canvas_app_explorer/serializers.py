@@ -99,5 +99,6 @@ class ReviewContentItemSerializer(serializers.Serializer):
     content_id = serializers.IntegerField(required=True)
     content_name = serializers.CharField(required=True)
     content_parent_id = serializers.CharField(allow_null=True, required=True)
+    content_parent_name = serializers.CharField(allow_null=True, required=False)
     content_type = serializers.ChoiceField(choices=ContentItem.CONTENT_TYPE_CHOICES, required=False)
     images = ReviewImageItemSerializer(many=True)

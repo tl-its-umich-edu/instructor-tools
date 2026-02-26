@@ -78,3 +78,38 @@ class TestGetContentImagesView(TestCase):
         img_missing_resp = next(img for img in item['images'] if img['image_url'] == 'https://example.com/a1b.png')
         self.assertEqual(img_missing_resp['image_id'], img_without_id.id)
         self.assertIsNone(img_missing_resp['image_alt_text'])
+
+    def test_get_content_images_returns_untitled_when_content_name_is_none(self):
+        # create course scan and content item with no name
+        cs = CourseScan.objects.create(course_id=3333)
+        assignment = ContentItem.objects.create(
+            course=cs,
+            content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
+            content_id=30,
+            content_name=None,  # Explicitly None
+            content_parent_id=None,
+        )
+        ImageItem.objects.create(
+            course=cs,
+            content_item=assignment,
+            image_url='https://example.com/a2.png'
+        )
+
+        # build request with session course_id and query param
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
+        request.user = self.user
+        request.session = {'course_id': cs.course_id}
+
+        view = AltTextContentGetAndUpdateViewSet()
+        response = view.get_content_images(request)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.data
+        self.assertIn('content_items', data)
+        self.assertEqual(len(data['content_items']), 1)
+
+        item = data['content_items'][0]
+        self.assertEqual(item['content_id'], 30)
+        self.assertEqual(item['content_type'], ContentItem.CONTENT_TYPE_ASSIGNMENT)
+        # Verify content_name defaults to "Untitled : Assignment"
+        self.assertEqual(item['content_name'], 'Untitled : Assignment')
