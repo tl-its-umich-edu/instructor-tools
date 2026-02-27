@@ -127,12 +127,13 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
 class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = ContentQuerySerializer
+    serializer_class = None
 
     @extend_schema(
         parameters=[
             OpenApiParameter(name='content_type', description='Type of content to  like assignment, page, quiz', required=True, type=str),
-        ]
+        ],
+        request=ContentQuerySerializer,
     )
     def get_content_images(self, request: Request) -> Response:
         course_id, error_resp = self._require_course_id(request)
@@ -203,6 +204,9 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
             logger.error(f"Failed to fetch content images from DB for course {course_id} and content_type {content_type}: {e}")
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": str(e)})
 
+    @extend_schema(
+        request=ReviewContentItemSerializer
+    )
     def alt_text_update(self, request: Request) -> Response:
         course_id, error_resp = self._require_course_id(request)
         if error_resp:

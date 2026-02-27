@@ -3,7 +3,7 @@ uvicorn-worker==0.4.0
 mysqlclient==2.2.8
 
 # Django and related
-Django==4.2.28
+Django==5.2.1
 django-csp==3.8 # For Content Security Policy
 django-constance==4.3.4 # Dynamic settings in admin UI
 django-db-file-storage==0.5.6.1 # Support for storage in the database
@@ -19,7 +19,7 @@ beautifulsoup4==4.14.3 # For HTML parsing
 
 # DRF
 djangorestframework==3.16.1
-django-filter==25.1 # Filtering support. 25.2 doesn't support Django 4.2
+django-filter==25.2 
 drf-spectacular==0.29.0
 markdown==3.10.2 # Markdown support for the browsable API
 
