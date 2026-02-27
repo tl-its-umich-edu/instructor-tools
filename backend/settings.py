@@ -299,7 +299,7 @@ CANVAS_OAUTH_CANVAS_DOMAIN = os.getenv('CANVAS_OAUTH_CANVAS_DOMAIN', 'canvas.ins
 
 # Scopes environment variable provides a way to recover if Canvas changes scope identifiers.
 if isinstance((env_canvas_scopes := os.getenv('CANVAS_OAUTH_SCOPES')), str):
-    CANVAS_OAUTH_SCOPES = env_canvas_scopes.split(',')
+    CANVAS_OAUTH_SCOPES = [scope.strip() for scope in env_canvas_scopes.split(',')]
 else:
     CANVAS_OAUTH_SCOPES = DEFAULT_CANVAS_SCOPES
 
