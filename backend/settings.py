@@ -242,7 +242,7 @@ DRF_TRACKING_LOGGING = {
 
 TINYMCE_DEFAULT_CONFIG = {
     'menubar': True,
-    "plugins": "advlist,autolink,code,lists,link,anchor,insertdatetime,media,table,paste,wordcount",
+    "plugins": "advlist,autolink,code,lists,link,anchor,insertdatetime,media,table,wordcount",
     "toolbar": "bold italic backcolor | "
         "bullist numlist outdent indent | removeformat | code | help",
     "default_link_target": "_blank",
