@@ -276,8 +276,7 @@ class AltTextUpdate:
                 action = image.get('action')
                 is_failed = image.get('is_alt_text_updated') == False
                 
-                # Delete if action is approve/skip AND NOT failed
-                if action in ['approve', 'skip'] and not is_failed:
+                if action in ['approve', 'skip', 'decorative'] and not is_failed:
                     images_to_delete.append(image.get('image_id'))
                     content_ids_to_check.add(content_id)
         
@@ -464,10 +463,17 @@ class AltTextUpdate:
                         matched = True
                         logger.debug(f"Exact matched URL {url_for_update}")
                 
-                if matched and image_payload['action'] == 'approve':
-                    img['alt'] = image_payload['approved_alt_text']
-                    logger.info(f"Updated alt text for image in content {content_id}")
-                    
+                # Handle alt text update for approved and decorative actions
+                if matched:
+                    if image_payload['action'] == 'approve':
+                        img['alt'] = image_payload['approved_alt_text']
+                        logger.info(f"Updated alt text for image in content {content_id}")
+                    elif image_payload['action'] == 'decorative':
+                        # Decorative images should be marked presentation with empty alt
+                        img['alt'] = ''
+                        img['role'] = 'presentation'
+                        logger.info(f"Marked decorative image in content {content_id}")
+                    # skip action does nothing here
         updated_description = str(soup)
         return updated_description
     
@@ -489,7 +495,7 @@ class AltTextUpdate:
                 "content_type": c["content_type"]
             }
             for c in self.content_with_alt_text
-            if any(img["action"] == "approve" for img in c["images"])
+            if any(img["action"] in ("approve", "decorative") for img in c["images"])
         ]
         logger.info(f"Approved content IDs: {approved_contents}")
         return approved_contents
@@ -514,7 +520,8 @@ class AltTextUpdate:
                 try:
                     parsed = urlparse(image['image_url'])
                     if parsed.netloc == settings.CANVAS_OAUTH_CANVAS_DOMAIN:
-                        if image.get('action') == 'approve':
+                        # For both approve and decorative we will modify the image on the Canvas side.
+                        if image.get('action') in ('approve', 'decorative'):
                             image['image_url_for_update'] = self._transform_image_url(parsed)
                         else:
                             # If action is skip, retain original URL for reference
