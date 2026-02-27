@@ -37,6 +37,7 @@ class CourseIdRequiredMixin:
 class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None
 
     def start_scan(self, request: Request) -> Response:
         course_id, error_resp = self._require_course_id(request)
@@ -126,6 +127,7 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
 class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ContentQuerySerializer
 
     @extend_schema(
         parameters=[

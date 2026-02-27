@@ -25,6 +25,7 @@ class LTIToolViewSet(LoggingMixin, viewsets.ViewSet):
     """
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None
 
     # Customize what gets logged
     def handle_log(self):
