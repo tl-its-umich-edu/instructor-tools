@@ -104,7 +104,7 @@ interface ContentImageEnriched extends ContentImage {
 }
 
 
-type ActionType = 'approve' | 'skip' | 'unreviewed';
+type ActionType = 'approve' | 'skip' | 'decorative' | 'unreviewed';
 interface ContentImageReviewState {
   action: ActionType;
   altText: string;
@@ -114,7 +114,7 @@ interface ContentImageReviewState {
 interface ContentReviewRequestImageAction {
   image_url: string
   image_id: string
-  action: 'approve' | 'skip'
+  action: 'approve' | 'skip' | 'decorative'
   approved_alt_text: string
 }
 interface ContentReviewRequest {

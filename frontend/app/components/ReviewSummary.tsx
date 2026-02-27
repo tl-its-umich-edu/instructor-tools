@@ -4,8 +4,8 @@ import { ContentImageReviewState, ContentImageEnriched, ContentReviewRequest } f
 import { updateAltTextSubmitReview } from '../api';
 import { Box, styled, Paper, Typography, Alert, Button, CircularProgress } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
-import EditIcon from '@mui/icons-material/Edit';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 const SummaryContainer = styled(Box)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -102,7 +102,7 @@ export default function ReviewSummary({
         image_url: contentImage.image_url,
         image_id: String(contentImage.image_id),
         action: state.action,
-        approved_alt_text: state.altText
+        approved_alt_text: state.action === 'decorative' ? '' : state.altText
       });
     });
 
@@ -113,6 +113,7 @@ export default function ReviewSummary({
   const summary = {
     approved: 0,
     skipped: 0,
+    decorative: 0,
     modified: 0,
     unreviewed: 0
   };
@@ -121,21 +122,26 @@ export default function ReviewSummary({
     const state = reviewStates[key];
     if (state.action === 'approve') summary.approved++;
     else if (state.action === 'skip') summary.skipped++;
+    else if (state.action === 'decorative') summary.decorative++;
     else if (state.action === 'unreviewed') summary.unreviewed++;
 
-    if (state.isDirty) summary.modified++;
+    // only count edits for approved images (others won't be submitted)
+    if (state.isDirty && state.action === 'approve') {
+      summary.modified++;
+    }
   });
 
-  const noChangesToSubmit = summary.approved === 0 && summary.skipped === 0;
+  const noChangesToSubmit =
+    summary.approved === 0 && summary.skipped === 0 && summary.decorative === 0;
 
   return (
     <SummaryContainer>
       <Box sx={{ textAlign: 'center', mb: 4 }}>
         <Typography variant="h4" gutterBottom fontWeight={600}>
-              Review Summary
+          Review Summary
         </Typography>
         <Typography variant="body1" color="text.secondary">
-              Review your changes before final submission. <b>You cannot edit alt text in this app after saving approved changes.</b> To update alt text labels after saving, edit content in the course directly. 
+          Review your changes before final submission. <b>You cannot edit alt text in this app after saving approved changes.</b> To update alt text labels after saving, edit content in the course directly. 
         </Typography>
       </Box>
 
@@ -157,14 +163,11 @@ export default function ReviewSummary({
               </IconWrapper>
               <SummaryLabel>Approved</SummaryLabel>
               <SummaryNumber>{summary.approved}</SummaryNumber>
-            </SummaryCard>
-
-            <SummaryCard elevation={0}>
-              <IconWrapper>
-                <EditIcon color="primary" />
-              </IconWrapper>
-              <SummaryLabel>Edited</SummaryLabel>
-              <SummaryNumber>{summary.modified}</SummaryNumber>
+              {summary.modified > 0 && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  {summary.modified} manually edited
+                </Typography>
+              )}
             </SummaryCard>
 
             <SummaryCard elevation={0}>
@@ -173,6 +176,14 @@ export default function ReviewSummary({
               </IconWrapper>
               <SummaryLabel>Skipped</SummaryLabel>
               <SummaryNumber>{summary.skipped}</SummaryNumber>
+            </SummaryCard>
+
+            <SummaryCard elevation={0}>
+              <IconWrapper>
+                <VisibilityOffIcon color="action" />
+              </IconWrapper>
+              <SummaryLabel>Decorative</SummaryLabel>
+              <SummaryNumber>{summary.decorative}</SummaryNumber>
             </SummaryCard>
           </SummaryGrid>
 
