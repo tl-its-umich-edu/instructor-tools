@@ -3,6 +3,7 @@
 from django.contrib import admin
 from backend.canvas_app_explorer.models import LtiTool, CanvasPlacement, ToolCategory, CourseScan
 
+@admin.register(LtiTool)
 class LtiToolAdmin(admin.ModelAdmin):
     fields = (
         'name',
@@ -21,23 +22,22 @@ class LtiToolAdmin(admin.ModelAdmin):
     list_display = ('name', 'canvas_id')
 
 
-admin.site.register(LtiTool, LtiToolAdmin)
 
 
+@admin.register(CanvasPlacement)
 class CanvasPlacementAdmin(admin.ModelAdmin):
     pass
 
 
-admin.site.register(CanvasPlacement, CanvasPlacementAdmin) 
 
+@admin.register(ToolCategory)
 class ToolCategoryAdmin(admin.ModelAdmin):
     pass
-admin.site.register(ToolCategory, ToolCategoryAdmin)
 
+@admin.register(CourseScan)
 class CourseScanAdmin(admin.ModelAdmin):
     list_display = ('id', 'course_id', 'status', 'created_at', 'updated_at')
     list_filter = ('status', 'created_at')
     search_fields = ('course_id', 'q_task_id')
     readonly_fields = ('course_id', 'q_task_id', 'id', 'created_at', 'updated_at')
 
-admin.site.register(CourseScan, CourseScanAdmin)

@@ -130,7 +130,6 @@ TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
-USE_L10N = True
 
 USE_TZ = True
 
@@ -158,7 +157,14 @@ WEBPACK_LOADER = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
-DEFAULT_FILE_STORAGE = 'backend.canvas_app_explorer.storage_get_file.DatabaseFileStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": 'backend.canvas_app_explorer.storage_get_file.DatabaseFileStorage',
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 
 # So request works over the proxy
