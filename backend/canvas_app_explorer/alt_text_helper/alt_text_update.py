@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class ImagePayload(TypedDict):
     image_url: str
     image_id: str
-    action: Literal["approve", "skip"]
+    action: Literal["approve", "skip", "decorative"]
     approved_alt_text: str
     image_url_for_update: str
     is_alt_text_updated: NotRequired[bool | None]
@@ -81,28 +81,28 @@ class AltTextUpdate:
 
     def _process_page(self) -> None:
         logger.info("Processing page alt text update for course_id %s", self.course.id)
-        approved_content = self._get_approved_content_ids()
-        page_ids = {item["content_id"] for item in approved_content}
+        content_to_modify = self._get_approved_decorative_content_ids()
+        page_ids = {item["content_id"] for item in content_to_modify}
         
         if not page_ids:
-            logger.info("No approved pages to process for course_id %s", self.course.id)
+            logger.info("No approved or decorative pages to process for course_id %s", self.course.id)
             return
         
         try:
             pages: Page = list(self.course.get_pages(include=['body'], per_page=PER_PAGE))
         except (CanvasException, Exception) as e:
             logger.error(f"Failed to fetch pages for course ID {self.course.id}: {e}")
-            # Mark all approved page images as failed due to fetch error
+            # Mark all approved/decorative page images as failed due to fetch error
             page_errors = [{"content_id": pid, "error_message": str(e)} for pid in page_ids]
             self._mark_content_images_failed(page_errors, "page")
             raise e
-        # this filters Content: pages from API call to only those with approved images content IDs. 
-        approved_pages: Page = [p for p in pages if getattr(p, "page_id", None) in page_ids]
-        page_alt_text_update_results = self._update_page_alt_text(approved_pages)
+        # this filters Content: pages from API call to only those with approved/decorative images content IDs. 
+        pages_to_update: Page = [p for p in pages if getattr(p, "page_id", None) in page_ids]
+        page_alt_text_update_results = self._update_page_alt_text(pages_to_update)
         
         # Track failed pages by preparing error list with content_id and error message
         page_errors = []
-        for page, result in zip(approved_pages, page_alt_text_update_results):
+        for page, result in zip(pages_to_update, page_alt_text_update_results):
             if isinstance(result, Exception):
                 page_errors.append({
                     "content_id": page.page_id,
@@ -116,11 +116,11 @@ class AltTextUpdate:
 
     def _process_assignment(self) -> None:
         logger.info("Processing assignment alt text update for course_id %s", self.course.id)
-        approved_content = self._get_approved_content_ids()
-        assignment_ids = {item["content_id"] for item in approved_content}
+        content_to_modify = self._get_approved_decorative_content_ids()
+        assignment_ids = {item["content_id"] for item in content_to_modify}
         
         if not assignment_ids:
-            logger.info("No approved assignments to process for course_id %s", self.course.id)
+            logger.info("No approved or deorative assignments to process for course_id %s", self.course.id)
             return
         
         # making api calls for fetching assignments
@@ -134,12 +134,12 @@ class AltTextUpdate:
             raise e
         
         # this filters Content: assignments from API call to only those with approved images content IDs.
-        approved_assignment: Assignment = [a for a in assignments if a.id in assignment_ids]
-        assign_alt_text_update_results = self._update_assignment_alt_text(approved_assignment)
+        assignments_to_modify: Assignment = [a for a in assignments if a.id in assignment_ids]
+        assign_alt_text_update_results = self._update_assignment_alt_text(assignments_to_modify)
         
         # Track failed assignments by preparing error list with content_id and error message
         assignment_errors = []
-        for assignment, result in zip(approved_assignment, assign_alt_text_update_results):
+        for assignment, result in zip(assignments_to_modify, assign_alt_text_update_results):
             if isinstance(result, Exception):
                 assignment_errors.append({
                     "content_id": assignment.id,
@@ -153,26 +153,26 @@ class AltTextUpdate:
     
     def _process_quiz_and_questions(self, quiz_types: List[str]) -> None:
         logger.info("Processing quiz alt text update for course_id %s with quiz types %s", self.course.id, quiz_types)
-        approved_content = self._get_approved_content_ids()
+        content_to_modify = self._get_approved_decorative_content_ids()
         
         # 1. Process Quizzes (Description)
-        approved_quizzes = {c['content_id'] for c in approved_content if c['content_type'] == 'quiz'}
-        approved_quiz_questions = [c for c in approved_content if c['content_type'] == 'quiz_question']
+        quizzes_to_modify = {c['content_id'] for c in content_to_modify if c['content_type'] == 'quiz'}
+        quiz_questions_to_modify = [c for c in content_to_modify if c['content_type'] == 'quiz_question']
 
-        # it is not important to fetch quizzes if there are no approved quizzes to update
-        if approved_quizzes:
+        # it is not important to fetch quizzes if there are no approved/decorative quizzes to update
+        if quizzes_to_modify:
             error_quizzes_fetch = False
             try: 
                 quizzes_result = list(self.course.get_quizzes(per_page=PER_PAGE))
             except (CanvasException, Exception) as e:
                 logger.error(f"Failed to fetch quizzes : {e}")
-                # Mark all approved quiz images as failed due to fetch error
-                quiz_errors = [{"content_id": qid, "error_message": str(e)} for qid in approved_quizzes]
+                # Mark all approved/decorative quiz images as failed due to fetch error
+                quiz_errors = [{"content_id": qid, "error_message": str(e)} for qid in quizzes_to_modify]
                 self._mark_content_images_failed(quiz_errors, "quiz")
                 error_quizzes_fetch = True
 
             if not error_quizzes_fetch:
-                quizzes_to_update = self._filter_approved_quizzes_for_update(quizzes_result, approved_quizzes)
+                quizzes_to_update = self._filter_quizzes_to_modify_for_update(quizzes_result, quizzes_to_modify)
                 for q in quizzes_to_update: logger.info(f"Quiz to Update Id {q.id} Name: {q.title}")
                 quizzes_alt_text_update_results = self._update_quiz_alt_text(quizzes_to_update)
                 
@@ -189,12 +189,12 @@ class AltTextUpdate:
                 if quiz_errors:
                     self._mark_content_images_failed(quiz_errors, "quiz")
         
-        # 2. Process Quiz Questions Results if there are approved quiz questions
-        if approved_quiz_questions:
-            approved_question_ids = {c['content_id'] for c in approved_quiz_questions}
-            quiz_ids_list = [c['content_parent_id'] for c in approved_quiz_questions if c.get('content_parent_id')]
+        # 2. Process Quiz Questions Results if there are approved/decorative quiz questions
+        if quiz_questions_to_modify:
+            questions_to_modify_ids = {c['content_id'] for c in quiz_questions_to_modify}
+            quiz_ids_list = [c['content_parent_id'] for c in quiz_questions_to_modify if c.get('content_parent_id')]
             
-            result_quiz_questions = self.get_quiz_questions(approved_quiz_questions)
+            result_quiz_questions = self.get_quiz_questions(quiz_questions_to_modify)
             # Flatten the results using zip - result_quiz_questions is a list of lists or exceptions
             all_questions = []
             failed_quiz_batches = []
@@ -207,10 +207,10 @@ class AltTextUpdate:
             
             # If there are any fetch errors, mark all questions as failed and skip update
             if failed_quiz_batches:
-                question_errors = [{"content_id": qid, "error_message": str(failed_quiz_batches[0])} for qid in approved_question_ids]
+                question_errors = [{"content_id": qid, "error_message": str(failed_quiz_batches[0])} for qid in questions_to_modify_ids]
                 self._mark_content_images_failed(question_errors, "quiz_question")
             else:
-                questions_to_update = self._filter_approved_questions_for_update(all_questions, approved_question_ids)
+                questions_to_update = self._filter_questions_to_modify_for_update(all_questions, questions_to_modify_ids)
                 
                 for q in questions_to_update:
                     logger.info(f"Question Id {q.id} quiz id: {q.quiz_id}: Name: {q.question_name}")
@@ -235,8 +235,8 @@ class AltTextUpdate:
        
     def _mark_content_images_failed(self, content_errors: List[Dict[str, Any]], content_type: str) -> None:
         """
-        Mark all approved images in given content IDs as failed with their error messages.
-        Only marks images with action 'approve', skipped images remain unchanged.
+        Mark all approved (or marked as decorative) images in given content IDs as failed with their error messages.
+        Only marks images with action 'approve'/'decorative', skipped images remain unchanged.
         
         :param content_errors: List of dicts with 'content_id' and 'error_message' keys
         :param content_type: Type of content ('page', 'assignment', 'quiz', 'quiz_question')
@@ -248,7 +248,7 @@ class AltTextUpdate:
             for content in self.content_alt_text_update_report:
                 if content['content_id'] == content_id and content['content_type'] == content_type:
                     for image in content['images']:
-                        if image.get('action') == 'approve':
+                        if image.get('action') == 'approve' or image.get('action') == 'decorative':
                             image['is_alt_text_updated'] = False
                             image['alt_text_failed_error_message'] = error_message
                     break
@@ -258,7 +258,7 @@ class AltTextUpdate:
         Delete ImageItem and ContentItem records for successfully updated images.
         
         Logic:
-        - Delete ImageItem records for images with action 'approve' or 'skip' that were successfully updated
+        - Delete ImageItem records for images with action 'approve'/'skip'/'decorative' that were successfully updated
           (i.e., no is_alt_text_updated field or is_alt_text_updated is True/not False)
         - After deleting images, check if any ContentItem has no remaining ImageItems
         - If a ContentItem has no remaining images, delete that ContentItem as well
@@ -306,11 +306,11 @@ class AltTextUpdate:
 
     
     
-    def _filter_approved_quizzes_for_update(self, quizzes: List[Quiz], approved_quiz_ids: set) -> List[Quiz]:
-        return [q for q in quizzes if q.id in approved_quiz_ids]
+    def _filter_quizzes_to_modify_for_update(self, quizzes: List[Quiz], quiz_ids: set) -> List[Quiz]:
+        return [q for q in quizzes if q.id in quiz_ids]
 
-    def _filter_approved_questions_for_update(self, questions: List[QuizQuestion], approved_question_ids: set) -> List[QuizQuestion]:
-        return [q for q in questions if q.id in approved_question_ids]
+    def _filter_questions_to_modify_for_update(self, questions: List[QuizQuestion], question_ids: set) -> List[QuizQuestion]:
+        return [q for q in questions if q.id in question_ids]
     
         
     
@@ -344,49 +344,49 @@ class AltTextUpdate:
             raise e
     
     @async_to_sync
-    async def _update_quiz_alt_text(self, approved_quizzes: List[Quiz]) -> None:
+    async def _update_quiz_alt_text(self, quizzes_to_modify: List[Quiz]) -> None:
         async with self.semaphore:
             quiz_update_tasks = [self.update_content_items_async(self._update_quiz_alt_text_sync, quiz) 
-                                 for quiz in approved_quizzes]
+                                 for quiz in quizzes_to_modify]
             return await asyncio.gather(*quiz_update_tasks, return_exceptions=True)
         
-    def _update_quiz_alt_text_sync(self, approved_quiz: Quiz) -> None:
+    def _update_quiz_alt_text_sync(self, quiz_to_modify: Quiz) -> None:
         try:
-            updated_description = self._update_alt_text_html(approved_quiz.id, approved_quiz.description)
-            return approved_quiz.edit(quiz={'description': updated_description})
+            updated_description = self._update_alt_text_html(quiz_to_modify.id, quiz_to_modify.description)
+            return quiz_to_modify.edit(quiz={'description': updated_description})
         except (CanvasException, Exception) as e:
-            logger.error(f"Failed to update quiz ID {approved_quiz.id}: {e}")
+            logger.error(f"Failed to update quiz ID {quiz_to_modify.id}: {e}")
             raise e
         
     @async_to_sync
-    async def _update_quiz_question_alt_text(self, approved_quiz_questions: List[QuizQuestion]) -> None:
+    async def _update_quiz_question_alt_text(self, quiz_questions_to_modify: List[QuizQuestion]) -> None:
         async with self.semaphore:
             question_update_tasks = [self.update_content_items_async(self._update_quiz_question_alt_text_sync, question) 
-                                     for question in approved_quiz_questions]
+                                     for question in quiz_questions_to_modify]
             return await asyncio.gather(*question_update_tasks, return_exceptions=True)
     
-    def _update_quiz_question_alt_text_sync(self, approved_question: QuizQuestion) -> None:
+    def _update_quiz_question_alt_text_sync(self, question_to_modify: QuizQuestion) -> None:
         try:
-            updated_text = self._update_alt_text_html(approved_question.id, approved_question.question_text)
-            return approved_question.edit(question={'question_text': updated_text})
+            updated_text = self._update_alt_text_html(question_to_modify.id, question_to_modify.question_text)
+            return question_to_modify.edit(question={'question_text': updated_text})
         except (CanvasException, Exception) as e:
-            logger.error(f"Failed to update quiz question ID {approved_question.id}: {e}")
+            logger.error(f"Failed to update quiz question ID {question_to_modify.id}: {e}")
             raise e
         
     @async_to_sync
-    async def _update_assignment_alt_text(self, approved_assignments: List[Assignment]) -> None:
+    async def _update_assignment_alt_text(self, assignments_to_modify: List[Assignment]) -> None:
         async with self.semaphore:
             assign_update_tasks = [self.update_content_items_async(self._update_assignment_alt_text_sync, assignment) 
-                                   for assignment in approved_assignments]
+                                   for assignment in assignments_to_modify]
             return await asyncio.gather(*assign_update_tasks, return_exceptions=True)
     
 
-    def _update_assignment_alt_text_sync(self, approved_assignment: Assignment) -> None:
+    def _update_assignment_alt_text_sync(self, assignment_to_modify: Assignment) -> None:
         try:
-            updated_description = self._update_alt_text_html(approved_assignment.id, approved_assignment.description)
-            return approved_assignment.edit(assignment={'description': updated_description})
+            updated_description = self._update_alt_text_html(assignment_to_modify.id, assignment_to_modify.description)
+            return assignment_to_modify.edit(assignment={'description': updated_description})
         except (CanvasException, Exception) as e:
-            logger.error(f"Failed to update assignment ID {approved_assignment.id}: {e}")
+            logger.error(f"Failed to update assignment ID {assignment_to_modify.id}: {e}")
             raise e
 
     async def update_content_items_async[T, R](self, fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
@@ -403,10 +403,10 @@ class AltTextUpdate:
             return e
     
     @async_to_sync
-    async def _update_page_alt_text(self, approved_pages: List[Page]) -> None:
+    async def _update_page_alt_text(self, pages_to_update: List[Page]) -> None:
         async with self.semaphore:
             page_update_tasks = [self.update_content_items_async(self._update_page_alt_text_sync, page) 
-                                 for page in approved_pages]
+                                 for page in pages_to_update]
             return await asyncio.gather(*page_update_tasks, return_exceptions=True)
     
     def _update_page_alt_text_sync(self, page: Page) -> None:
@@ -420,7 +420,7 @@ class AltTextUpdate:
     
     def _update_alt_text_html(self, content_id, content_html: str) -> str:
         """
-        Return HTML content updated with alt text changes for images that have been approved.
+        Return HTML content updated with alt text changes for images that have been approved or marked as decorative.
         
         Matching logic:
         - For Canvas file URLs (image_url_for_update is a file_id): checks if file_id is contained in img src
@@ -429,7 +429,7 @@ class AltTextUpdate:
         :param content_html: Original HTML string for the content item to be processed.
         :param content_id: Identifier of the content item whose HTML is being updated; used to
             look up the corresponding image approval data in ``self.content_with_alt_text``.
-        :return: The updated HTML string with ``alt`` attributes set for approved images.
+        :return: The updated HTML string with ``alt`` attributes set for approved/decorative images.
         :rtype: str
         """
         soup = BeautifulSoup(content_html, 'html.parser')
@@ -478,17 +478,17 @@ class AltTextUpdate:
         return updated_description
     
     
-    def _get_approved_content_ids(self) -> List[dict]:
+    def _get_approved_decorative_content_ids(self) -> List[dict]:
         """
-        This will only return content IDs where at least one image has been approved. A content can have multiple images,
-        but if there is a mix of approved and skipped images, we still want to process the content to update the approved ones.
-        Further along the update will only update the images that were approved.
+        This will only return content IDs where at least one image has been approved or marked as decorative. 
+        A content can have multiple images, but if there is a mix of approved and skipped images, we still want to process the content to update the approved ones.
+        Further along the update will only update the images that were approved/decorative.
         
         :param self: Description
         :return: List of dicts containing content_id, content_parent_id and content_type
         :rtype: List[dict]
         """
-        approved_contents = [
+        approved_decorative_content_ids = [
             {
                 "content_id": c["content_id"],
                 "content_parent_id": c.get("content_parent_id"),
@@ -497,13 +497,13 @@ class AltTextUpdate:
             for c in self.content_with_alt_text
             if any(img["action"] in ("approve", "decorative") for img in c["images"])
         ]
-        logger.info(f"Approved content IDs: {approved_contents}")
-        return approved_contents
+        logger.info(f"Approved or Decorative content IDs: {approved_decorative_content_ids}")
+        return approved_decorative_content_ids
     
     def _enrich_content_with_ui_urls(self, content_list: List[ContentPayload]) -> List[ContentPayload]:
         """
         this method enriches each image in the content list with a URL that mimics how Canvas UI would display it.
-        If the image is approved it transforms the URL to a format suitable for Canvas UI preview. otherwise, it sets the original URL (doesn't matter what URL is it's skipped ).
+        If the image is approved/decpratove it transforms the URL to a format suitable for Canvas UI preview. otherwise, it sets the original URL (doesn't matter what URL is it's skipped ).
         
         :param self: Description
         :param content_list: Description

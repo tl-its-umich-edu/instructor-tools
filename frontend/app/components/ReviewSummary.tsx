@@ -125,7 +125,7 @@ export default function ReviewSummary({
     else if (state.action === 'decorative') summary.decorative++;
     else if (state.action === 'unreviewed') summary.unreviewed++;
 
-    // only count edits for approved images (others won't be submitted)
+    // modified count is shown as a subset of approved alt text labels
     if (state.isDirty && state.action === 'approve') {
       summary.modified++;
     }
