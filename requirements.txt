@@ -3,7 +3,7 @@ uvicorn-worker==0.4.0
 mysqlclient==2.2.8
 
 # Django and related
-Django==5.2.1
+Django==5.2.11
 django-csp==3.8 # For Content Security Policy
 django-constance==4.3.4 # Dynamic settings in admin UI
 django-db-file-storage==0.5.6.1 # Support for storage in the database
