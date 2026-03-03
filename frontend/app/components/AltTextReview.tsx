@@ -127,13 +127,18 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
   };
   
   const handleActionChange = (imageId: string, action: ActionType) => {
-    setReviewStates(prev => ({
-      ...prev,
-      [imageId]: {
-        ...prev[imageId],
-        action,
-      },
-    }));
+    setReviewStates(prev => {
+      const originalText = imagesById[imageId]?.image_alt_text ?? '';
+      return {
+        ...prev,
+        [imageId]: {
+          ...prev[imageId],
+          action,
+          altText: prev[imageId].altText,
+          isDirty: prev[imageId].altText !== originalText,
+        },
+      };
+    });
   };
   
   const handleAltTextChange = (imageId: string, newText: string) => {
@@ -238,6 +243,7 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
                   >
                     <MenuItem value="approve">Approve</MenuItem>
                     <MenuItem value="skip">Skip for now</MenuItem>
+                    <MenuItem value="decorative">Decorative</MenuItem>
                   </Select>
                 </FormControl>
               </TopControls>
