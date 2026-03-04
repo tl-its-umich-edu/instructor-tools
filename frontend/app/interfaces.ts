@@ -6,6 +6,7 @@ interface User {
 interface Globals {
   user: User | null
   course_id: number
+  signed_course_user_payload: string | null
   course_name: string | null
   term_id: number | null
   term_name: string | null

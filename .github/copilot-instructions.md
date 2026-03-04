@@ -39,6 +39,14 @@ A Django + React application for managing Canvas LTI tools and generating alt te
 - OAuth token stored in session for Canvas API calls; refreshed as needed in `canvas_oauth`
 - All endpoints require `SessionAuthentication` + `IsAuthenticated` permissions
 
+### Course Context Middleware (Tab Isolation)
+- API requests are validated by `CourseTabIsolationMiddleware` (`backend/canvas_app_explorer/middleware.py`)
+- Frontend sends a signed course-user payload header: `X-Signed-Course-User-Payload`
+- Middleware verifies signature (salt + `CAE_COURSE_USER_CONTEXT_SIGNING_KEY`) and sets `request.course_id`
+- Views should read course context from `request.course_id` (not `request.session['course_id']`) for API paths
+- Invalid or missing signed header returns `400` with `{ "status_code": 400, "message": "..." }`
+- For direct unit tests that call view methods without middleware, set `request.course_id` explicitly in test setup
+
 ### Models & Database
 - Use custom validators (e.g., `MaxLengthIgnoreHTMLValidator`) for HTML fields
 - File uploads use `db_file_storage` with database-backed storage

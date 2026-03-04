@@ -54,6 +54,7 @@ class TestGetContentImagesView(TestCase):
         request.user = self.user
         # django test RequestFactory uses a dict-like session we can attach for tests
         request.session = {'course_id': cs.course_id}
+        request.course_id = cs.course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
@@ -99,6 +100,7 @@ class TestGetContentImagesView(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
         request.user = self.user
         request.session = {'course_id': cs.course_id}
+        request.course_id = cs.course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
