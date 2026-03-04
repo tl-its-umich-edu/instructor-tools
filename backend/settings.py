@@ -33,6 +33,10 @@ PROJECT_ROOT = os.path.abspath(
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', get_random_secret_key())
 
+# Separate key for signing course-user context payloads.
+# Set CAE_COURSE_USER_CONTEXT_SIGNING_KEY in .env for stable signatures across restarts.
+CAE_COURSE_USER_CONTEXT_SIGNING_KEY = os.getenv('CAE_COURSE_USER_CONTEXT_SIGNING_KEY', 'Generate a secure random key and set it in the .env file for production use')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", 'false').lower() in ('true', '1', 't')
 
@@ -70,7 +74,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'canvas_oauth.middleware.OAuthMiddleware',
-    'csp.middleware.CSPMiddleware'
+    'csp.middleware.CSPMiddleware',
+    'backend.canvas_app_explorer.middleware.CourseTabIsolationMiddleware',
 ]
 
 MIGRATION_MODULES = {
