@@ -13,6 +13,6 @@ class DjangoCourseLtiManagerFactory:
         self.api_url = api_url
 
     def create_manager(self, request: HttpRequest) -> CanvasLtiManager:
-        course_id = request.session['course_id']
+        course_id = getattr(request, 'course_id')
         token = get_oauth_token(request)
         return CanvasLtiManager(self.api_url, token, course_id)

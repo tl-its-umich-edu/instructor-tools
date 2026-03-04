@@ -63,6 +63,7 @@ class TestQuizParentName(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
         request.user = self.user
         request.session = {'course_id': cs.course_id}
+        request.course_id = cs.course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
@@ -114,6 +115,7 @@ class TestQuizParentName(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
         request.user = self.user
         request.session = {'course_id': cs.course_id}
+        request.course_id = cs.course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)

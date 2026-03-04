@@ -14,6 +14,13 @@ if (globalsEl === null) throw Error(`"${globalsId}" was not found!`);
 if (globalsEl.textContent === null) throw Error(`No text content in "${globalsId}"!`);
 const globals: Globals = Object.freeze(JSON.parse(globalsEl.textContent));
 
+const signedPayloadStorageKey = 'signed_course_user_payload';
+if (globals.signed_course_user_payload !== null) {
+  sessionStorage.setItem(signedPayloadStorageKey, globals.signed_course_user_payload);
+}else {
+  throw Error('signed_course_user_payload is null in globals!');
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
