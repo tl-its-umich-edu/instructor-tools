@@ -26,7 +26,10 @@ class CourseTabIsolationMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        if request.path.startswith('/api/'):
+        if request.path.startswith('/api/alt-text/') or \
+           request.path.startswith('/api/lti_tools/') or \
+           request.path.startswith('/api/tool_categories/'):
+            
             signed_payload = request.headers.get(SIGNED_PAYLOAD_HEADER)
             if not signed_payload:
                 return self._bad_request_response('Missing signed course context header.')
@@ -54,7 +57,7 @@ class CourseTabIsolationMiddleware:
                 salt=CAE_COURSE_USER_CONTEXT_SIGNING_SALT,
                 key=settings.CAE_COURSE_USER_CONTEXT_SIGNING_KEY,
             )
-        except (signing.BadSignature, signing.SignatureExpired, TypeError, Exception) as exc:
+        except (signing.BadSignature, signing.SignatureExpired, TypeError) as exc:
             logger.warning('Invalid signed course payload header: %s', exc)
             raise PermissionDenied('Invalid course context signature.')
 
@@ -64,8 +67,12 @@ class CourseTabIsolationMiddleware:
         if 'course_id' not in payload:
             raise PermissionDenied('Invalid course context payload content.')
 
+        course_id_value = payload.get('course_id')
+        if course_id_value is None or (isinstance(course_id_value, str) and not course_id_value.strip()):
+            raise PermissionDenied('Invalid course context payload content.')
+
         try:
-            course_id = int(payload['course_id'])
+            course_id = int(course_id_value)
             payload_username = payload.get('user')
         except (TypeError, ValueError):
             raise PermissionDenied('Invalid course_id in signed payload.')

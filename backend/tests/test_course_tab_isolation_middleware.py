@@ -19,7 +19,7 @@ class TestCourseTabIsolationMiddleware(TestCase):
         middleware.process_request(request)
         request.session.save()
 
-    def _signed_payload(self, course_id: int, username: str) -> str:
+    def _signed_payload(self, course_id, username: str) -> str:
         payload = {
             'course_id': course_id,
             'user': username,
@@ -90,3 +90,31 @@ class TestCourseTabIsolationMiddleware(TestCase):
         body = json.loads(response.content)
         self.assertEqual(body['status_code'], 400)
         self.assertEqual(body['message'], 'Missing signed course context header.')
+
+    def test_returns_bad_request_when_course_id_is_none(self):
+        request = self.factory.get('/api/alt-text/scan')
+        self._add_session(request)
+        request.user = User.objects.create_user(username='alice', password='pw')
+        request.META['HTTP_X_SIGNED_COURSE_USER_PAYLOAD'] = self._signed_payload(None, 'alice')
+
+        middleware = CourseTabIsolationMiddleware(lambda req: HttpResponse(status=200))
+        response = middleware(request)
+
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertEqual(body['status_code'], 400)
+        self.assertEqual(body['message'], 'Invalid course context payload content.')
+
+    def test_returns_bad_request_when_course_id_is_empty_string(self):
+        request = self.factory.get('/api/alt-text/scan')
+        self._add_session(request)
+        request.user = User.objects.create_user(username='alice', password='pw')
+        request.META['HTTP_X_SIGNED_COURSE_USER_PAYLOAD'] = self._signed_payload('', 'alice')
+
+        middleware = CourseTabIsolationMiddleware(lambda req: HttpResponse(status=200))
+        response = middleware(request)
+
+        self.assertEqual(response.status_code, 400)
+        body = json.loads(response.content)
+        self.assertEqual(body['status_code'], 400)
+        self.assertEqual(body['message'], 'Invalid course context payload content.')

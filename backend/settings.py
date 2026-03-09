@@ -357,6 +357,22 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
+# Local development: expose signed course context header in Swagger UI authorize dialog.
+if DEBUG:
+    SPECTACULAR_SETTINGS['APPEND_COMPONENTS'] = {
+        'securitySchemes': {
+            'SignedCoursePayload': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'X-Signed-Course-User-Payload',
+                'description': 'Signed course/user context header for tab isolation middleware.',
+            }
+        }
+    }
+    SPECTACULAR_SETTINGS['SECURITY'] = [
+        {'SignedCoursePayload': []},
+    ]
+
 TEST_API_KEY = os.getenv('TEST_API_KEY', '')
 TEST_API_URL = os.getenv('TEST_API_URL', '')
 TEST_COURSE_ID = os.getenv('TEST_COURSE_ID', 1)

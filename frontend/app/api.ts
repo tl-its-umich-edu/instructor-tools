@@ -1,10 +1,10 @@
 import Cookies from 'js-cookie';
 
 import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan, ContentItem, ContentReviewRequest} from './interfaces';
+import { SIGNED_PAYLOAD_STORAGE_KEY } from './constants';
 
 const API_BASE = '/api';
 const JSON_MIME_TYPE = 'application/json';
-const SIGNED_PAYLOAD_STORAGE_KEY = 'signed_course_user_payload';
 const SIGNED_PAYLOAD_HEADER_NAME = 'X-Signed-Course-User-Payload';
 
 const BASE_MUTATION_HEADERS: HeadersInit = {
@@ -108,7 +108,6 @@ interface AltTextScanRequest {
 
 async function updateAltTextStartScan(): Promise<AltTextScan> {
   const url = `${API_BASE}/alt-text/scan`;
-  console.log('Starting alt text scan with url: ', url);
   const requestInit: RequestInit = {
     method: 'POST',
     headers: withSignedPayloadHeader({
@@ -132,7 +131,6 @@ interface AltTextLastScanResponse {
 async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLastScanDetail | false> {
   const { courseId } = data;
   const url = `${API_BASE}/alt-text/scan`;
-  console.log('Fetching last alt text scan with url: ', url);
   const res = await fetch(url, {
     // headers: withSignedPayloadHeader1(),
     headers: withSignedPayloadHeader(),

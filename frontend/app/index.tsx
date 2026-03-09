@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material';
 
 import { Globals } from './interfaces';
+import { SIGNED_PAYLOAD_STORAGE_KEY } from './constants';
 import theme from './theme';
 import { ConsentManagerProvider } from './components/ConsentManagerProvider';
 import App from './App';
@@ -14,9 +15,8 @@ if (globalsEl === null) throw Error(`"${globalsId}" was not found!`);
 if (globalsEl.textContent === null) throw Error(`No text content in "${globalsId}"!`);
 const globals: Globals = Object.freeze(JSON.parse(globalsEl.textContent));
 
-const signedPayloadStorageKey = 'signed_course_user_payload';
 if (globals.signed_course_user_payload !== null) {
-  sessionStorage.setItem(signedPayloadStorageKey, globals.signed_course_user_payload);
+  sessionStorage.setItem(SIGNED_PAYLOAD_STORAGE_KEY, globals.signed_course_user_payload);
 }else {
   throw Error('signed_course_user_payload is null in globals!');
 }
