@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip, Link } from '@mui/material';
+import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip, Link, Tooltip } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import type { ActionType, ContentImageEnriched } from '../interfaces';
 
 const StyledCard = styled(Card)(({ theme }) => ({
@@ -86,6 +87,8 @@ export default function ContentImageCard({
       return <StatusChip icon={<CheckIcon />} label="Approved" color="primary" size="small" />;
     } else if (action === 'skip') {
       return <StatusChip icon={<AccessTimeIcon />} label="Skipped for now" size="small" />;
+    } else if (action === 'decorative') {
+      return <StatusChip icon={<VisibilityOffIcon />} label="Decorative" size="small" />;
     }
     return <StatusChip label="Not yet reviewed" size="small" />;
   };
@@ -145,6 +148,7 @@ export default function ContentImageCard({
             rows={2}
             inputProps={{ maxLength: 1000 }}
             placeholder="Enter alt text description..."
+            disabled={action === 'decorative' || action === 'skip'}
           />
           <Typography variant="body2">
             {localAltText.length} characters
@@ -158,13 +162,30 @@ export default function ContentImageCard({
           >
             Approve
           </ActionButton>
-          <ActionButton 
-            selected={action === 'skip'}
-            startIcon={<AccessTimeIcon />}
-            onClick={() => handleActionChange('skip')}
+          <Tooltip
+            title="Skip for now — this image will be resurfaced on the next scan and is not updated."
+            placement="top"
           >
-            Skip
-          </ActionButton>
+            <ActionButton 
+              selected={action === 'skip'}
+              startIcon={<AccessTimeIcon />}
+              onClick={() => handleActionChange('skip')}
+            >
+              Skip
+            </ActionButton>
+          </Tooltip>
+          <Tooltip
+            title="Decorative images have no alt text and will be ignored by assistive technology."
+            placement="top"
+          >
+            <ActionButton 
+              selected={action === 'decorative'}
+              startIcon={<VisibilityOffIcon />}
+              onClick={() => handleActionChange('decorative')}
+            >
+              Decorative
+            </ActionButton>
+          </Tooltip>
         </Box>
       </CardContent>
     </StyledCard>

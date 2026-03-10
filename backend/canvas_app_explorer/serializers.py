@@ -92,7 +92,7 @@ class ContentQuerySerializer(serializers.Serializer):
 class ReviewImageItemSerializer(serializers.Serializer):
     image_id = serializers.IntegerField(required=True)
     image_url = serializers.URLField(required=True)
-    action = serializers.ChoiceField(choices=['approve', 'skip'], required=True)
+    action = serializers.ChoiceField(choices=['approve', 'skip', 'decorative'], required=True)
     approved_alt_text = serializers.CharField(allow_blank=True, required=False)
 
 class ReviewContentItemSerializer(serializers.Serializer):
