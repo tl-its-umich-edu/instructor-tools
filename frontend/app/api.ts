@@ -1,9 +1,11 @@
 import Cookies from 'js-cookie';
 
 import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan, ContentItem, ContentReviewRequest} from './interfaces';
+import { SIGNED_PAYLOAD_STORAGE_KEY } from './constants';
 
 const API_BASE = '/api';
 const JSON_MIME_TYPE = 'application/json';
+const SIGNED_PAYLOAD_HEADER_NAME = 'X-Signed-Course-User-Payload';
 
 const BASE_MUTATION_HEADERS: HeadersInit = {
   Accept: JSON_MIME_TYPE,
@@ -12,6 +14,18 @@ const BASE_MUTATION_HEADERS: HeadersInit = {
 };
 
 const getCSRFToken = (): string | undefined => Cookies.get('csrftoken');
+
+const getSignedCourseUserPayload = (): string | null => {
+  return sessionStorage.getItem(SIGNED_PAYLOAD_STORAGE_KEY);
+};
+
+const withSignedPayloadHeader = (headers: HeadersInit = {}): HeadersInit => {
+  const signedPayload = getSignedCourseUserPayload();
+  return {
+    ...headers,
+    ...(signedPayload !== null ? { [SIGNED_PAYLOAD_HEADER_NAME]: signedPayload } : {}),
+  };
+};
 
 const createErrorMessage = async (res: Response): Promise<string> => {
   let errorBody: Record<string, unknown> | undefined;
@@ -40,7 +54,9 @@ const createErrorMessage = async (res: Response): Promise<string> => {
 
 async function getTools (): Promise<Tool[]> {
   const url = `${API_BASE}/lti_tools/`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: withSignedPayloadHeader(),
+  });
   if (!res.ok) {
     console.error(res);
     throw new Error(await createErrorMessage(res));
@@ -61,10 +77,10 @@ async function updateToolNav (data: UpdateToolNavData): Promise<void> {
   const requestInit: RequestInit = {
     method: 'PUT',
     body: JSON.stringify(body),
-    headers: {
+    headers: withSignedPayloadHeader({
       ...BASE_MUTATION_HEADERS,
       'X-CSRFTOKEN': getCSRFToken() ?? ''
-    }
+    })
   };
   const res = await fetch(url, requestInit);
   if (!res.ok) {
@@ -76,7 +92,9 @@ async function updateToolNav (data: UpdateToolNavData): Promise<void> {
 
 async function getCategories (): Promise<ToolCategory[]> {
   const url = `${API_BASE}/tool_categories/`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: withSignedPayloadHeader(),
+  });
   if (!res.ok) {
     console.error(res);
     throw new Error(await createErrorMessage(res));
@@ -92,10 +110,10 @@ async function updateAltTextStartScan(): Promise<AltTextScan> {
   const url = `${API_BASE}/alt-text/scan`;
   const requestInit: RequestInit = {
     method: 'POST',
-    headers: {
+    headers: withSignedPayloadHeader({
       ...BASE_MUTATION_HEADERS,
       'X-CSRFTOKEN': getCSRFToken() ?? ''
-    }
+    })
   };
   const res = await fetch(url, requestInit);
   if (!res.ok) {
@@ -113,7 +131,10 @@ interface AltTextLastScanResponse {
 async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLastScanDetail | false> {
   const { courseId } = data;
   const url = `${API_BASE}/alt-text/scan`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    // headers: withSignedPayloadHeader1(),
+    headers: withSignedPayloadHeader(),
+  });
   if (!res.ok) {
     console.error(res);
     throw new Error(await createErrorMessage(res));
@@ -135,7 +156,9 @@ async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLast
 
 async function getContentImages(contentType: 'assignment' | 'page' | 'quiz'): Promise<ContentItem[]> {
   const url = `${API_BASE}/alt-text/content-images?content_type=${encodeURIComponent(contentType)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, {
+    headers: withSignedPayloadHeader(),
+  });
   if (!res.ok) {
     console.error(res);
     throw new Error(await createErrorMessage(res));
@@ -149,10 +172,10 @@ async function updateAltTextSubmitReview(data: ContentReviewRequest[]): Promise<
   const requestInit: RequestInit = {
     method: 'PUT',
     body: JSON.stringify(data),
-    headers: {
+    headers: withSignedPayloadHeader({
       ...BASE_MUTATION_HEADERS,
       'X-CSRFTOKEN': getCSRFToken() ?? ''
-    }
+    })
   };
   const res = await fetch(url, requestInit);
   if (!res.ok) {
