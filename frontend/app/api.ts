@@ -132,7 +132,6 @@ async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLast
   const { courseId } = data;
   const url = `${API_BASE}/alt-text/scan`;
   const res = await fetch(url, {
-    // headers: withSignedPayloadHeader1(),
     headers: withSignedPayloadHeader(),
   });
   if (!res.ok) {
