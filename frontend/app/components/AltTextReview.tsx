@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ContentCategoryForReview, CONTENT_CATEGORY_FOR_REVIEW } from '../constants';
 import ArrowBack from '@mui/icons-material/ArrowBack';
-import { Button, Grid, Box, Pagination, LinearProgress, styled, FormControl, InputLabel, Select, MenuItem, Typography } from '@mui/material';
+import { Button, Grid, Box, Pagination, LinearProgress, styled, FormControl, InputLabel, Select, MenuItem, Typography, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import ContentImageCard from './ContentImageCard';
 import { getContentImages } from '../api';
@@ -74,6 +74,7 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
   const [reviewStates, setReviewStates] = useState<Record<string, ContentImageReviewState>>({});
   const [allImages, setAllImages] = useState<ContentImageEnriched[]>([]);
   const [showSummary, setShowSummary] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
   const contentTypeFromCategory = (category: ContentCategoryForReview): 'assignment' | 'page' | 'quiz' => {
@@ -122,10 +123,61 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
     return acc;
   }, {} as Record<string, ContentImageEnriched>);
 
+  const getReviewedCount = () => {
+    return Object.values(reviewStates).filter(state => state.action !== 'unreviewed').length;
+  };
+
+  const reviewedCount = getReviewedCount();
+  const hasUnsavedReview = reviewedCount > 0;
+  const progressPercentage = allImages.length > 0 ? (reviewedCount / allImages.length) * 100 : 0;
+
   const handleGoBack = () => {
+    if (!hasUnsavedReview) {
+      onEndReview();
+    } else {
+      setShowExitDialog(true);
+    }
+  };
+
+  const handleConfirmExit = () => {
+    setShowExitDialog(false);
     onEndReview();
   };
+
+  const handleCancelExit = () => {
+    setShowExitDialog(false);
+  };
   
+  // Attach beforeunload listener when unsaved review exists; cleanup removes listener to prevent leaks
+  useEffect(() => {
+    if (!hasUnsavedReview) return;
+    
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedReview]);
+
+  // Intercept browser back navigation while review has unsaved changes and show the same exit dialog.
+  useEffect(() => {
+    if (!hasUnsavedReview) return;
+
+    const guardedState = { altTextReviewGuard: true };
+    window.history.pushState(guardedState, '', window.location.href);
+
+    const handlePopState = () => {
+      setShowExitDialog(true);
+      window.history.pushState(guardedState, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [hasUnsavedReview]);
+
   const handleActionChange = (imageId: string, action: ActionType) => {
     setReviewStates(prev => {
       const originalText = imagesById[imageId]?.image_alt_text ?? '';
@@ -172,13 +224,6 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
   const handlePageChange = (_: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
   };
-
-  const getReviewedCount = () => {
-    return Object.values(reviewStates).filter(state => state.action !== 'unreviewed').length;
-  };
-
-  const reviewedCount = getReviewedCount();
-  const progressPercentage = allImages.length > 0 ? (reviewedCount / allImages.length) * 100 : 0;
 
   const errors = [error].filter(e => e !== null) as Error[];
   let feedbackBlock;
@@ -300,6 +345,30 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
         </>)
       
       }
+
+      {/* Exit confirmation dialog appears when user tries to leave with unsaved reviewed work */}
+      <Dialog
+        open={showExitDialog}
+        onClose={handleCancelExit}
+        aria-labelledby="exit-dialog-title"
+        aria-describedby="exit-dialog-description"
+      >
+        <DialogTitle id="exit-dialog-title">Discard Changes?</DialogTitle>
+        <DialogContent>
+          <Typography id="exit-dialog-description" sx={{ mt: 1 }}>
+            You have reviewed {reviewedCount} {reviewedCount === 1 ? 'image' : 'images'}. 
+            If you go back now, these changes will be lost.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelExit} color="primary">
+            Continue Reviewing
+          </Button>
+          <Button onClick={handleConfirmExit} color="error" variant="contained">
+            Discard and Exit
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
