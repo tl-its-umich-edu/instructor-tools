@@ -139,12 +139,17 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
     }
   };
 
-  const handleConfirmExit = () => {
+  const handleDoneAfterSubmit = () => {
     setShowExitDialog(false);
     onEndReview();
   };
 
-  const handleCancelExit = () => {
+  const handleDialogConfirm = () => {
+    setShowExitDialog(false);
+    onEndReview();
+  };
+
+  const handleDialogCancel = () => {
     setShowExitDialog(false);
   };
   
@@ -243,7 +248,7 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
           reviewStates={reviewStates}
           imagesById={imagesById}
           closeSummary={() => setShowSummary(false)}
-          handleDone={() => handleGoBack()}
+          handleDone={handleDoneAfterSubmit}
         />
       ) : (
         <>
@@ -349,7 +354,7 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
       {/* Exit confirmation dialog appears when user tries to leave with unsaved reviewed work */}
       <Dialog
         open={showExitDialog}
-        onClose={handleCancelExit}
+        onClose={handleDialogCancel}
         aria-labelledby="exit-dialog-title"
         aria-describedby="exit-dialog-description"
       >
@@ -361,10 +366,10 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCancelExit} color="primary">
+          <Button onClick={handleDialogCancel} color="primary">
             Continue Reviewing
           </Button>
-          <Button onClick={handleConfirmExit} color="error" variant="contained">
+          <Button onClick={handleDialogConfirm} color="error" variant="contained">
             Discard and Exit
           </Button>
         </DialogActions>
