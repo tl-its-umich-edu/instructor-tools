@@ -200,12 +200,11 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
   
   const handleAltTextChange = (imageId: string, newText: string) => {
     setReviewStates(prev => {
-      const currentState = prev[imageId];
       const originalText = imagesById[imageId]?.image_alt_text ?? '';
       return {
         ...prev,
         [imageId]: {
-          ...currentState,
+          action: 'approve',
           altText: newText,
           isDirty: newText !== originalText,
         },
