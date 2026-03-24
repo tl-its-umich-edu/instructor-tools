@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import { Globals } from './interfaces';
 import theme from './theme';
@@ -22,6 +23,10 @@ const queryClient = new QueryClient({
   }
 });
 
+const router = createBrowserRouter([
+  { path: '/*', element: <App globals={globals} /> }
+]);
+
 const container = document.getElementById('react-app');
 if (container === null) throw Error('"react-app" was not found!');
 const root = createRoot(container);
@@ -30,7 +35,7 @@ root.render(
   <QueryClientProvider client={queryClient}>
     <ThemeProvider theme={theme}>
       <ConsentManagerProvider globals={globals}>
-        <App globals={globals} />
+        <RouterProvider router={router} />
       </ConsentManagerProvider>
     </ThemeProvider>
   </QueryClientProvider>

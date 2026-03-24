@@ -10,7 +10,7 @@ Use this skill to test and navigate the local Instructor Tools app as a Canvas L
 
 ## 1. Context Summary
 - This project is a local Canvas LTI 1.3 app exposed through a temporary port-forwarded HTTPS URL.
-- The human developer is responsible for all Canvas SSO/Duo authentication steps.
+- The human developer is responsible for all Canvas SSO/Okta authentication steps.
 - The agent uses Chrome MCP against a remote-debuggable Chrome session where Canvas auth is already active.
 - UI testing is performed on the directly launched tool page, not inside Canvas course navigation iframe chrome.
 
@@ -42,9 +42,11 @@ docker-compose up
   --user-data-dir=/tmp/chrome-canvas-mcp
 ```
 
-5. Ensure Canvas session is already authenticated and ready.
+5. Ensure Canvas session is already authenticated and ready
 - Complete all login, MFA, and account selection steps manually.
-- Leave a tab open on the intended Canvas environment (test, beta, or dev/prod equivalent for your institution).
+- Use your configured Canvas environment (test, beta, or dev/prod equivalent for your institution).
+
+6. In chrome instance, begin a successful LTI launch of the app in the course of your choice
 
 ## 3. Initialization Protocol (Agent Actions)
 This is mandatory and must happen first in every testing session using this skill.

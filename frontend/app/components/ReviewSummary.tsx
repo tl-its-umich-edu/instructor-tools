@@ -150,7 +150,12 @@ export default function ReviewSummary({
           <Alert severity={submitResult.success ? 'success' : 'error'} sx={{ mb: 3 }}>
             {submitResult.message}
           </Alert>
-          <Button variant="contained" onClick={handleDone} fullWidth size="large">
+          <Button
+            variant="contained"
+            onClick={submitResult.success ? handleDone : closeSummary}
+            fullWidth
+            size="large"
+          >
                 Done
           </Button>
         </Box>

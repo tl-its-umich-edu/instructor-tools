@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { ContentCategoryForReview, CONTENT_CATEGORY_FOR_REVIEW } from '../constants';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CATEGORY_TO_CONTENT_TYPE, ContentCategoryForReview } from '../constants';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Button, Grid, Box, Pagination, LinearProgress, styled, FormControl, InputLabel, Select, MenuItem, Typography, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { useBeforeUnload, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import ContentImageCard from './ContentImageCard';
 import { getContentImages } from '../api';
 import { ContentItem, ContentImage, ContentImageEnriched, ActionType, ContentImageReviewState } from '../interfaces';
@@ -64,29 +65,36 @@ const BottomControls = styled(Box)(({ theme }) => ({
   },
 }));
 
-interface AltTextReviewProps {
-  categoryForReview: ContentCategoryForReview
-  onEndReview: () => void
-}
-
-export default function AltTextReview( {categoryForReview, onEndReview} :AltTextReviewProps) {
+export default function AltTextReview() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [reviewStates, setReviewStates] = useState<Record<string, ContentImageReviewState>>({});
   const [allImages, setAllImages] = useState<ContentImageEnriched[]>([]);
   const [showSummary, setShowSummary] = useState(false);
-  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
-  const contentTypeFromCategory = (category: ContentCategoryForReview): 'assignment' | 'page' | 'quiz' => {
-    if (category === CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS) return 'assignment';
-    if (category === CONTENT_CATEGORY_FOR_REVIEW.PAGES) return 'page';
-    return 'quiz';
-  };
+  const categoryForReview = useMemo<ContentCategoryForReview | null>(() => {
+    const params = new URLSearchParams(location.search);
+    const categoryFromUrl = params.get('category');
+
+    if (!categoryFromUrl) return null;
+    if (!(categoryFromUrl in CATEGORY_TO_CONTENT_TYPE)) return null;
+
+    return categoryFromUrl as ContentCategoryForReview;
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!categoryForReview) {
+      navigate('/alt-text-helper');
+    }
+  }, [categoryForReview, navigate]);
 
   const { data: contentItems, isFetching, error } = useQuery<ContentItem[], Error>({
     queryKey: ['contentImages', categoryForReview],
-    queryFn: () => getContentImages(contentTypeFromCategory(categoryForReview)),
-    enabled: !!categoryForReview,
+    queryFn: () => getContentImages(CATEGORY_TO_CONTENT_TYPE[categoryForReview as ContentCategoryForReview]),
+    enabled: categoryForReview !== null,
     retry: false,
     retryOnMount: false, 
     onSuccess: (data) => {
@@ -131,57 +139,31 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
   const hasUnsavedReview = reviewedCount > 0;
   const progressPercentage = allImages.length > 0 ? (reviewedCount / allImages.length) * 100 : 0;
 
-  const handleGoBack = () => {
-    if (!hasUnsavedReview) {
-      onEndReview();
-    } else {
-      setShowExitDialog(true);
+  const blocker = useBlocker(hasUnsavedReview && !isSubmitted);
+
+  // Auto-proceed blocker after successful submission — bridges the gap
+  // where setIsSubmitted(true) and navigate() batch in the same handler
+  useEffect(() => {
+    if (isSubmitted && blocker.state === 'blocked') {
+      blocker.proceed();
     }
-  };
+  }, [isSubmitted, blocker]);
 
   const handleDoneAfterSubmit = () => {
-    setShowExitDialog(false);
-    onEndReview();
+    setIsSubmitted(true);
+    navigate('/alt-text-helper');
   };
 
-  const handleDialogConfirm = () => {
-    setShowExitDialog(false);
-    onEndReview();
-  };
-
-  const handleDialogCancel = () => {
-    setShowExitDialog(false);
-  };
-  
-  // Attach beforeunload listener when unsaved review exists; cleanup removes listener to prevent leaks
-  useEffect(() => {
-    if (!hasUnsavedReview) return;
-    
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
-      return '';
-    };
-    
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasUnsavedReview]);
-
-  // Intercept browser back navigation while review has unsaved changes and show the same exit dialog.
-  useEffect(() => {
-    if (!hasUnsavedReview) return;
-
-    const guardedState = { altTextReviewGuard: true };
-    window.history.pushState(guardedState, '', window.location.href);
-
-    const handlePopState = () => {
-      setShowExitDialog(true);
-      window.history.pushState(guardedState, '', window.location.href);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [hasUnsavedReview]);
+  useBeforeUnload(
+    React.useCallback(
+      (e) => {
+        if (hasUnsavedReview) {
+          e.preventDefault();
+        }
+      },
+      [hasUnsavedReview]
+    )
+  );
 
   const handleActionChange = (imageId: string, action: ActionType) => {
     setReviewStates(prev => {
@@ -252,7 +234,7 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
       ) : (
         <>
           <Header>
-            <Button startIcon={<ArrowBack />} onClick={handleGoBack} sx={{ mr: 'auto' }}>
+            <Button startIcon={<ArrowBack />} onClick={() => navigate('/alt-text-helper')} sx={{ mr: 'auto' }}>
           Go Back
             </Button>
           </Header>
@@ -352,8 +334,8 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
 
       {/* Exit confirmation dialog appears when user tries to leave with unsaved reviewed work */}
       <Dialog
-        open={showExitDialog}
-        onClose={handleDialogCancel}
+        open={blocker.state === 'blocked' && !isSubmitted}
+        onClose={() => blocker.reset?.()}
         aria-labelledby="exit-dialog-title"
         aria-describedby="exit-dialog-description"
       >
@@ -365,10 +347,10 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDialogCancel} color="primary">
+          <Button onClick={() => blocker.reset?.()} color="primary">
             Continue Reviewing
           </Button>
-          <Button onClick={handleDialogConfirm} color="error" variant="contained">
+          <Button onClick={() => blocker.proceed?.()} color="error" variant="contained">
             Discard and Exit
           </Button>
         </DialogActions>
