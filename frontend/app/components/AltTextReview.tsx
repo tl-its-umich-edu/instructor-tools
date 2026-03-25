@@ -141,17 +141,13 @@ export default function AltTextReview() {
 
   const blocker = useBlocker(hasUnsavedReview && !isSubmitted);
 
-  // Auto-proceed blocker after successful submission — bridges the gap
-  // where setIsSubmitted(true) and navigate() batch in the same handler
-  useEffect(() => {
-    if (isSubmitted && blocker.state === 'blocked') {
-      blocker.proceed();
-    }
-  }, [isSubmitted, blocker]);
-
   const handleDoneAfterSubmit = () => {
-    setIsSubmitted(true);
     navigate('/alt-text-helper');
+  };
+  
+  const handleSubmitComplete = () => {
+    setIsSubmitted(true);
+    setReviewStates({});
   };
 
   useBeforeUnload(
@@ -159,6 +155,7 @@ export default function AltTextReview() {
       (e) => {
         if (hasUnsavedReview) {
           e.preventDefault();
+          e.returnValue = '';
         }
       },
       [hasUnsavedReview]
@@ -229,6 +226,7 @@ export default function AltTextReview() {
           reviewStates={reviewStates}
           imagesById={imagesById}
           closeSummary={() => setShowSummary(false)}
+          onSubmitComplete={handleSubmitComplete}
           handleDone={handleDoneAfterSubmit}
         />
       ) : (
