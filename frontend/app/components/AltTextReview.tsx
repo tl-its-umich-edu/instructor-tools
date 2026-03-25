@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { ContentCategoryForReview, CONTENT_CATEGORY_FOR_REVIEW } from '../constants';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CATEGORY_TO_CONTENT_TYPE, ContentCategoryForReview } from '../constants';
 import ArrowBack from '@mui/icons-material/ArrowBack';
-import { Button, Grid, Box, Pagination, LinearProgress, styled, FormControl, InputLabel, Select, MenuItem, Typography } from '@mui/material';
+import { Button, Grid, Box, Pagination, LinearProgress, styled, FormControl, InputLabel, Select, MenuItem, Typography, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { useBeforeUnload, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import ContentImageCard from './ContentImageCard';
 import { getContentImages } from '../api';
 import { ContentItem, ContentImage, ContentImageEnriched, ActionType, ContentImageReviewState } from '../interfaces';
@@ -64,28 +65,36 @@ const BottomControls = styled(Box)(({ theme }) => ({
   },
 }));
 
-interface AltTextReviewProps {
-  categoryForReview: ContentCategoryForReview
-  onEndReview: () => void
-}
-
-export default function AltTextReview( {categoryForReview, onEndReview} :AltTextReviewProps) {
+export default function AltTextReview() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [reviewStates, setReviewStates] = useState<Record<string, ContentImageReviewState>>({});
   const [allImages, setAllImages] = useState<ContentImageEnriched[]>([]);
   const [showSummary, setShowSummary] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
-  const contentTypeFromCategory = (category: ContentCategoryForReview): 'assignment' | 'page' | 'quiz' => {
-    if (category === CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS) return 'assignment';
-    if (category === CONTENT_CATEGORY_FOR_REVIEW.PAGES) return 'page';
-    return 'quiz';
-  };
+  const categoryForReview = useMemo<ContentCategoryForReview | null>(() => {
+    const params = new URLSearchParams(location.search);
+    const categoryFromUrl = params.get('category');
+
+    if (!categoryFromUrl) return null;
+    if (!(categoryFromUrl in CATEGORY_TO_CONTENT_TYPE)) return null;
+
+    return categoryFromUrl as ContentCategoryForReview;
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!categoryForReview) {
+      navigate('/alt-text-helper');
+    }
+  }, [categoryForReview, navigate]);
 
   const { data: contentItems, isFetching, error } = useQuery<ContentItem[], Error>({
     queryKey: ['contentImages', categoryForReview],
-    queryFn: () => getContentImages(contentTypeFromCategory(categoryForReview)),
-    enabled: !!categoryForReview,
+    queryFn: () => getContentImages(CATEGORY_TO_CONTENT_TYPE[categoryForReview as ContentCategoryForReview]),
+    enabled: categoryForReview !== null,
     retry: false,
     retryOnMount: false, 
     onSuccess: (data) => {
@@ -122,10 +131,37 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
     return acc;
   }, {} as Record<string, ContentImageEnriched>);
 
-  const handleGoBack = () => {
-    onEndReview();
+  const getReviewedCount = () => {
+    return Object.values(reviewStates).filter(state => state.action !== 'unreviewed').length;
+  };
+
+  const reviewedCount = getReviewedCount();
+  const hasUnsavedReview = reviewedCount > 0;
+  const progressPercentage = allImages.length > 0 ? (reviewedCount / allImages.length) * 100 : 0;
+
+  const blocker = useBlocker(hasUnsavedReview && !isSubmitted);
+
+  const handleDoneAfterSubmit = () => {
+    navigate('/alt-text-helper');
   };
   
+  const handleSubmitComplete = () => {
+    setIsSubmitted(true);
+    setReviewStates({});
+  };
+
+  useBeforeUnload(
+    React.useCallback(
+      (e) => {
+        if (hasUnsavedReview) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      },
+      [hasUnsavedReview]
+    )
+  );
+
   const handleActionChange = (imageId: string, action: ActionType) => {
     setReviewStates(prev => {
       const originalText = imagesById[imageId]?.image_alt_text ?? '';
@@ -143,12 +179,11 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
   
   const handleAltTextChange = (imageId: string, newText: string) => {
     setReviewStates(prev => {
-      const currentState = prev[imageId];
       const originalText = imagesById[imageId]?.image_alt_text ?? '';
       return {
         ...prev,
         [imageId]: {
-          ...currentState,
+          action: 'approve',
           altText: newText,
           isDirty: newText !== originalText,
         },
@@ -173,13 +208,6 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
     setCurrentPage(page);
   };
 
-  const getReviewedCount = () => {
-    return Object.values(reviewStates).filter(state => state.action !== 'unreviewed').length;
-  };
-
-  const reviewedCount = getReviewedCount();
-  const progressPercentage = allImages.length > 0 ? (reviewedCount / allImages.length) * 100 : 0;
-
   const errors = [error].filter(e => e !== null) as Error[];
   let feedbackBlock;
   if (isFetching || errors.length > 0) {
@@ -198,12 +226,13 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
           reviewStates={reviewStates}
           imagesById={imagesById}
           closeSummary={() => setShowSummary(false)}
-          handleDone={() => handleGoBack()}
+          onSubmitComplete={handleSubmitComplete}
+          handleDone={handleDoneAfterSubmit}
         />
       ) : (
         <>
           <Header>
-            <Button startIcon={<ArrowBack />} onClick={handleGoBack} sx={{ mr: 'auto' }}>
+            <Button startIcon={<ArrowBack />} onClick={() => navigate('/alt-text-helper')} sx={{ mr: 'auto' }}>
           Go Back
             </Button>
           </Header>
@@ -300,6 +329,30 @@ export default function AltTextReview( {categoryForReview, onEndReview} :AltText
         </>)
       
       }
+
+      {/* Exit confirmation dialog appears when user tries to leave with unsaved reviewed work */}
+      <Dialog
+        open={blocker.state === 'blocked' && !isSubmitted}
+        onClose={() => blocker.reset?.()}
+        aria-labelledby="exit-dialog-title"
+        aria-describedby="exit-dialog-description"
+      >
+        <DialogTitle id="exit-dialog-title">Discard Changes?</DialogTitle>
+        <DialogContent>
+          <Typography id="exit-dialog-description" sx={{ mt: 1 }}>
+            You have reviewed {reviewedCount} {reviewedCount === 1 ? 'image' : 'images'}. 
+            If you go back now, these changes will be lost.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => blocker.reset?.()} color="primary">
+            Continue Reviewing
+          </Button>
+          <Button onClick={() => blocker.proceed?.()} color="error" variant="contained">
+            Discard and Exit
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
