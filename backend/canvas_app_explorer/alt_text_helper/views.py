@@ -180,6 +180,7 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
                 content_name = content_item.content_name or f"Untitled : {content_item.content_type.title()}"
 
                 content_items.append({
+                    'id': content_item.id,
                     'content_id': content_item.content_id,
                     'content_name': content_name,
                     'content_parent_id': content_item.content_parent_id,
