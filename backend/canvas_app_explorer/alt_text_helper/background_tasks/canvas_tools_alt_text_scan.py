@@ -7,7 +7,6 @@ from asgiref.sync import async_to_sync
 from django.test import RequestFactory
 from django.contrib.auth.models import User
 from django.contrib.auth import get_user_model
-from django.contrib.sessions.backends.db import SessionStore
 from django.db.utils import DatabaseError
 from bs4 import BeautifulSoup
 from PIL import Image
@@ -89,15 +88,14 @@ def fetch_and_scan_course(task: Dict[str, Any]):
 
 def _create_background_request(req_user: User, canvas_callback_url: str, course_id: int) -> Request:
     logger.info(f"Creating background request - User: {req_user}, Course ID: {course_id}, Callback URL: {canvas_callback_url}")
-    # Create a request factory and build the request since this is a background task request won't have a user session
+    # Create a request factory and build the request for background task usage.
+    # course_id is passed via request.course_id (not session).
     factory = RequestFactory()
     request: Request = factory.get('/oauth/oauth-callback')
     request.user = req_user
+    request.course_id = course_id
     request.build_absolute_uri = lambda path: canvas_callback_url
-    session = SessionStore()
-    session['course_id'] = course_id
-    session.save()
-    request.session = session
+    logger.info("Background request object: %s", request)
     return request
 
 async def get_courses_images(course: Course):

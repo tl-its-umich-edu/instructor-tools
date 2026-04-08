@@ -144,6 +144,7 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
         request.user = self.user
         request.session = {'course_id': course_id}
+        request.course_id = course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
@@ -180,6 +181,7 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_PAGE})
         request.user = self.user
         request.session = {'course_id': course_id}
+        request.course_id = course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
@@ -216,6 +218,7 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
         request.user = self.user
         request.session = {'course_id': course_id}
+        request.course_id = course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
@@ -253,6 +256,7 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
         request.user = self.user
         request.session = {'course_id': course_id}
+        request.course_id = course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
@@ -296,6 +300,7 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
         request.user = self.user
         request.session = {'course_id': course_id}
+        request.course_id = course_id
 
         view = AltTextContentGetAndUpdateViewSet()
         response = view.get_content_images(request)
