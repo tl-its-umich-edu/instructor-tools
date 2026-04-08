@@ -25,23 +25,18 @@ logger = logging.getLogger(__name__)
 MANAGER_FACTORY = DjangoCourseLtiManagerFactory(f'https://{settings.CANVAS_OAUTH_CANVAS_DOMAIN}')
 
 class CourseIdRequiredMixin:
-    def _require_course_id(self, request: Request):
-        """Return a tuple (course_id, None) or (None, Response) when missing privileges."""
-        course_id = request.session.get('course_id')
-        if course_id is None:
-            message = "you don't have access for this course"
-            logger.error(message)
-            return None, Response(status=HTTPStatus.BAD_REQUEST, data={"status_code": HTTPStatus.BAD_REQUEST, "message": message})
-        return course_id, None
+    def _require_course_id(self, request: Request) -> int:
+        """Return the course ID from the request."""
+        course_id = getattr(request, 'course_id')
+        return int(course_id)
 
 class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None
 
     def start_scan(self, request: Request) -> Response:
-        course_id, error_resp = self._require_course_id(request)
-        if error_resp:
-            return error_resp
+        course_id = self._require_course_id(request)
         
         task_payload = {
             'course_id': course_id,
@@ -74,9 +69,7 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})
     
     def get_last_scan(self, request: Request) -> Response:
-        course_id, error_resp = self._require_course_id(request)
-        if error_resp:
-            return error_resp
+        course_id = self._require_course_id(request)
         try:
             scan_queryset = CourseScan.objects.filter(course_id=course_id)
             if not scan_queryset.exists():
@@ -126,16 +119,16 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
 class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None
 
     @extend_schema(
         parameters=[
             OpenApiParameter(name='content_type', description='Type of content to  like assignment, page, quiz', required=True, type=str),
-        ]
+        ],
+        request=ContentQuerySerializer,
     )
     def get_content_images(self, request: Request) -> Response:
-        course_id, error_resp = self._require_course_id(request)
-        if error_resp:
-            return error_resp
+        course_id = self._require_course_id(request)
         # Support both DRF Request (has .query_params) and Django WSGIRequest (has .GET)
         params = getattr(request, 'query_params', request.GET)
         serializer = ContentQuerySerializer(data=params)
@@ -201,10 +194,11 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
             logger.error(f"Failed to fetch content images from DB for course {course_id} and content_type {content_type}: {e}")
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": str(e)})
 
+    @extend_schema(
+        request=ReviewContentItemSerializer
+    )
     def alt_text_update(self, request: Request) -> Response:
-        course_id, error_resp = self._require_course_id(request)
-        if error_resp:
-            return error_resp
+        course_id = self._require_course_id(request)
         
         serializer = ReviewContentItemSerializer(data=request.data, many=True)
         if not serializer.is_valid():

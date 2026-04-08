@@ -33,6 +33,10 @@ PROJECT_ROOT = os.path.abspath(
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', get_random_secret_key())
 
+# Separate key for signing course-user context payloads.
+# Set CAE_COURSE_USER_CONTEXT_SIGNING_KEY in .env for stable signatures across restarts.
+CAE_COURSE_USER_CONTEXT_SIGNING_KEY = os.getenv('CAE_COURSE_USER_CONTEXT_SIGNING_KEY', 'Generate a secure random key and set it in the .env file for production use')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", 'false').lower() in ('true', '1', 't')
 
@@ -70,7 +74,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'canvas_oauth.middleware.OAuthMiddleware',
-    'csp.middleware.CSPMiddleware'
+    'csp.middleware.CSPMiddleware',
+    'backend.canvas_app_explorer.middleware.CourseTabIsolationMiddleware',
 ]
 
 MIGRATION_MODULES = {
@@ -130,7 +135,6 @@ TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
-USE_L10N = True
 
 USE_TZ = True
 
@@ -158,7 +162,14 @@ WEBPACK_LOADER = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
-DEFAULT_FILE_STORAGE = 'backend.canvas_app_explorer.storage_get_file.DatabaseFileStorage'
+STORAGES = {
+    "default": {
+        "BACKEND": 'backend.canvas_app_explorer.storage_get_file.DatabaseFileStorage',
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 
 # So request works over the proxy
@@ -345,6 +356,22 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
 }
+
+# Local development: expose signed course context header in Swagger UI authorize dialog.
+if DEBUG:
+    SPECTACULAR_SETTINGS['APPEND_COMPONENTS'] = {
+        'securitySchemes': {
+            'SignedCoursePayload': {
+                'type': 'apiKey',
+                'in': 'header',
+                'name': 'X-Signed-Course-User-Payload',
+                'description': 'Signed course/user context header for tab isolation middleware.',
+            }
+        }
+    }
+    SPECTACULAR_SETTINGS['SECURITY'] = [
+        {'SignedCoursePayload': []},
+    ]
 
 TEST_API_KEY = os.getenv('TEST_API_KEY', '')
 TEST_API_URL = os.getenv('TEST_API_URL', '')

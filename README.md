@@ -25,6 +25,25 @@ The OpenAPI schema can be downloaded as a YAML file from `http://localhost:5000/
 
 Once on the page, requests can be made against the API using the "Try it out" functionality.
 
+For endpoints protected by course tab isolation middleware, Swagger requests must include the signed course context header.
+1. In Swagger UI, click `Authorize`.
+2. For `SignedCoursePayload`, paste the signed value from session storage (no quotes).
+3. Click `Authorize`, then `Close`.
+
+To get the signed value, use one of the following methods.
+
+Method 1 (recommended): DevTools Application tab
+1. Open browser devtools in the launched tool page.
+2. Go to `Application` -> `Session Storage`.
+3. Select the app origin (for local this may be `localhost:5000`; when proxied, select your `ngrok` origin).
+4. Find key `signed_course_user_payload` and copy its value.
+5. Paste that value into Swagger `Authorize` for `SignedCoursePayload`.
+Method 2: Get it from Source
+1. Launch the app and Right click and choose "View Frame Source"
+2. Look for <script> tag and `cae_globals` and Find key `signed_course_user_payload` and copy its value.
+3. Paste that value into Swagger `Authorize` for `SignedCoursePayload`.
+```
+
 ### Testing production (Openshift) build
 
 The openshift build compiles all of the frontend assets into the container during the build. It uses whitenoise currently to serve up the content.

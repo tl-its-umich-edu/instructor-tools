@@ -6,6 +6,7 @@ interface User {
 interface Globals {
   user: User | null
   course_id: number
+  signed_course_user_payload: string | null
   course_name: string | null
   term_id: number | null
   term_name: string | null
@@ -104,7 +105,7 @@ interface ContentImageEnriched extends ContentImage {
 }
 
 
-type ActionType = 'approve' | 'skip' | 'unreviewed';
+type ActionType = 'approve' | 'skip' | 'decorative' | 'unreviewed';
 interface ContentImageReviewState {
   action: ActionType;
   altText: string;
@@ -114,7 +115,7 @@ interface ContentImageReviewState {
 interface ContentReviewRequestImageAction {
   image_url: string
   image_id: string
-  action: 'approve' | 'skip'
+  action: 'approve' | 'skip' | 'decorative'
   approved_alt_text: string
 }
 interface ContentReviewRequest {
