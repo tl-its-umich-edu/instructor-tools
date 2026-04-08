@@ -96,6 +96,7 @@ class ReviewImageItemSerializer(serializers.Serializer):
     approved_alt_text = serializers.CharField(allow_blank=True, required=False)
 
 class ReviewContentItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField(required=True)
     content_id = serializers.IntegerField(required=True)
     content_name = serializers.CharField(required=True)
     content_parent_id = serializers.CharField(allow_null=True, required=True)

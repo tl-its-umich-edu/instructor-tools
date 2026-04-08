@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AltTextLastScanCourseContentItem, AltTextLastScanDetail as ScanDetail } from '../interfaces';
+import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import { Button, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { CONTENT_CATEGORY_FOR_REVIEW, ContentCategoryForReview } from '../constants';
 import { imageSum } from '../utils';

@@ -29,6 +29,7 @@ class ImagePayload(TypedDict):
     alt_text_failed_error_message: NotRequired[str | None]
 
 class ContentPayload(TypedDict):
+    id: int
     content_id: int
     content_name: str
     content_parent_id: str | None
