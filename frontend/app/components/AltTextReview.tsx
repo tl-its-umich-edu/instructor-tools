@@ -337,11 +337,10 @@ export default function AltTextReview() {
         aria-labelledby="exit-dialog-title"
         aria-describedby="exit-dialog-description"
       >
-        <DialogTitle id="exit-dialog-title">Discard Changes?</DialogTitle>
+        <DialogTitle id="exit-dialog-title">Discard Unsaved Changes?</DialogTitle>
         <DialogContent>
           <Typography id="exit-dialog-description" sx={{ mt: 1 }}>
-            You have reviewed {reviewedCount} {reviewedCount === 1 ? 'image' : 'images'}. 
-            If you go back now, these changes will be lost.
+            Changes to {reviewedCount} reviewed {reviewedCount === 1 ? 'image' : 'images'} will be lost when exiting this page.
           </Typography>
         </DialogContent>
         <DialogActions>
