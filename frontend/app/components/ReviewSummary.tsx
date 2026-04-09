@@ -53,6 +53,7 @@ interface ReviewSummaryProps {
     reviewStates: Record<string, ContentImageReviewState>
     imagesById: Record<string, ContentImageEnriched>
     closeSummary: () => void;
+    onSubmitComplete: () => void;
     handleDone: () => void;
 }
 
@@ -60,6 +61,7 @@ export default function ReviewSummary({
   reviewStates,
   imagesById,
   closeSummary,
+  onSubmitComplete,
   handleDone
 }: ReviewSummaryProps) {
   const [submitResult, setSubmitResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -68,9 +70,11 @@ export default function ReviewSummary({
     mutationFn: updateAltTextSubmitReview,
     onSuccess: () => {
       setSubmitResult({ success: true, message: 'Review submitted successfully!' });
+      onSubmitComplete();
     },
     onError: (error: Error) => {
       setSubmitResult({ success: false, message: error.message });
+      onSubmitComplete(); //TODO: when parsing errors, check if user could resubmit or not & link back to the review
     }
   });
 
@@ -150,7 +154,12 @@ export default function ReviewSummary({
           <Alert severity={submitResult.success ? 'success' : 'error'} sx={{ mb: 3 }}>
             {submitResult.message}
           </Alert>
-          <Button variant="contained" onClick={handleDone} fullWidth size="large">
+          <Button
+            variant="contained"
+            onClick={submitResult.success ? handleDone : closeSummary}
+            fullWidth
+            size="large"
+          >
                 Done
           </Button>
         </Box>

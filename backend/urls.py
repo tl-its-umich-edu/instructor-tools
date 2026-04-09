@@ -51,8 +51,9 @@ urlpatterns = [
     path('', include(canvas_app_explorer_urls)),
     path('status/', include('watchman.urls')),
 
-    # alt text helper endpoints
+    # alt text helper endpoints — catch all sub-routes so React Router handles them client-side
     path('alt-text-helper/', views.get_home_template, name = 'alt_text_helper'),
+    re_path(r'^alt-text-helper/.*$', views.get_home_template),
     path('api/alt-text/', include('backend.canvas_app_explorer.alt_text_helper.urls')),
 ]
 
