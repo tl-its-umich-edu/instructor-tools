@@ -2,6 +2,7 @@
 from http import HTTPStatus
 import logging
 from typing import List
+from datetime import date
 from canvasapi import Canvas
 
 from drf_spectacular.utils import extend_schema, OpenApiParameter
@@ -37,25 +38,41 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
 
     def start_scan(self, request: Request) -> Response:
         course_id = self._require_course_id(request)
+        obj = None
         
-        task_payload = {
-            'course_id': course_id,
-            'user_id': request.user.id,
-            'canvas_callback_url': request.build_absolute_uri(reverse('canvas-oauth-callback')),
-        }
         try:
-            task_id = async_task('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.fetch_and_scan_course', task=task_payload)
-            logger.info(f"Started alt text scan task {task_id} for course_id: {course_id}")
-
-            # persist CourseScan: create new or update existing for this course
-            obj, created = CourseScan.objects.update_or_create(
+            # Always create a new CourseScan entry first
+            obj = CourseScan.objects.create(
                 course_id=int(course_id),
-                defaults={
-                    'q_task_id': str(task_id),
-                    'status': CourseScanStatus.PENDING.value,
-                }
+                status=CourseScanStatus.PENDING.value,
             )
-            logger.info(f"{obj} created: {created}")
+            logger.info(f"CourseScan {obj.id} created for course_id: {course_id}")
+            
+            # Generate task name using CourseScan id, course_id, and today's date
+            today = date.today().isoformat()
+            task_name = f"course_{obj.id}_{course_id}_{today}"
+            
+            # Create task payload with CourseScan id
+            task_payload = {
+                'course_scan_id': obj.id,
+                'course_id': course_id,
+                'user_id': request.user.id,
+                'canvas_callback_url': request.build_absolute_uri(reverse('canvas-oauth-callback')),
+            }
+            
+            # Start the task with the generated task name
+            task_id = async_task(
+                'backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.fetch_and_scan_course',
+                task=task_payload,
+                task_name=task_name
+            )
+            logger.info(f"Started alt text scan task {task_id} with name '{task_name}' for course_id: {course_id}")
+
+            # Update CourseScan with task_id
+            obj.q_task_id = str(task_id)
+            obj.save()
+            logger.info(f"Updated CourseScan {obj.id} with q_task_id: {task_id}")
+            
             resp = {
                     'course_id': obj.course_id,
                     'id': obj.id,
@@ -66,12 +83,19 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
         except (DatabaseError, Exception) as e:
             message = f"Failed to initiate course scan due to {e}"
             logger.error(message)
+            
+            # Mark CourseScan as failed if it was created
+            if obj is not None:
+                obj.status = CourseScanStatus.FAILED.value
+                obj.save()
+                logger.error(f"Marked CourseScan {obj.id} as FAILED due to exception: {e}")
+            
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})
     
     def get_last_scan(self, request: Request) -> Response:
         course_id = self._require_course_id(request)
         try:
-            scan_queryset = CourseScan.objects.filter(course_id=course_id)
+            scan_queryset = CourseScan.objects.filter(course_id=course_id).order_by('-created_at')
             if not scan_queryset.exists():
                 logger.info(f"No scan found for course id {course_id} and user {request.user.id}")
                 resp = { 'found': False }
@@ -84,7 +108,13 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                     'status': scan_obj.status,
                     'created_at': scan_obj.created_at,
                     'updated_at': scan_obj.updated_at,
-                    'course_content': self.__get_scan_course_content(scan_obj.course_id)
+                    'course_content': self.__get_scan_course_content(scan_obj.id)
+                    # 'course_content': {
+                    #     'assignment_list': [],
+                    #     'page_list': [],
+                    #     'quiz_list': [],
+                    #     'quiz_question_list': [],
+                    # }
                 }
             logger.info(f"Returning scan {scan_obj.id} for course id {course_id} and user {request.user.id}")
             resp = {
@@ -97,11 +127,11 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
             logger.error(message)
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})
         
-    def __get_scan_course_content(self, course_id: int) -> object:
+    def __get_scan_course_content(self, course_scan_id: int) -> object:
         try:
             content_by_type = {}
             for content_type,_ in ContentItem.CONTENT_TYPE_CHOICES:
-                content_queryset = ContentItem.objects.filter(course_id=course_id, content_type=content_type).all()
+                content_queryset = ContentItem.objects.filter(course_scan_id=course_scan_id, content_type=content_type).all()
                 content_by_type[f'{content_type}_list'] = [
                     {
                         'id': content_item.id,
@@ -113,7 +143,7 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                 ]
             return content_by_type
         except (Exception) as e:
-            logger.error(f"Problem appending course content to scan for course id f{course_id}")
+            logger.error(f"Problem appending course content to scan for course scan id {course_scan_id}")
             raise e
 
 class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
@@ -124,19 +154,53 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
     @extend_schema(
         parameters=[
             OpenApiParameter(name='content_type', description='Type of content to  like assignment, page, quiz', required=True, type=str),
+            OpenApiParameter(name='course_scan_id', description='Course scan ID to scope content lookup', required=True, type=int),
         ],
         request=ContentQuerySerializer,
     )
     def get_content_images(self, request: Request) -> Response:
-        course_id = self._require_course_id(request)
+        request_course_id = self._require_course_id(request)
         # Support both DRF Request (has .query_params) and Django WSGIRequest (has .GET)
-        params = getattr(request, 'query_params', request.GET)
+        raw_params = getattr(request, 'query_params', request.GET)
+        params = raw_params.copy()
         serializer = ContentQuerySerializer(data=params)
         if not serializer.is_valid():
             logger.error("Invalid query parameters for get_content_images: %s", serializer.errors)
             return Response(status=HTTPStatus.BAD_REQUEST, data={"status_code": HTTPStatus.BAD_REQUEST, "message": serializer.errors})
 
         content_type = serializer.validated_data['content_type']
+        course_scan_id = serializer.validated_data.get('course_scan_id')
+
+        if course_scan_id is None:
+            scan_obj = CourseScan.objects.filter(course_id=request_course_id).order_by('-created_at').first()
+            if scan_obj is None:
+                logger.error("No scans found for request_course_id=%s", request_course_id)
+                return Response(
+                    status=HTTPStatus.BAD_REQUEST,
+                    data={"status_code": HTTPStatus.BAD_REQUEST, "message": "No course scan found for current course"},
+                )
+            course_scan_id = int(scan_obj.id)
+        else:
+            scan_obj = CourseScan.objects.filter(id=course_scan_id).first()
+        if scan_obj is None:
+            logger.error("Course scan not found for course_scan_id=%s", course_scan_id)
+            return Response(
+                status=HTTPStatus.BAD_REQUEST,
+                data={"status_code": HTTPStatus.BAD_REQUEST, "message": "Invalid course_scan_id"},
+            )
+        # Keep middleware course context as authority; reject cross-course scan usage.
+        if int(scan_obj.course_id) != int(request_course_id):
+            logger.error(
+                "Course scan mismatch: request_course_id=%s, scan_course_id=%s, course_scan_id=%s",
+                request_course_id,
+                scan_obj.course_id,
+                course_scan_id,
+            )
+            return Response(
+                status=HTTPStatus.BAD_REQUEST,
+                data={"status_code": HTTPStatus.BAD_REQUEST, "message": "course_scan_id does not belong to current course"},
+            )
+        course_id = int(scan_obj.course_id)
 
 
         # fetch content items and associated images from DB
@@ -147,7 +211,11 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
             else:
                 types_to_query = [content_type]
 
-            items_qs = ContentItem.objects.filter(course_id=course_id, content_type__in=types_to_query).prefetch_related('images')
+            items_qs = ContentItem.objects.filter(
+                course_scan_id=course_scan_id,
+                content_type__in=types_to_query,
+            )
+            items_qs = items_qs.prefetch_related('images')
             content_items = []
 
             # Build a simple map for parent name lookups (parent items are already in items_qs)
@@ -192,7 +260,7 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
             resp = {'content_items': content_items}
             return Response(resp, status=HTTPStatus.OK)
         except (DatabaseError, Exception) as e:
-            logger.error(f"Failed to fetch content images from DB for course {course_id} and content_type {content_type}: {e}")
+            logger.error(f"Failed to fetch content images from DB for course_scan_id {course_scan_id} and content_type {content_type}: {e}")
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": str(e)})
 
     @extend_schema(

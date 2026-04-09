@@ -75,8 +75,29 @@ function AltTextHome(props: AltTextHomeProps) {
 
   return (
     <>
+<<<<<<< HEAD
       <TitleBlock>
         <Typography variant='h6' component='h2' sx={{ marginBottom: 1}}>
+=======
+      <HeaderAppBar 
+        breadcrumbTitle='Alt Text Helper'
+        user={user}
+        helpURL={help_url}
+      />
+      {reviewCategoryStarted && lastScan ? // Review view 
+        (
+          <>
+            <AltTextReview 
+              categoryForReview={selectedCategory}
+              courseScanId={lastScan.id}
+              onEndReview={handleEndReview}
+            />
+          </>
+        ) : (
+          <>
+            <TitleBlock>
+              <Typography variant='h6' component='h2' sx={{ marginBottom: 1}}>
+>>>>>>> caf4935 (Working prototype of Multiple scan)
               Use AI suggestions to quickly apply alt-text labels to course images
         </Typography>
         <Typography variant='body2'>
