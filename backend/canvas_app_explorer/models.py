@@ -131,6 +131,7 @@ class ContentItem(models.Model):
 
 class ImageItem(models.Model):
     id = models.BigAutoField(primary_key=True)
+    # FK to ContentItem primary key
     content_item = models.ForeignKey(
         ContentItem,
         on_delete=models.CASCADE,
