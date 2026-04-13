@@ -17,15 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 class ProcessContentImages:
-    def __init__(self, course_scan_id: int, bearer_token: Optional[str] = None, auth_header: Optional[Dict[str, str]] = None):
+    def __init__(self, course_scan_id: int, course_id: int, bearer_token: Optional[str] = None, auth_header: Optional[Dict[str, str]] = None):
         """Process images for a course.
 
         :param course_scan_id: CourseScan ID used to scope ImageItem rows via ContentItem FK.
+        :param course_id: Course ID for logging purposes.
         :param bearer_token: Optional bearer token string to use for Authorization header. If provided,
                              it takes precedence over introspecting the Canvas requester.
         :param auth_header: Optional explicit Authorization header dict to use. Takes highest precedence.
         """
         self.course_scan_id = course_scan_id
+        self.course_id = course_id
         self.max_dimension: int = config.IMAGE_MAX_DIMENSION
         self.jpeg_quality: int = config.IMAGE_JPEG_QUALITY
         self.use_canvas_token: bool = config.USE_CANVAS_TOKEN
@@ -54,7 +56,7 @@ class ProcessContentImages:
         try:
             # Traverse FK: ImageItem -> ContentItem -> CourseScan (single JOIN query)
             qs = ImageItem.objects.filter(content_item__course_scan_id=self.course_scan_id)
-            logger.info(f"Retrieved {qs.count()} ImageItems for course_scan_id: {self.course_scan_id}")
+            logger.info(f"Retrieved {qs.count()} ImageItems for course_scan_id: {self.course_scan_id}, course_id: {self.course_id}")
 
             results: Dict[str, Dict[str, Any]] = {}
             errors = []
@@ -94,7 +96,7 @@ class ProcessContentImages:
             # Bulk update successful alt texts
             if to_update:
                 ImageItem.objects.bulk_update(to_update, ['image_alt_text'])
-                logger.info(f"Updated {len(to_update)} ImageItem records with alt text for course_scan_id {self.course_scan_id}")
+                logger.info(f"Updated {len(to_update)} ImageItem records with alt text for course_scan_id {self.course_scan_id}, course_id: {self.course_id}")
 
             if errors:
                 # Return successful results but raise to let caller handle failures
@@ -102,7 +104,7 @@ class ProcessContentImages:
 
             return results
         except Exception as e:
-            logger.error(f"Error retrieving images for course_scan_id {self.course_scan_id}: {e}")
+            logger.error(f"Error retrieving images for course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {e}")
             raise e
 
     async def get_image_content_async(self, img_url):
@@ -138,7 +140,7 @@ class ProcessContentImages:
             logger.error(f"HTTP error fetching image {img_url}: {http_err}")
             return http_err
         except Exception as req_err:
-            logger.error(f"Error fetching image content for image_id {img_url}: {req_err}")
+            logger.error(f"Error fetching image content for image_id {img_url}, course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {req_err}")
             return req_err
 
     @log_execution_time
