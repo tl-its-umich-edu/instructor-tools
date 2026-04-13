@@ -175,16 +175,18 @@ class TestParsingImageContentHTML(TestCase):
 
             # 2. Call unpack_and_store_content_images which does the filtering and calls save_scan_results
             from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import unpack_and_store_content_images
-            unpack_and_store_content_images(raw_results, dummy_course)
+            unpack_and_store_content_images(raw_results, dummy_course, course_scan_id=1, course_id=403334)
 
             # 3. Assert that save_scan_results was called once and verify it received the filtered results
             mock_save.assert_called_once()
             call_args = mock_save.call_args
             
-            # save_scan_results(course_id, items) - course_id is first arg, items is second
-            course_id = call_args[0][0]
-            payload = call_args[0][1]  # Second positional argument: items list
+            # save_scan_results(course_scan_id, course_id, items)
+            course_scan_id = call_args[0][0]
+            course_id = call_args[0][1]
+            payload = call_args[0][2]
             
+            self.assertEqual(course_scan_id, 1, "Course scan ID should match")
             self.assertEqual(course_id, 403334, "Course ID should match")
             self.assertEqual(len(payload), 2, "Expected 2 items with images after filtering")
             
