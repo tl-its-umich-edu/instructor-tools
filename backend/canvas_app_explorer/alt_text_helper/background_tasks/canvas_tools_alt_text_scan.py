@@ -43,10 +43,6 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     course_scan_id = int(task.get('course_scan_id'))
     course_id = int(task.get('course_id'))
 
-    # if course_scan_id is not None:
-    #      update_course_scan(course_scan_id, CourseScanStatus.COMPLETED, course_id=course_id)
-    #      return
-
     # adding a status before start of the scan, if this DB action failed no need to stop next steps of fetching content images
     update_course_scan(course_scan_id, CourseScanStatus.RUNNING, course_id=course_id)
 

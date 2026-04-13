@@ -109,12 +109,6 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                     'created_at': scan_obj.created_at,
                     'updated_at': scan_obj.updated_at,
                     'course_content': self.__get_scan_course_content(scan_obj.id)
-                    # 'course_content': {
-                    #     'assignment_list': [],
-                    #     'page_list': [],
-                    #     'quiz_list': [],
-                    #     'quiz_question_list': [],
-                    # }
                 }
             logger.info(f"Returning scan {scan_obj.id} for course id {course_id} and user {request.user.id}")
             resp = {
