@@ -50,7 +50,7 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
             
             # Generate task name using CourseScan id, course_id, and today's date
             today = date.today().isoformat()
-            task_name = f"course_{obj.id}_{course_id}_{today}"
+            task_name = f"course_{course_id}_scan_{obj.id}_on_{today}"
             
             # Create task payload with CourseScan id
             task_payload = {
@@ -67,16 +67,10 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                 task_name=task_name
             )
             logger.info(f"Started alt text scan task {task_id} with name '{task_name}' for course_id: {course_id}")
-
-            # Update CourseScan with task_id
-            obj.q_task_id = str(task_id)
-            obj.save()
-            logger.info(f"Updated CourseScan {obj.id} with q_task_id: {task_id}")
             
             resp = {
                     'course_id': obj.course_id,
                     'id': obj.id,
-                    'q_task_id': obj.q_task_id,
                     'status': obj.status,
                 }
             return Response(resp, status=HTTPStatus.OK)

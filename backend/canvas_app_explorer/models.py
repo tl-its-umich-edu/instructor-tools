@@ -75,8 +75,6 @@ class CourseScan(models.Model):
     id = models.BigAutoField(primary_key=True)
     # Course id (use BigInteger in case of large values)
     course_id = models.BigIntegerField()
-    # ID returned by the scan task system (e.g. django-q task id)
-    q_task_id = models.CharField(max_length=255, blank=True, null=True)
     # Simple status string (pending, running, completed, failed)
     status = models.CharField(max_length=50, default=CourseScanStatus.PENDING, choices=CourseScanStatus.choices)
     # When the scan was created
@@ -89,7 +87,7 @@ class CourseScan(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"CourseScan(id={self.id}, course_id={self.course_id}, q_task_id={self.q_task_id}, status={self.status})"
+        return f"CourseScan(id={self.id}, course_id={self.course_id}, status={self.status})"
 
 
 

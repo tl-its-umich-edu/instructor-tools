@@ -53,7 +53,6 @@ interface ToolFiltersState {
 interface AltTextScan {
   id: number
   course_id: number
-  q_task_id: string
   status: string,
   created_at: string,
   updated_at: string
