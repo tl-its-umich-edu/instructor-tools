@@ -166,16 +166,12 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
         course_scan_id = serializer.validated_data.get('course_scan_id')
 
         if course_scan_id is None:
-            scan_obj = CourseScan.objects.filter(course_id=request_course_id).order_by('-created_at').first()
-            if scan_obj is None:
-                logger.error("No scans found for request_course_id=%s", request_course_id)
-                return Response(
-                    status=HTTPStatus.BAD_REQUEST,
-                    data={"status_code": HTTPStatus.BAD_REQUEST, "message": "No course scan found for current course"},
-                )
-            course_scan_id = int(scan_obj.id)
-        else:
-            scan_obj = CourseScan.objects.filter(id=course_scan_id).first()
+            logger.error("No scans id sent for request_course_id=%s", request_course_id)
+            return Response(
+                status=HTTPStatus.BAD_REQUEST,
+                data={"status_code": HTTPStatus.BAD_REQUEST, "message": "No course scan Id sent in request" },
+            )
+        scan_obj = CourseScan.objects.filter(id=course_scan_id).first()
         if scan_obj is None:
             logger.error("Course scan not found for course_scan_id=%s", course_scan_id)
             return Response(
