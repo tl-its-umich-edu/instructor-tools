@@ -29,10 +29,13 @@ A Django + React application for managing Canvas LTI tools and generating alt te
 ## Key Patterns & Conventions
 
 ### Views & Serializers
-- Use ViewSets with DRF's `LoggingMixin` to auto-log API requests with course context
-- Extract session data (`request.session['course_id']`, etc.) early; return 400 if missing
-- Catch Canvas API exceptions and convert to HTTP responses via `CanvasHTTPError`
-- Example: [backend/canvas_app_explorer/views.py](backend/canvas_app_explorer/views.py#L43-L61)
+
+- **Code Comments for Clarity**: When writing or updating code, always leave clear comments explaining any complicated, non-obvious, or tricky logic. Comments should help both human developers and AI coding assistants understand the intent, edge cases, and reasoning behind complex sections. This is especially important for workarounds, non-standard patterns, or code that interacts with external systems in subtle ways.
+
+Use ViewSets with DRF's `LoggingMixin` to auto-log API requests with course context
+Extract session data (`request.session['course_id']`, etc.) early; return 400 if missing
+Catch Canvas API exceptions and convert to HTTP responses via `CanvasHTTPError`
+Example: [backend/canvas_app_explorer/views.py](backend/canvas_app_explorer/views.py#L43-L61)
 
 ### LTI Authentication Flow
 - Login endpoint validates LTI claims; launch endpoint creates user session
