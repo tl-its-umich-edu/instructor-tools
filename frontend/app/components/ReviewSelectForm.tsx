@@ -45,8 +45,9 @@ export default function ReviewSelectForm({ scanPending, lastScan, selectedCatego
       </Typography>
       <Stack direction="row" spacing={2} alignItems='flex-end'>
         <FormControl sx={{ minWidth: 200 }} >
-          <InputLabel>Content Category</InputLabel>
+          <InputLabel id="review-category-select-label">Content Category</InputLabel>
           <Select
+            labelId="review-category-select-label"
             value={selectedCategory}
             label="Content Category"
             disabled={scanPending}
