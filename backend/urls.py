@@ -21,6 +21,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.urls import include, path, re_path 
 from django.views import static
 from rest_framework import routers
+import watchman.views
 
 from backend.canvas_app_explorer import urls as canvas_app_explorer_urls #type: ignore
 from backend.canvas_app_explorer import views as canvas_app_explorer_views #type: ignore
@@ -50,6 +51,7 @@ urlpatterns = [
     path('files/', include('db_file_storage.urls'), {'extra_headers': {'Cache-Control': 'public, max-age=31536000'}}),
     path('', include(canvas_app_explorer_urls)),
     path('status/', include('watchman.urls')),
+    path('status/bare_status/', watchman.views.bare_status),
 
     # alt text helper endpoints — catch all sub-routes so React Router handles them client-side
     path('alt-text-helper/', views.get_home_template, name = 'alt_text_helper'),
