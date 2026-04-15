@@ -9,7 +9,7 @@ interface ReveiwSelectFormProps {
     scanPending: boolean;
     lastScan: ScanDetail;
     selectedCategory: ContentCategoryForReview;
-    handleStartReview: (selectedCategory:ContentCategoryForReview) => void;
+    handleStartReview: (selectedCategory: ContentCategoryForReview, scanId: number) => void;
     handleChangeCategory: (selectedCategory:ContentCategoryForReview) => void;
 }
 
@@ -31,7 +31,7 @@ export default function ReviewSelectForm({ scanPending, lastScan, selectedCatego
 
   const handleSubmit = () => {
     if (selectedCategory) {
-      handleStartReview(selectedCategory);
+      handleStartReview(selectedCategory, lastScan.id);
     }
   };
 

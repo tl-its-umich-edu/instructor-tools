@@ -29,15 +29,15 @@ function App (props: AppProps) {
   return (
     <div id='root'>
       <Routes>
-          <Route path='/' element={
-            <ToolsHome {...props} />
-          }/>
-          <Route path='alt-text-helper' element={
-            <AltTextLayout globals={props.globals} />
-          }>
-            <Route index element={<AltTextHome {...props}/>} />
-            <Route path='review' element={<AltTextReview />} />
-          </Route>
+        <Route path='/' element={
+          <ToolsHome {...props} />
+        }/>
+        <Route path='alt-text-helper' element={
+          <AltTextLayout globals={props.globals} />
+        }>
+          <Route index element={<AltTextHome {...props}/>} />
+          <Route path='review' element={<AltTextReview />} />
+        </Route>
       </Routes>
     </div>
   );
