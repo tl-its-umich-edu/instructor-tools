@@ -139,6 +139,57 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = None
 
+    def _validate_course_ownership(self, validated_data: list, course_id: int, content_types: list) -> Response | None:
+        """
+        Validate that all content and image IDs belong to the requesting course and content types.
+        Returns None if valid, or Response object with 400 error if invalid.
+        """
+        # Extract content IDs from payload
+        content_ids = [item.get('id') for item in validated_data if item.get('id')]
+        
+        # Extract image IDs from nested images arrays
+        image_ids = [
+            image.get('image_id')
+            for item in validated_data
+            for image in item.get('images', [])
+        ]
+        
+        # Verify content items belong to this course and content types
+        if content_ids:
+            valid_ids = set(
+                ContentItem.objects.filter(
+                    id__in=content_ids,
+                    content_type__in=content_types,
+                    course_scan__course_id=course_id
+                ).values_list('id', flat=True)
+            )
+            invalid_ids = set(content_ids) - valid_ids
+            if invalid_ids:
+                logger.warning(f"Invalid content IDs for course_id {course_id}: {invalid_ids}")
+                return Response(
+                    status=HTTPStatus.BAD_REQUEST,
+                    data={"message": f"Content IDs {invalid_ids} do not belong to this course"}
+                )
+        
+        # Verify image items belong to this course and content types
+        if image_ids:
+            valid_ids = set(
+                ImageItem.objects.filter(
+                    id__in=image_ids,
+                    content_item__content_type__in=content_types,
+                    content_item__course_scan__course_id=course_id
+                ).values_list('id', flat=True)
+            )
+            invalid_ids = set(image_ids) - valid_ids
+            if invalid_ids:
+                logger.warning(f"Invalid image IDs for course_id {course_id}: {invalid_ids}")
+                return Response(
+                    status=HTTPStatus.BAD_REQUEST,
+                    data={"message": f"Image IDs {invalid_ids} do not belong to this course"}
+                )
+        
+        return None
+
     @extend_schema(
         parameters=[
             OpenApiParameter(name='content_type', description='Type of content to  like assignment, page, quiz', required=True, type=str),
@@ -260,6 +311,11 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
         try:
              # Extract unique content types from the payload
              content_types = list({item.get('content_type') for item in serializer.validated_data if item.get('content_type')})
+             
+             # Validate that all content and image IDs belong to the requesting course and content types
+             validation_error = self._validate_course_ownership(serializer.validated_data, course_id, content_types)
+             if validation_error:
+                 return validation_error
              logger.info(f"Processing alt text update for course_id {course_id} and content_types {content_types}")
              manager = MANAGER_FACTORY.create_manager(request)
              canvas_api: Canvas = manager.canvas_api

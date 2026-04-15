@@ -188,7 +188,8 @@ def update_course_scan(course_scan_id: int, status: CourseScanStatus, error_mess
 def save_scan_results(course_scan_id: int, course_id: int, items: List[Dict[str, Any]]):
     """
     Save the scan results into the database within a transaction.
-    Deletes previous ContentItem and ImageItem records for the course_id, then creates new records.
+    Creates ContentItem and ImageItem records scoped to the provided course_scan_id
+    without deleting records from prior scans for the course.
     
     :param course_scan_id: CourseScan ID
     :type course_scan_id: int
