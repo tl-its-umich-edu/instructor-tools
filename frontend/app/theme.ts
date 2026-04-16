@@ -27,7 +27,17 @@ const theme = createTheme({
           }
         }
       }
-    }
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          '&:focus-visible': {
+            outline: `2px solid ${theme.palette.primary.main}`,
+            outlineOffset: '2px',
+          }
+        })
+      }
+    },
   }
 });
 

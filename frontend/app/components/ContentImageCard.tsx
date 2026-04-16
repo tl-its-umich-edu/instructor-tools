@@ -43,8 +43,9 @@ const StyledToggleButtonGroup = styled(ToggleButtonGroup)(({ theme }) => ({
         backgroundColor: theme.palette.primary.dark,
       },
     },
-    '&:hover': {
-      backgroundColor: theme.palette.action.hover,
+    '&:focus-visible': {
+      outline: `2px solid ${theme.palette.primary.main}`,
+      outlineOffset: '2px',
     },
   },
 }));
