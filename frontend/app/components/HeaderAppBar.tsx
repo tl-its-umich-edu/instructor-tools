@@ -4,12 +4,6 @@ import { Link as RouterLink } from 'react-router-dom';
 import Link from '@mui/material/Link';
 import { User } from '../interfaces';
 
-const StyledHeaderButton = styled(Button)({
-  '&:focus-visible': {
-    outline: '2px solid white',
-    outlineOffset: '2px',
-  },
-}) as typeof Button;
 interface HeaderAppBarProps {
   user: User | null;
   helpURL: string;
@@ -55,8 +49,8 @@ export default function HeaderAppBar (props: HeaderAppBarProps) {
           </Grid>
         </Grid>
         <Grid item xs='auto' container justifyContent='space-around'>
-          <StyledHeaderButton color='inherit' target='_blank' rel='noopener noreferrer' href={helpURL}>Help</StyledHeaderButton>
-          {user?.is_staff && <StyledHeaderButton color='inherit' href='/admin'>Admin</StyledHeaderButton>}
+          <Button color='inherit' target='_blank' rel='noopener noreferrer' href={helpURL}>Help</Button>
+          {user?.is_staff && <Button color='inherit' href='/admin'>Admin</Button>}
         </Grid>
       </Toolbar>
     </AppBar>
