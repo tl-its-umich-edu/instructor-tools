@@ -77,8 +77,8 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                 }
             return Response(resp, status=HTTPStatus.OK)
         except (DatabaseError, Exception) as e:
-            message = f"Failed to initiate course scan due to {e}"
-            logger.error(message)
+            logger.error("Failed to initiate course scan for course_id=%s due to %s", course_id, e)
+            message = "Failed to initiate course scan. Please try again later."
 
             if new_course_scan is not None:
                 new_course_scan.status = CourseScanStatus.FAILED.value

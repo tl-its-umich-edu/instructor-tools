@@ -38,15 +38,18 @@ semaphore = asyncio.Semaphore(10)
 
 @log_execution_time
 def fetch_and_scan_course(task: Dict[str, Any]):
-    logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
-    # mark CourseScan as running
-    course_scan_id = int(task.get('course_scan_id'))
-    course_id = int(task.get('course_id'))
+    """Run the end-to-end background scan for a course.
 
-    # adding a status before start of the scan, if this DB action failed no need to stop next steps of fetching content images
-    update_course_scan(course_scan_id, CourseScanStatus.RUNNING, course_id=course_id)
+    This task orchestrates Canvas client setup, content/image discovery,
+    persistence of scan results, AI alt-text generation, and final scan status
+    updates (COMPLETED or FAILED).
+    """
+    logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
 
     try:
+        course_scan_id = int(task.get('course_scan_id'))
+        course_id = int(task.get('course_id'))
+        update_course_scan(course_scan_id, CourseScanStatus.RUNNING, course_id=course_id)
         # Fetch course content using the manager
         user_id = task.get('user_id')
         req_user: User = get_user_model().objects.get(pk=user_id)
