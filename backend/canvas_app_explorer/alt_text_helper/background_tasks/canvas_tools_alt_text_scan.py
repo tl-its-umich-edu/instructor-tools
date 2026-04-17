@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from urllib import request
 from django.db import transaction
 from urllib.parse import urlparse, parse_qs, urlencode
 from typing import List, Dict, Any, Optional, TypeVar, Callable, Union
@@ -233,7 +234,7 @@ async def fetch_content_items_async(fn: Callable[[T], R], ctx: T) -> Union[R, Ex
     try:
         return await asyncio.to_thread(fn, ctx)
     except (CanvasException, Exception) as e:
-        logger.error("Error fetching content items using %s: %s", getattr(fn, '__name__', str(fn)), e)
+        logger.error("Step CIErr: Error fetching content items using %s: %s", getattr(fn, '__name__', str(fn)), e)
         return e
 
 
@@ -241,17 +242,25 @@ def get_assignments(course: Course):
     """
     Synchronously fetches assignments for a given course using canvas_api.get_assignments().
     """
+    # user_id = 1
+    # req_user: User = get_user_model().objects.get(pk=user_id)
+    # canvas_callback_url = '/oauth/oauth-callback'
+    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
+    # manager = MANAGER_FACTORY.create_manager(request)
+    # canvas_api: Canvas = manager.canvas_api
+    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
+
     try:
         logger.info(f"Fetching assignments for course {course.id}.")
         assignments = list(course.get_assignments(per_page=PER_PAGE))
-        logger.debug(f"Fetched {len(assignments)} assignments.")
+        logger.info(f"Processing {len(assignments)} assignments after fetching.")
         images_from_assignments = []
         for assignment in assignments:
             # Use getattr to safely check for quiz_id attribute
             quiz_id = getattr(assignment, 'quiz_id', None)
             if quiz_id:
                 # skip quiz assignments since quizzes are fetched separately
-                logger.debug(f"Skipping quiz assignment ID: {assignment.id}")
+                logger.info(f"Skipping quiz assignment ID: {assignment.id}, Title: {assignment.name}, quiz_id: {quiz_id}")
                 continue
             logger.info(f"Assignment ID: {assignment.id}, Name: {assignment.name}")
 
@@ -265,21 +274,29 @@ def get_assignments(course: Course):
                 None)
         return images_from_assignments
     except (CanvasException, Exception) as e:
-        logger.error(f"Error fetching assignments for course {course.id}: {e}")
+        logger.error(f"Step A1: Error fetching assignments for course {course.id}: {e}")
         raise e
  
 def get_pages(course: Course):
     """
     Synchronously fetches pages for a given course using canvas_api.get_pages().
     """
+    # user_id = 1q
+    # req_user: User = get_user_model().objects.get(pk=user_id)
+    # canvas_callback_url = '/oauth/oauth-callback'
+    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
+    # manager = MANAGER_FACTORY.create_manager(request)
+    # canvas_api: Canvas = manager.canvas_api
+    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
+
     try:
         logger.info(f"Fetching pages for course {course.id}.")
         pages = list(course.get_pages(include=['body'], per_page=PER_PAGE))
 
-        logger.debug(f"Fetched {len(pages)} pages.")
+        logger.info(f" Processing {len(pages)} pages after fetching.")
         images_from_pages = []
         for page in pages:
-            logger.debug(f"Processing Page ID: {page.page_id}, Title: {page.title}")
+            logger.info(f"Processing Page ID: {page.page_id}, Title: {page.title}")
             # Extract images from page body
             images_from_pages = append_image_items(
                 images_from_pages,
@@ -290,7 +307,7 @@ def get_pages(course: Course):
                 None)
         return images_from_pages
     except (CanvasException, Exception) as e:
-        logger.error(f"Error fetching pages for course {course.id}: {e}")
+        logger.error(f"Step PageErr: Error fetching pages for course {course.id}: {e}")
         raise e
 
 
@@ -298,6 +315,14 @@ def get_quizzes(course: Course):
     """
     Synchronously fetches quizzes for a given course using canvas_api.get_quizzes().
     """
+    # user_id = 1
+    # req_user: User = get_user_model().objects.get(pk=user_id)
+    # canvas_callback_url = '/oauth/oauth-callback'
+    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
+    # manager = MANAGER_FACTORY.create_manager(request)
+    # canvas_api: Canvas = manager.canvas_api
+    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
+
     try:
         logger.info(f"Fetching quizzes for course {course.id}.")
         quizzes: List[Quiz] = list(course.get_quizzes(per_page=PER_PAGE))
@@ -312,29 +337,35 @@ def get_quizzes(course: Course):
                 extract_images_from_html(getattr(quiz, 'description', ''), course.id),
                 'quiz',
                 None)
-
+        logger.info(f"Fetched {len(quizzes)} quizzes. Now fetching questions for quizzes.")
         quiz_question_results = async_to_sync(get_quiz_questions)(quizzes)
         return process_quiz_with_questions(images_from_quizzes, quiz_question_results)
     except (CanvasException, Exception) as e:
-        logger.error(f"Errors fetching Quizzes for course {course.id}: {e}")
+        logger.error(f"Step QuizErr: Errors fetching Quizzes for course {course.id}: {e}")
         raise e
 
 def process_quiz_with_questions(quiz: List[Dict[str, Any]], questions: List[Dict[str, Any]]):
     """
     Process a quiz and its questions to extract images from the quiz description and questions.
     """
+    logger.info(f"Processing quiz and questions. Quiz items: {len(quiz)}, Question items: {len(questions)}")
+    logger.info(f"Quiz items: {quiz}")
+    logger.info(f"Question items: {questions}")
+
     exceptions = []
     valid_question_lists = []
     for item in questions:
         if isinstance(item, list):
+            logger.info(f"Valid question list: {item}")
             valid_question_lists.append(item)
         elif isinstance(item, Exception):
+            logger.error(f"Exception in quiz questions: {item}")
             exceptions.append(item)
     if not exceptions:
         flattened_questions = [q for sublist in valid_question_lists for q in sublist]
         return quiz + flattened_questions
     else:
-        return exceptions[0]
+        return exceptions
 
 async def get_quiz_questions(quizzes: List[Quiz]):
     async with semaphore:
@@ -342,11 +373,26 @@ async def get_quiz_questions(quizzes: List[Quiz]):
         return await asyncio.gather(*quiz_q_tasks, return_exceptions=True)
 
 def get_quiz_questions_sync(quiz: Quiz):
+    # Temporary debugging behavior: force a non-existent quiz id to trigger Canvas API error.
+    import random
+
+    def _build_debug_quiz(source_quiz: Quiz) -> Quiz:
+        return Quiz(source_quiz._requester, {
+            'id': random.randint(100000000, 999999999),
+            'title': random.choice(['Ghost Quiz', 'Phantom Exam', 'Broken Test', 'Mystery Quiz', 'Fake Assessment']),
+            'course_id': getattr(source_quiz, 'course_id', None),
+            'description': getattr(source_quiz, 'description', ''),
+        })
+
+    # if quiz.id == 479109:  # specific quiz ID to trigger error for testing
+    #     quiz = _build_debug_quiz(quiz)
+
     logger.info(f"Fetching questions for quiz ID: {quiz.id}, Title: {quiz.title}")
     images_from_questions = []
     try:
-        question = quiz.get_questions(per_page=PER_PAGE)
-        for question in question:
+        questions = list(quiz.get_questions(per_page=PER_PAGE))
+        logger.info(f"Fetched {len(questions)} questions for quiz ID: {quiz.id}. Processing questions for images.")
+        for question in questions:
             # Extract images from quiz question text
             images_from_questions = append_image_items(
                 images_from_questions,
@@ -358,7 +404,7 @@ def get_quiz_questions_sync(quiz: Quiz):
 
         return images_from_questions
     except (CanvasException, Exception) as e:
-        logger.error(f"Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
+        logger.error(f"Step QuizQErr: Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
         raise e
 
 def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
@@ -382,12 +428,12 @@ def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
         # Public Canvas images with any subdirectory depth - always include
         # e.g., /images/play_overlay.png, /images/book_stro/icon.png, /images/foo/poo/bar.png
         if 'images' in parts and 'courses' not in parts:
-            logger.debug(f"Including public Canvas image: {img_src}")
+            logger.info(f"Including public Canvas image: {img_src}")
             return True
         
         # User files (e.g., /users/{id}/files/{file_id}) - always include
         if 'users' in parts and 'files' in parts:
-            logger.debug(f"Including user file: {img_src}")
+            logger.info(f"Including user file: {img_src}")
             return True
         
         # Look for /courses/{course_id}/ pattern and validate
@@ -433,7 +479,7 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
                 file_id = parts[i + 1]
                 break
         if not file_id:
-            raise ValueError(f"File ID not found in URL path: {img_src}")
+            raise ValueError(f"Step PErr File_id: File ID not found in URL path: {img_src}")
 
         # preserve original query params (verifier, etc.)
         qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -453,7 +499,7 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
         download_url = f"{parsed.scheme}://{parsed.netloc}{download_path}?{urlencode(flat_qs)}"
         return download_url
     except Exception as e:
-        logger.error(f"Error parsing img src URL '{img_src}': {e}")
+        logger.error(f"Step PErr: Error parsing img src URL '{img_src}': {e}")
         raise e
 
 def extract_images_from_html(html_content: str, course_id: int) -> List[str]:
