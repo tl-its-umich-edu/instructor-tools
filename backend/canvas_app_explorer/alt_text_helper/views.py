@@ -37,37 +37,39 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     serializer_class = None
 
     def start_scan(self, request: Request) -> Response:
+        """Create a new course scan record and enqueue the background scan task.
+
+        The task payload includes course, user, and callback context needed by the
+        background worker. If task initialization fails after creating a scan row,
+        the scan is marked as FAILED before returning an error response.
+        """
         course_id = self._require_course_id(request)
         new_course_scan = None
-        
+
         try:
-            # Always create a new CourseScan entry first
             new_course_scan = CourseScan.objects.create(
                 course_id=int(course_id),
                 status=CourseScanStatus.PENDING.value,
             )
             logger.info(f"CourseScan {new_course_scan.id} created for course_id: {course_id}")
-            
-            # Generate task name using CourseScan id, course_id, and today's date
+
             today = date.today().isoformat()
             task_name = f"course_{course_id}_scan_{new_course_scan.id}_on_{today}"
-            
-            # Create task payload with CourseScan id
+
             task_payload = {
                 'course_scan_id': new_course_scan.id,
                 'course_id': course_id,
                 'user_id': request.user.id,
                 'canvas_callback_url': request.build_absolute_uri(reverse('canvas-oauth-callback')),
             }
-            
-            # Start the task with the generated task name
+
             task_id = async_task(
                 'backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.fetch_and_scan_course',
                 task=task_payload,
                 task_name=task_name
             )
             logger.info(f"Started alt text scan task {task_id} with name '{task_name}' for course_id: {course_id}")
-            
+
             resp = {
                     'course_id': new_course_scan.course_id,
                     'id': new_course_scan.id,
@@ -77,13 +79,12 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
         except (DatabaseError, Exception) as e:
             message = f"Failed to initiate course scan due to {e}"
             logger.error(message)
-            
-            # Mark CourseScan as failed if it was created
+
             if new_course_scan is not None:
                 new_course_scan.status = CourseScanStatus.FAILED.value
                 new_course_scan.save()
                 logger.error(f"Marked CourseScan {new_course_scan.id} as FAILED due to exception: {e}")
-            
+
             return Response(status=HTTPStatus.INTERNAL_SERVER_ERROR, data={"status_code": HTTPStatus.INTERNAL_SERVER_ERROR, "message": message})
     
     def get_last_scan(self, request: Request) -> Response:
