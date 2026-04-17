@@ -76,21 +76,18 @@ export default function AltTextReview() {
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
   const { categoryForReview, scanIdFromUrl } = useMemo(() => {
-    const params = new URLSearchParams(location.search);
-    const categoryFromUrl = params.get('category');
-    const scanIdStr = params.get('scanId');
+    const state = (location.state as { category?: string; scanId?: number } | null) || {};
+    const { category: categoryFromState, scanId: scanIdFromState } = state;
 
-    const category = (categoryFromUrl && categoryFromUrl in CATEGORY_TO_CONTENT_TYPE)
-      ? categoryFromUrl as ContentCategoryForReview
+    const category = (categoryFromState && categoryFromState in CATEGORY_TO_CONTENT_TYPE)
+      ? categoryFromState as ContentCategoryForReview
       : null;
-
-    const scanId = scanIdStr ? parseInt(scanIdStr, 10) : NaN;
 
     return {
       categoryForReview: category,
-      scanIdFromUrl: isNaN(scanId) ? null : scanId,
+      scanIdFromUrl: scanIdFromState && scanIdFromState > 0 ? scanIdFromState : null,
     };
-  }, [location.search]);
+  }, [location.state]);
 
   useEffect(() => {
     if (!categoryForReview || !scanIdFromUrl || scanIdFromUrl <= 0) {

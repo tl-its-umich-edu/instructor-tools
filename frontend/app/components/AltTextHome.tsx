@@ -70,7 +70,7 @@ function AltTextHome(props: AltTextHomeProps) {
   };
 
   const handleStartReview = (category: ContentCategoryForReview, scanId: number) => {
-    navigate(`/alt-text-helper/review?category=${category}&scanId=${scanId}`);
+    navigate('/alt-text-helper/review', { state: { category, scanId } });
   };
 
   return (
