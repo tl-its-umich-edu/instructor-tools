@@ -140,6 +140,7 @@ export default function ContentImageCard({
             {getStatusChip()}
           </Box>
           <TextField
+            label="Alt Text"
             value={localAltText}
             onChange={handleAltTextChange}
             size="small"
