@@ -3,7 +3,7 @@ uvicorn-worker==0.4.0
 mysqlclient==2.2.8
 
 # Django and related
-Django==5.2.12
+Django==5.2.13
 django-csp==3.8 # For Content Security Policy
 django-constance==4.3.5 # Dynamic settings in admin UI
 django-db-file-storage==0.5.6.1 # Support for storage in the database
@@ -28,7 +28,7 @@ pycryptodome==3.23.0 # For generating LTI keys
 PyLTI1p3==2.0.0
 
 # Canvas
-canvasapi==3.5.0
+canvasapi==3.6.0
 
 debugpy==1.8.20
 
@@ -40,7 +40,7 @@ https://github.com/Harvard-University-iCommons/django-canvas-oauth/archive/v1.1.
 drf-api-tracking==1.8.4 # API tracking for DRF
 
 django-q2==1.9.0
-openai==2.30.0
+openai==2.32.0
 blessed==1.38.0
 
 # httpx should be pulled in by openai, but adding explicitly to avoid issues
