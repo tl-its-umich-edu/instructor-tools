@@ -27,7 +27,18 @@ const theme = createTheme({
           }
         }
       }
-    }
+    },
+    MuiTypography: {
+      defaultProps: {
+        // https://mui.com/material-ui/react-typography/#changing-the-semantic-element
+        variantMapping: {
+          h3: 'h2',
+          h4: 'h2',
+          h5: 'h2',
+          h6: 'h2',
+        },
+      },
+    },
   }
 });
 
