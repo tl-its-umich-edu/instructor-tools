@@ -88,6 +88,7 @@ class ContentQuerySerializer(serializers.Serializer):
     content_type = serializers.ChoiceField(
         choices=ContentItem.CONTENT_TYPE_CHOICES
     )
+    course_scan_id = serializers.IntegerField()
 
 class ReviewImageItemSerializer(serializers.Serializer):
     image_id = serializers.IntegerField(required=True)
@@ -96,6 +97,7 @@ class ReviewImageItemSerializer(serializers.Serializer):
     approved_alt_text = serializers.CharField(allow_blank=True, required=False)
 
 class ReviewContentItemSerializer(serializers.Serializer):
+    id = serializers.IntegerField(required=True)
     content_id = serializers.IntegerField(required=True)
     content_name = serializers.CharField(required=True)
     content_parent_id = serializers.CharField(allow_null=True, required=True)

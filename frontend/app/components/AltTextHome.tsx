@@ -69,8 +69,8 @@ function AltTextHome(props: AltTextHomeProps) {
     await mutate();
   };
 
-  const handleStartReview = () => {
-    navigate(`/alt-text-helper/review?category=${selectedCategory}`);
+  const handleStartReview = (category: ContentCategoryForReview, scanId: number) => {
+    navigate('/alt-text-helper/review', { state: { category, scanId } });
   };
 
   return (

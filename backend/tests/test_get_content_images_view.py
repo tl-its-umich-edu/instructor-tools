@@ -17,40 +17,37 @@ class TestGetContentImagesView(TestCase):
         # create course scan and content items with images
         cs = CourseScan.objects.create(course_id=2222)
         assignment = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
             content_id=10,
             content_name='A1',
             content_parent_id=None,
         )
         img_explicit = ImageItem.objects.create(
-            course=cs,
             content_item=assignment,
             image_url='https://example.com/a1.png'
         )
         # image for comparison
         img_without_id = ImageItem.objects.create(
-            course=cs,
             content_item=assignment,
             image_url='https://example.com/a1b.png'
         )
 
         # another content item (different type) should not be returned
         page = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_PAGE,
             content_id=20,
             content_name='P1',
             content_parent_id=None,
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=page,
             image_url='https://example.com/p1.png'
         )
 
         # build request with session course_id and query param
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT, 'course_scan_id': cs.id})
         request.user = self.user
         # django test RequestFactory uses a dict-like session we can attach for tests
         request.session = {'course_id': cs.course_id}
@@ -84,20 +81,19 @@ class TestGetContentImagesView(TestCase):
         # create course scan and content item with no name
         cs = CourseScan.objects.create(course_id=3333)
         assignment = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
             content_id=30,
             content_name=None,  # Explicitly None
             content_parent_id=None,
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=assignment,
             image_url='https://example.com/a2.png'
         )
 
         # build request with session course_id and query param
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': cs.course_id}
         request.course_id = cs.course_id

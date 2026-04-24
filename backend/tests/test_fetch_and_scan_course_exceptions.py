@@ -16,7 +16,9 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         """Set up test fixtures."""
         self.course_id = 999
         self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.course_scan = CourseScan.objects.create(course_id=self.course_id, status=CourseScanStatus.PENDING.value)
         self.task = {
+            'course_scan_id': self.course_scan.id,
             'course_id': self.course_id,
             'user_id': self.user.id,
             'canvas_callback_url': 'http://localhost/callback'
@@ -25,9 +27,6 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
     def test_fetch_and_scan_course_marks_failed_on_manager_creation_exception(self, mock_factory):
         """Test that manager creation exceptions result in FAILED status."""
-        # Create initial CourseScan
-        course_scan = CourseScan.objects.create(course_id=self.course_id, status=CourseScanStatus.PENDING.value)
-        
         # Make manager creation fail
         mock_factory.create_manager.side_effect = InvalidOAuthReturnError("Auth failed")
         
@@ -35,8 +34,8 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         fetch_and_scan_course(self.task)
         
         # Verify status is FAILED
-        course_scan.refresh_from_db()
-        self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
+        self.course_scan.refresh_from_db()
+        self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
@@ -45,13 +44,13 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self, mock_factory, mock_async_to_sync, mock_unpack
     ):
         """Test that content fetch failure (unpack returns False) results in FAILED status."""
-        course_scan = CourseScan.objects.create(course_id=self.course_id, status=CourseScanStatus.PENDING.value)
-        
         # Setup successful manager
         mock_manager = MagicMock()
         mock_factory.create_manager.return_value = mock_manager
         mock_canvas_api = MagicMock()
+        mock_canvas_api._Canvas__requester = None
         mock_manager.canvas_api = mock_canvas_api
+        mock_manager.api_key = 'fake-token'
         
         # Make unpack_and_store_content_images return False (fetch failed)
         mock_unpack.return_value = False
@@ -60,8 +59,8 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         fetch_and_scan_course(self.task)
         
         # Verify status is FAILED
-        course_scan.refresh_from_db()
-        self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
+        self.course_scan.refresh_from_db()
+        self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
@@ -70,13 +69,13 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self, mock_factory, mock_async_to_sync, mock_unpack
     ):
         """Test that exceptions in async_to_sync(get_courses_images) result in FAILED status."""
-        course_scan = CourseScan.objects.create(course_id=self.course_id, status=CourseScanStatus.PENDING.value)
-        
         # Setup successful manager
         mock_manager = MagicMock()
         mock_factory.create_manager.return_value = mock_manager
         mock_canvas_api = MagicMock()
+        mock_canvas_api._Canvas__requester = None
         mock_manager.canvas_api = mock_canvas_api
+        mock_manager.api_key = 'fake-token'
         
         # Make async_to_sync raise an exception
         mock_async_to_sync.side_effect = RuntimeError("Async fetch failed")
@@ -85,8 +84,8 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         fetch_and_scan_course(self.task)
         
         # Verify status is FAILED
-        course_scan.refresh_from_db()
-        self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
+        self.course_scan.refresh_from_db()
+        self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
@@ -96,13 +95,13 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self, mock_factory, mock_course_class, mock_async_to_sync, mock_unpack
     ):
         """Test that Course object creation exceptions result in FAILED status."""
-        course_scan = CourseScan.objects.create(course_id=self.course_id, status=CourseScanStatus.PENDING.value)
-        
         # Setup successful manager
         mock_manager = MagicMock()
         mock_factory.create_manager.return_value = mock_manager
         mock_canvas_api = MagicMock()
+        mock_canvas_api._Canvas__requester = None
         mock_manager.canvas_api = mock_canvas_api
+        mock_manager.api_key = 'fake-token'
         
         # Make Course creation fail
         mock_course_class.side_effect = Exception("Course creation failed")
@@ -111,8 +110,8 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         fetch_and_scan_course(self.task)
         
         # Verify status is FAILED
-        course_scan.refresh_from_db()
-        self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
+        self.course_scan.refresh_from_db()
+        self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
@@ -122,13 +121,13 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self, mock_factory, mock_async_to_sync, mock_unpack, mock_retrieve_alt
     ):
         """Test that ImageContentExtractionException results in FAILED status."""
-        course_scan = CourseScan.objects.create(course_id=self.course_id, status=CourseScanStatus.PENDING.value)
-        
         # Setup successful manager
         mock_manager = MagicMock()
         mock_factory.create_manager.return_value = mock_manager
         mock_canvas_api = MagicMock()
+        mock_canvas_api._Canvas__requester = None
         mock_manager.canvas_api = mock_canvas_api
+        mock_manager.api_key = 'fake-token'
         
         mock_async_to_sync.return_value = MagicMock(return_value=([], [], []))
         mock_unpack.return_value = True
@@ -140,8 +139,8 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         fetch_and_scan_course(self.task)
         
         # Verify status is FAILED
-        course_scan.refresh_from_db()
-        self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
+        self.course_scan.refresh_from_db()
+        self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
@@ -151,13 +150,13 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self, mock_factory, mock_async_to_sync, mock_unpack, mock_retrieve_alt
     ):
         """Test that any unexpected exception results in FAILED status."""
-        course_scan = CourseScan.objects.create(course_id=self.course_id, status=CourseScanStatus.PENDING.value)
-        
         # Setup successful manager
         mock_manager = MagicMock()
         mock_factory.create_manager.return_value = mock_manager
         mock_canvas_api = MagicMock()
+        mock_canvas_api._Canvas__requester = None
         mock_manager.canvas_api = mock_canvas_api
+        mock_manager.api_key = 'fake-token'
         
         mock_async_to_sync.return_value = MagicMock(return_value=([], [], []))
         mock_unpack.return_value = True
@@ -169,8 +168,8 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         fetch_and_scan_course(self.task)
         
         # Verify status is FAILED
-        course_scan.refresh_from_db()
-        self.assertEqual(course_scan.status, CourseScanStatus.FAILED.value)
+        self.course_scan.refresh_from_db()
+        self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
@@ -185,7 +184,9 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         mock_manager = MagicMock()
         mock_factory.create_manager.return_value = mock_manager
         mock_canvas_api = MagicMock()
+        mock_canvas_api._Canvas__requester = None
         mock_manager.canvas_api = mock_canvas_api
+        mock_manager.api_key = 'fake-token'
         
         mock_async_to_sync.return_value = MagicMock(return_value=([], [], []))
         mock_unpack.return_value = True
@@ -197,4 +198,5 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         # Verify update_course_scan was called with COMPLETED status at the end
         calls = mock_update_scan.call_args_list
         # Last call should be with COMPLETED status
-        self.assertEqual(calls[-1][0], (self.course_id, CourseScanStatus.COMPLETED.value))
+        self.assertEqual(calls[-1][0], (self.course_scan.id, CourseScanStatus.COMPLETED))
+        self.assertEqual(calls[-1][1].get('course_id'), self.course_id)
