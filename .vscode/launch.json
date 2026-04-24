@@ -17,6 +17,22 @@
             "host": "localhost",
         },
           "justMyCode": false
+            },
+            {
+                    "name": "IPT Django Q Worker",
+                    "type": "debugpy",
+                    "request": "attach",
+                    "pathMappings": [
+                            {
+                                    "localRoot": "${workspaceFolder}",
+                                    "remoteRoot": "/code"
+                            }
+                    ],
+                    "connect": {
+                        "port": 5021,
+                        "host": "localhost"
+                    },
+                    "justMyCode": false
       }
   ]
 }

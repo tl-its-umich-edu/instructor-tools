@@ -26,7 +26,7 @@ class AltTextProcessor:
         self.model = config.AZURE_MODEL
     
     @log_execution_time
-    def generate_alt_text(self, image: Image.Image) -> Optional[str]:
+    def generate_alt_text(self, image: Image.Image, image_url: str) -> Optional[str]:
         """
         Generate alt text for an image using Azure OpenAI.
         
@@ -36,6 +36,7 @@ class AltTextProcessor:
         Returns:
             Generated alt text string, or None if generation fails
         """
+        logger.info(f"Starting alt text generation for image: {image_url}")
         # Encode image to base64 (converts to JPEG if needed)
         img_buffer = io.BytesIO()
         image.save(img_buffer, format='JPEG')

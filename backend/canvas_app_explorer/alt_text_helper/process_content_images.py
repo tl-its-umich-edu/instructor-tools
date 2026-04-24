@@ -37,10 +37,10 @@ class ProcessContentImages:
         if bearer_token and not self._auth_header:
             self._auth_header = {'Authorization': f'Bearer {bearer_token}'}
 
-    @log_execution_time
-    def get_images_by_course(self):
-        """Compatibility wrapper — now delegates to `retrieve_images_with_alt_text` which is DB-backed."""
-        return self.retrieve_images_with_alt_text()
+    # @log_execution_time
+    # def get_images_by_course(self):
+    #     """Compatibility wrapper — now delegates to `retrieve_images_with_alt_text` which is DB-backed."""
+    #     return self.retrieve_images_with_alt_text()
 
     @log_execution_time
     def retrieve_images_with_alt_text(self) -> Dict[str, Dict[str, Any]]:
@@ -55,6 +55,7 @@ class ProcessContentImages:
         """
         try:
             # Traverse FK: ImageItem -> ContentItem -> CourseScan (single JOIN query)
+            # raise NotImplementedError("Debug exception to test error handling in image retrieval")  # --- IGNORE ---
             qs = ImageItem.objects.filter(content_item__course_scan_id=self.course_scan_id)
             logger.info(f"Retrieved {qs.count()} ImageItems for course_scan_id: {self.course_scan_id}, course_id: {self.course_id}")
 
@@ -107,7 +108,27 @@ class ProcessContentImages:
             logger.error(f"Error retrieving images for course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {e}")
             raise e
 
+    def _validate_image_format(self, image_content: bytes, img_url: str) -> Optional[str]:
+        """
+        Validate that image content is in a supported Pillow format.
+        
+        Returns the detected format (e.g., 'JPEG', 'PNG') if valid, or None if invalid.
+        Raises ValueError if content-type is invalid or format is unsupported.
+        """
+        try:
+            img = Image.open(io.BytesIO(image_content))
+            detected_format = img.format
+            
+            if not detected_format:
+                raise ValueError(f"Image format could not be detected for {img_url}")
+            
+            logger.info(f"Detected image format: {detected_format} for {img_url}")
+            return detected_format
+        except Exception as e:
+            raise ValueError(f"Invalid or unsupported image format for {img_url}: {e}")
+
     async def get_image_content_async(self, img_url):
+        logger.info(f"Fetching image content for url: {img_url}")
         if not img_url:
             err = ValueError(f"No image URL provided for image {img_url}")
             logger.error(err)
@@ -128,12 +149,24 @@ class ProcessContentImages:
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 # Only pass headers parameter if headers is not None
+                # img_url = 'https://canvas-test.it.umich.edu/courses/560359/file_contents/course%20files/~%20Course%20Images%20for%20Elementary%20Greek/mic1_3590r-copy~s600x600.jpg'
                 if headers:
                     resp = await client.get(img_url, headers=headers)
                 else:
                     resp = await client.get(img_url)
                 resp.raise_for_status()
+                
+                # Validate content-type header
+                content_type = resp.headers.get('content-type', '')
+                if 'image' not in content_type:
+                    raise ValueError(f"Invalid content-type header for {img_url}: {content_type}")
+                
                 image_content = resp.content
+                
+                # # Validate image format before optimization
+                # detected_format = self._validate_image_format(image_content, img_url)
+                # logger.info(f"Image format validated: {detected_format} for {img_url}")
+                
                 optimized_image_content = self.get_optimized_images(image_content, img_url)
                 return optimized_image_content
         except httpx.HTTPStatusError as http_err:
@@ -164,7 +197,8 @@ class ProcessContentImages:
 
                     # Convert to PIL Image and generate alt text
                     pil_image = Image.open(io.BytesIO(contents))
-                    alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image)
+                    logger.info(f"Generating alt text for image {img_url} using Azure OpenAI")
+                    alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image, img_url)
                     # Handle None return value by providing empty string fallback
                     return {'img': img, 'alt_text': alt_text or ''}
                 except Exception as e:
