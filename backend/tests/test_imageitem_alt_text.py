@@ -7,7 +7,7 @@ class TestImageItemAltText(TestCase):
         # create parent CourseScan and ContentItem
         cs = CourseScan.objects.create(course_id=999999)
         content_item = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
             content_id=1,
             content_name='Test'
@@ -15,7 +15,6 @@ class TestImageItemAltText(TestCase):
 
         long_text = 'x' * 1500  # longer than 1000 chars
         img = ImageItem.objects.create(
-            course=cs,
             content_item=content_item,
             image_url='https://example.com/img.jpg',
             image_alt_text=long_text,

@@ -75,26 +75,30 @@ export default function AltTextReview() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
-  const categoryForReview = useMemo<ContentCategoryForReview | null>(() => {
-    const params = new URLSearchParams(location.search);
-    const categoryFromUrl = params.get('category');
+  const { categoryForReview, scanIdFromUrl } = useMemo(() => {
+    const state = (location.state as { category?: string; scanId?: number } | null) || {};
+    const { category: categoryFromState, scanId: scanIdFromState } = state;
 
-    if (!categoryFromUrl) return null;
-    if (!(categoryFromUrl in CATEGORY_TO_CONTENT_TYPE)) return null;
+    const category = (categoryFromState && categoryFromState in CATEGORY_TO_CONTENT_TYPE)
+      ? categoryFromState as ContentCategoryForReview
+      : null;
 
-    return categoryFromUrl as ContentCategoryForReview;
-  }, [location.search]);
+    return {
+      categoryForReview: category,
+      scanIdFromUrl: scanIdFromState && scanIdFromState > 0 ? scanIdFromState : null,
+    };
+  }, [location.state]);
 
   useEffect(() => {
-    if (!categoryForReview) {
+    if (!categoryForReview || !scanIdFromUrl || scanIdFromUrl <= 0) {
       navigate('/alt-text-helper');
     }
-  }, [categoryForReview, navigate]);
+  }, [categoryForReview, scanIdFromUrl, navigate]);
 
   const { data: contentItems, isFetching, error } = useQuery<ContentItem[], Error>({
-    queryKey: ['contentImages', categoryForReview],
-    queryFn: () => getContentImages(CATEGORY_TO_CONTENT_TYPE[categoryForReview as ContentCategoryForReview]),
-    enabled: categoryForReview !== null,
+    queryKey: ['contentImages', categoryForReview, scanIdFromUrl],
+    queryFn: () => getContentImages(CATEGORY_TO_CONTENT_TYPE[categoryForReview as ContentCategoryForReview], scanIdFromUrl as number),
+    enabled: categoryForReview !== null && scanIdFromUrl !== null && scanIdFromUrl > 0,
     retry: false,
     retryOnMount: false, 
     onSuccess: (data) => {

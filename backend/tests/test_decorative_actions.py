@@ -59,13 +59,12 @@ class TestDecorativeActions(TestCase):
         """Images marked decorative should be removed just like approved items."""
         cs = CourseScan.objects.create(course_id=1)
         ci = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
             content_id=1,
             content_name='Test'
         )
         img = ImageItem.objects.create(
-            course=cs,
             content_item=ci,
             image_url='https://example.com/img.jpg',
             image_alt_text='foo',
@@ -73,6 +72,7 @@ class TestDecorativeActions(TestCase):
 
         updater = AltTextUpdate(course_id=1, canvas_api=DummyCanvasAPI(), content_with_alt_text=[], content_types=[])
         updater.content_alt_text_update_report = [{
+            'id': ci.id,
             'content_id': ci.content_id,
             'content_type': ci.content_type,
             'images': [

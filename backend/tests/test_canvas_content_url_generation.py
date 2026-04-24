@@ -129,19 +129,18 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         content_id = 100
         cs = CourseScan.objects.create(course_id=course_id)
         assignment = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
             content_id=content_id,
             content_name='Test Assignment',
             content_parent_id=None,
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=assignment,
             image_url='https://example.com/image.png'
         )
 
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': course_id}
         request.course_id = course_id
@@ -166,19 +165,18 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         content_id = 200
         cs = CourseScan.objects.create(course_id=course_id)
         page = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_PAGE,
             content_id=content_id,
             content_name='Test Page',
             content_parent_id=None,
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=page,
             image_url='https://example.com/image.png'
         )
 
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_PAGE})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_PAGE, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': course_id}
         request.course_id = course_id
@@ -203,19 +201,18 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         content_id = 300
         cs = CourseScan.objects.create(course_id=course_id)
         quiz = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ,
             content_id=content_id,
             content_name='Test Quiz',
             content_parent_id=None,
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=quiz,
             image_url='https://example.com/image.png'
         )
 
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': course_id}
         request.course_id = course_id
@@ -241,19 +238,18 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         question_id = 401
         cs = CourseScan.objects.create(course_id=course_id)
         question = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ_QUESTION,
             content_id=question_id,
             content_name='Test Question',
             content_parent_id=quiz_id,
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=question,
             image_url='https://example.com/image.png'
         )
 
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': course_id}
         request.course_id = course_id
@@ -279,7 +275,7 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         content_id = 500
         cs = CourseScan.objects.create(course_id=course_id)
         assignment = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_ASSIGNMENT,
             content_id=content_id,
             content_name='Multi-Image Assignment',
@@ -287,17 +283,15 @@ class TestGetContentImagesWithCanvasLinks(TestCase):
         )
         # Create multiple images for the same content
         ImageItem.objects.create(
-            course=cs,
             content_item=assignment,
             image_url='https://example.com/image1.png'
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=assignment,
             image_url='https://example.com/image2.png'
         )
 
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_ASSIGNMENT, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': course_id}
         request.course_id = course_id

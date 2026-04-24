@@ -16,9 +16,9 @@ class TestProcessContentImages(TestCase):
     def setUp(self):
         # create a CourseScan and related content/image items
         self.course_id = 123456
-        course_scan = CourseScan.objects.create(course_id=self.course_id)
-        content_item = ContentItem.objects.create(course=course_scan, content_type='page', content_id=1, content_name='Page 1')
-        self.image_item = ImageItem.objects.create(course=course_scan, content_item=content_item, image_url='http://example.com/img.jpg')
+        self.course_scan = CourseScan.objects.create(course_id=self.course_id)
+        content_item = ContentItem.objects.create(course_scan=self.course_scan, content_type='page', content_id=1, content_name='Page 1')
+        self.image_item = ImageItem.objects.create(content_item=content_item, image_url='http://example.com/img.jpg')
 
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
     @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
@@ -33,7 +33,7 @@ class TestProcessContentImages(TestCase):
         mock_get_content.return_value = buf.getvalue()
         mock_generate_alt.return_value = self.EXPECTED_ALT_TEXT
 
-        proc = ProcessContentImages(course_id=self.course_id)
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         results = proc.retrieve_images_with_alt_text()
 
         # ensure results contain our image_url and generated alt text
@@ -48,7 +48,7 @@ class TestProcessContentImages(TestCase):
     def test_retrieve_images_with_alt_text_raises_on_fetch_error(self, mock_get_content):
         mock_get_content.return_value = Exception('fetch failed')
 
-        proc = ProcessContentImages(course_id=self.course_id)
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         with self.assertRaises(ImageContentExtractionException) as ctx:
             proc.retrieve_images_with_alt_text()
 
@@ -65,12 +65,9 @@ class TestProcessContentImages(TestCase):
         mock_instance = mock_proc_cls.return_value
         mock_instance.retrieve_images_with_alt_text.return_value = {'http://example.com/img.jpg': {'image_alt_text': 'alt'}}
 
-        from canvasapi.course import Course
-        dummy_course = Course(None, {'id': self.course_id})
+        result = retrieve_and_store_alt_text(self.course_scan.id, self.course_id, bearer_token=None)
 
-        result = retrieve_and_store_alt_text(dummy_course, bearer_token=None)
-
-        mock_proc_cls.assert_called_once_with(course_id=self.course_id, bearer_token=None)
+        mock_proc_cls.assert_called_once_with(course_scan_id=self.course_scan.id, course_id=self.course_id, bearer_token=None)
         self.assertEqual(result, {'http://example.com/img.jpg': {'image_alt_text': 'alt'}})
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
@@ -102,6 +99,7 @@ class TestProcessContentImages(TestCase):
         )
         
         task = {
+            'course_scan_id': course_scan.id,
             'course_id': course_id,
             'user_id': user.id,
             'canvas_callback_url': 'http://localhost/callback'
@@ -128,7 +126,7 @@ class TestProcessContentImages(TestCase):
         mock_get_content.return_value = buf.getvalue()
         mock_generate_alt.return_value = None  # Simulate API failure returning None
 
-        proc = ProcessContentImages(course_id=self.course_id)
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         results = proc.retrieve_images_with_alt_text()
 
         # Results should be empty since the image was skipped
@@ -153,10 +151,10 @@ class TestProcessContentImages(TestCase):
         mock_get_content.return_value = buf.getvalue()
         mock_generate_alt.return_value = None
 
-        proc = ProcessContentImages(course_id=self.course_id)
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         
         # Get the image models
-        image_models = list(ImageItem.objects.filter(course_id=self.course_id))
+        image_models = list(ImageItem.objects.filter(content_item__course_scan_id=self.course_scan.id))
         
         # Call _process_images_concurrently which calls _worker_async
         results = proc._process_images_concurrently(image_models)
@@ -176,7 +174,7 @@ class TestProcessContentImages(TestCase):
         
         # Add another image
         image_item_2 = ImageItem.objects.create(
-            course=self.image_item.course, content_item=self.image_item.content_item, image_url='http://example.com/img2.jpg'
+            content_item=self.image_item.content_item, image_url='http://example.com/img2.jpg'
         )
         
         img = Image.new('RGB', (10, 10), color=(255, 0, 0))
@@ -188,7 +186,7 @@ class TestProcessContentImages(TestCase):
         # First image gets alt text, second returns None
         mock_generate_alt.side_effect = ['First image alt text', None]
 
-        proc = ProcessContentImages(course_id=self.course_id)
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         results = proc.retrieve_images_with_alt_text()
 
         # Only the first image should be in results

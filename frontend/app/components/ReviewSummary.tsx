@@ -89,10 +89,11 @@ export default function ReviewSummary({
       const contentImage = imagesById[key];
       if (!contentImage) return;
 
-      const { content_id, content_name, content_parent_id, content_parent_name, content_type } = contentImage;
+      const { id, content_id, content_name, content_parent_id, content_parent_name, content_type } = contentImage;
 
       if (!groupedByContent[content_id]) {
         groupedByContent[content_id] = {
+          id,
           content_id,
           content_name,
           content_parent_id,
