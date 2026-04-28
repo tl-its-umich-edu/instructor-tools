@@ -55,3 +55,14 @@ class ImageContentExtractionException(Exception):
         self.errors = errors
         super().__init__(f"Image content extraction failed with {len(errors)} errors {errors}")
 
+
+class AltTextGenerationException(Exception):
+    """Raised when alt text generation fails for a single image.
+
+    Attributes:
+        cause (Exception): The underlying exception that triggered this error.
+    """
+    def __init__(self, cause: Exception) -> None:
+        self.cause = cause
+        super().__init__(f"Alt text generation failed: {cause}")
+

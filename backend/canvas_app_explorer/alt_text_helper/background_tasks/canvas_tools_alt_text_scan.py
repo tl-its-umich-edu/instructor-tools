@@ -21,7 +21,6 @@ from canvas_oauth.models import CanvasOAuth2Token
 
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
-from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.decorators import log_execution_time
@@ -30,6 +29,7 @@ from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import (
     ContentItemWithImages,
     CourseFetchError,
     ImageEntry,
+    ImageAltTextResult,
     QuizQuestionFetchError,
 )
 
@@ -90,11 +90,19 @@ def fetch_and_scan_course(task: Dict[str, Any]):
             update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.", course_id=course_id)
             return
         
-        try:
-            retrieve_and_store_alt_text(course_scan_id, course_id, bearer_token=bearer_token)
-        except ImageContentExtractionException as e:
-            logger.error(f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}")
-            update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}", course_id=course_id)
+        alt_text_results: List[ImageAltTextResult] = retrieve_and_store_alt_text(course_scan_id, course_id, bearer_token=bearer_token)
+        
+        # Check if any alt text results contain errors
+        has_errors = any(
+            result['type'] in ('image_error', 'alt_text_error')
+            for result in alt_text_results
+        )
+        
+        if has_errors:
+            error_results = [r for r in alt_text_results if r['type'] in ('image_error', 'alt_text_error')]
+            error_msg = f"Alt text generation completed with {len(error_results)} error(s) for course_id {course_id}"
+            logger.error(error_msg)
+            update_course_scan(course_scan_id, CourseScanStatus.FAILED, error_msg, course_id=course_id)
             return
 
         # Update that the course scan is completed
@@ -135,7 +143,7 @@ async def get_courses_images(course: Course) -> List[
     logger.info("raw results from gather course images: %s", results)
     return results
     
-def retrieve_and_store_alt_text(course_scan_id: int, course_id: int, bearer_token: Optional[str] = None):
+def retrieve_and_store_alt_text(course_scan_id: int, course_id: int, bearer_token: Optional[str] = None) -> List[ImageAltTextResult]:
     """
     Retrieve alt text for images in the given course scan using AI processor.
     The images for the course need to have been processed first to get the image URLs.
@@ -143,6 +151,8 @@ def retrieve_and_store_alt_text(course_scan_id: int, course_id: int, bearer_toke
     :param course_scan_id: CourseScan ID to scope images via ContentItem FK
     :type course_scan_id: int
     :param bearer_token: Optional bearer token to pass directly to the image fetcher for Authorization
+    :return: List of ImageAltTextResult dicts with type discriminating success/image_error/alt_text_error
+    :rtype: List[ImageAltTextResult]
     """
     process_content_images = ProcessContentImages(
         course_scan_id=course_scan_id,
@@ -234,6 +244,8 @@ def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentIt
     Save the scan results into the database within a transaction.
     Creates ContentItem and ImageItem records scoped to the provided course_scan_id
     without deleting records from prior scans for the course.
+    Also updates the CourseScan.total_image_count with the total number of images found.
+    Only saves images with 'success' status; images with 'error' status are logged but not persisted.
     
     :param course_scan_id: CourseScan ID
     :type course_scan_id: int
@@ -244,6 +256,11 @@ def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentIt
     """
     try:
         with transaction.atomic():
+            # Calculate total image count across all items (only counting successful images)
+            total_image_count = sum(
+                len([img for img in item.get('images', []) if img.get('status') == 'success'])
+                for item in items
+            )
             
             for item in items:
                 content_item = ContentItem.objects.create(
@@ -256,14 +273,25 @@ def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentIt
                 
                 for img in item['images']:
                     # img is an ImageEntry dict with 'url', 'status', and optional 'error'
+                    img_status = img.get('status')
                     image_url = img.get('url')
-                    error_obj = img.get('error') if img.get('status') == 'error' else None
-                    logger.debug(f"Saving ImageItem - URL: {image_url}, Status: {img.get('status')}, Error: {error_obj}")
                     
-                    ImageItem.objects.create(
-                        content_item=content_item,
-                        image_url=image_url
-                    )
+                    # Only save images with success status; log errors but do not persist them
+                    if img_status == 'success':
+                        logger.debug(f"Saving ImageItem - URL: {image_url}, Status: {img_status}")
+                        ImageItem.objects.create(
+                            content_item=content_item,
+                            image_url=image_url
+                        )
+                    elif img_status == 'error':
+                        error_obj = img.get('error')
+                        logger.warning(f"Skipping ImageItem with error - URL: {image_url}, Error: {error_obj}")
+            
+            # Update the CourseScan with the total image count
+            course_scan = CourseScan.objects.get(id=course_scan_id)
+            course_scan.total_image_count = total_image_count
+            course_scan.save()
+            logger.info(f"Updated course_scan_id {course_scan_id} with total_image_count: {total_image_count}")
 
     except (DatabaseError, Exception) as e:
         logger.error(f"Error in save_scan_results transaction for course_scan_id {course_scan_id}, course_id {course_id}: {e}")
@@ -287,13 +315,13 @@ def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseF
     """
     Synchronously fetches assignments for a given course using canvas_api.get_assignments().
     """
-    # user_id = 1
-    # req_user: User = get_user_model().objects.get(pk=user_id)
-    # canvas_callback_url = '/oauth/oauth-callback'
-    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
-    # manager = MANAGER_FACTORY.create_manager(request)
-    # canvas_api: Canvas = manager.canvas_api
-    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
+    user_id = 1
+    req_user: User = get_user_model().objects.get(pk=user_id)
+    canvas_callback_url = '/oauth/oauth-callback'
+    request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
+    manager = MANAGER_FACTORY.create_manager(request)
+    canvas_api: Canvas = manager.canvas_api
+    course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
 
     try:
         logger.info(f"Fetching assignments for course {course.id}.")
@@ -444,7 +472,7 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
             'description': getattr(source_quiz, 'description', ''),
         })
 
-    if quiz.id == 485512:  # specific quiz ID to trigger error for testing
+    if quiz.id == 485516:  # specific quiz ID to trigger error for testing
         quiz = _build_debug_quiz(quiz)
 
     logger.info(f"Fetching questions for quiz ID: {quiz.id}, Title: {quiz.title}")

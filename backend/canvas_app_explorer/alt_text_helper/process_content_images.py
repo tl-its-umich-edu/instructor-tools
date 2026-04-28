@@ -6,8 +6,9 @@ from typing import Any, Dict, List, Tuple, Optional
 from django.conf import settings
 from constance import config
 from asgiref.sync import async_to_sync
-from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
+from backend.canvas_app_explorer.canvas_lti_manager.exception import AltTextGenerationException
 from backend.canvas_app_explorer.alt_text_helper.ai_processor import AltTextProcessor
+from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import ImageAltTextResult
 from backend.canvas_app_explorer.decorators import log_execution_time
 from PIL import Image
 import httpx
@@ -37,21 +38,17 @@ class ProcessContentImages:
         if bearer_token and not self._auth_header:
             self._auth_header = {'Authorization': f'Bearer {bearer_token}'}
 
-    # @log_execution_time
-    # def get_images_by_course(self):
-    #     """Compatibility wrapper — now delegates to `retrieve_images_with_alt_text` which is DB-backed."""
-    #     return self.retrieve_images_with_alt_text()
 
     @log_execution_time
-    def retrieve_images_with_alt_text(self) -> Dict[str, Dict[str, Any]]:
+    def retrieve_images_with_alt_text(self) -> List[ImageAltTextResult]:
         """Process ImageItem records for this course concurrently and generate alt text.
 
         - Reads ImageItem rows for course_scan_id
         - Fetches image content and generates alt text concurrently (bounded to avoid memory/API spikes)
         - Bulk-updates ImageItem.image_alt_text for successful ones
-        - If any fetch/generation failed, raises ImageContentExtractionException with list of errors
+        - Returns a list of ImageAltTextResult dicts, one per image
 
-        Returns a dict mapping image_url -> {image_url, image_alt_text}
+        Each result discriminated by 'type': 'success' | 'image_error' | 'alt_text_error'
         """
         try:
             # Traverse FK: ImageItem -> ContentItem -> CourseScan (single JOIN query)
@@ -59,39 +56,34 @@ class ProcessContentImages:
             qs = ImageItem.objects.filter(content_item__course_scan_id=self.course_scan_id)
             logger.info(f"Retrieved {qs.count()} ImageItems for course_scan_id: {self.course_scan_id}, course_id: {self.course_id}")
 
-            results: Dict[str, Dict[str, Any]] = {}
-            errors = []
             to_update = []
 
             # Collect image models
             image_models = list(qs.iterator())
 
-            # Process images concurrently: fetch content and generate alt text for each, bounded
-            if image_models:
-                gen_results = self._process_images_concurrently(image_models)
+            # Early return if no images to process
+            if not image_models:
+                return []
 
-                for res in gen_results:
-                    img = res['img']
-                    alt_or_exc = res['alt_text']
-                    img_url = img.image_url
+            gen_results = self._process_images_concurrently(image_models)
 
-                    if isinstance(alt_or_exc, Exception):
-                        logger.error(f"Processing failed for image {img_url}: {alt_or_exc}")
-                        errors.append(alt_or_exc)
-                        continue
+            for res in gen_results:
+                img = res['img']
+                alt_or_exc = res['alt_text']
+                img_url = img.image_url
 
-                    # Skip if alt_text is None or empty string
-                    if not alt_or_exc:
-                        logger.warning(f"No alt text generated for image {img_url}")
-                        continue
+                if isinstance(alt_or_exc, Exception):
+                    logger.error(f"Processing failed for image {img_url}: {alt_or_exc}")
+                    continue
 
-                    img.image_alt_text = alt_or_exc
-                    to_update.append(img)
-                    results[img_url] = {
-                        'image_url': img_url,
-                        'image_alt_text': alt_or_exc
-                    }
-                    logger.info(f"Generated alt text for image url={img_url}")
+                # Skip if alt_text is None or empty string
+                if not alt_or_exc:
+                    logger.warning(f"No alt text generated for image {img_url}")
+                    continue
+
+                img.image_alt_text = alt_or_exc
+                to_update.append(img)
+                logger.info(f"Generated alt text for image url={img_url}")
 
 
             # Bulk update successful alt texts
@@ -99,33 +91,12 @@ class ProcessContentImages:
                 ImageItem.objects.bulk_update(to_update, ['image_alt_text'])
                 logger.info(f"Updated {len(to_update)} ImageItem records with alt text for course_scan_id {self.course_scan_id}, course_id: {self.course_id}")
 
-            if errors:
-                # Return successful results but raise to let caller handle failures
-                raise ImageContentExtractionException(errors)
-
-            return results
+            return gen_results
         except Exception as e:
             logger.error(f"Error retrieving images for course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {e}")
-            raise e
-
-    def _validate_image_format(self, image_content: bytes, img_url: str) -> Optional[str]:
-        """
-        Validate that image content is in a supported Pillow format.
-        
-        Returns the detected format (e.g., 'JPEG', 'PNG') if valid, or None if invalid.
-        Raises ValueError if content-type is invalid or format is unsupported.
-        """
-        try:
-            img = Image.open(io.BytesIO(image_content))
-            detected_format = img.format
-            
-            if not detected_format:
-                raise ValueError(f"Image format could not be detected for {img_url}")
-            
-            logger.info(f"Detected image format: {detected_format} for {img_url}")
-            return detected_format
-        except Exception as e:
-            raise ValueError(f"Invalid or unsupported image format for {img_url}: {e}")
+            # Return a single error ImageAltTextResult with the exception
+            error_result: ImageAltTextResult = {'type': 'image_error', 'img': None, 'alt_text': e}
+            return [error_result]
 
     async def get_image_content_async(self, img_url):
         logger.info(f"Fetching image content for url: {img_url}")
@@ -159,14 +130,8 @@ class ProcessContentImages:
                 # Validate content-type header
                 content_type = resp.headers.get('content-type', '')
                 if 'image' not in content_type:
-                    raise ValueError(f"Invalid content-type header for {img_url}: {content_type}")
-                
+                    raise ValueError(f"Invalid content-type header received: {content_type}")
                 image_content = resp.content
-                
-                # # Validate image format before optimization
-                # detected_format = self._validate_image_format(image_content, img_url)
-                # logger.info(f"Image format validated: {detected_format} for {img_url}")
-                
                 optimized_image_content = self.get_optimized_images(image_content, img_url)
                 return optimized_image_content
         except httpx.HTTPStatusError as http_err:
@@ -177,50 +142,68 @@ class ProcessContentImages:
             return req_err
 
     @log_execution_time
-    async def _worker_async(self, image_models: List[ImageItem], concurrency: int) -> List[Dict[str, Any]]:
+    async def _worker_async(self, image_models: List[ImageItem], concurrency: int) -> List[ImageAltTextResult]:
         """Process images concurrently using semaphore for concurrency control.
 
         - Fetches image content (async) then generates alt text (in thread)
         - Limits concurrent in-flight tasks via asyncio.Semaphore
-        - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
+        - Returns a list of ImageAltTextResult dicts discriminated by 'type':
+            'success' | 'image_error' | 'alt_text_error'
         """
         sem = asyncio.Semaphore(concurrency)
 
-        async def _process_single_image(img: ImageItem) -> Dict[str, Any]:
+        async def _process_single_image(img: ImageItem) -> ImageAltTextResult:
             async with sem:
                 img_url = img.image_url
                 try:
                     # Fetch image content
                     contents = await self.get_image_content_async(img_url)
                     if isinstance(contents, Exception):
-                        return {'img': img, 'alt_text': contents}
+                        return {'type': 'image_error', 'img': img, 'alt_text': contents}
 
                     # Convert to PIL Image and generate alt text
                     pil_image = Image.open(io.BytesIO(contents))
                     logger.info(f"Generating alt text for image {img_url} using Azure OpenAI")
                     alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image, img_url)
                     # Handle None return value by providing empty string fallback
-                    return {'img': img, 'alt_text': alt_text or ''}
+                    return {'type': 'success', 'img': img, 'alt_text': alt_text or ''}
+                except AltTextGenerationException as alt_exc:
+                    logger.error(f"AltTextGenerationException for image {img_url}: {alt_exc}")
+                    return {'type': 'alt_text_error', 'img': img, 'alt_text': alt_exc}
                 except Exception as e:
                     logger.error(f"Processing exception for image {img_url}: {e}")
-                    return {'img': img, 'alt_text': e}
+                    return {'type': 'image_error', 'img': img, 'alt_text': e}
 
         tasks = [_process_single_image(img) for img in image_models]
         return await asyncio.gather(*tasks, return_exceptions=False)
 
     @log_execution_time
-    def _process_images_concurrently(self, image_models: List[ImageItem]) -> List[Dict[str, Any]]:
+    def _process_images_concurrently(self, image_models: List[ImageItem]) -> List[ImageAltTextResult]:
         """Process images concurrently: fetch content and generate alt text for each, bounded.
 
         - Uses asyncio.Semaphore to limit concurrent in-flight image processing tasks (from settings IMAGE_PROCESSING_CONCURRENCY)
         - Each task fetches image content (async) then generates alt text (in thread)
-        - Returns a list of dicts: {'img': ImageItem, 'alt_text': str|Exception}
+        - Returns a list of ImageAltTextResult dicts discriminated by 'type':
+            'success' | 'image_error' | 'alt_text_error'
         """
         concurrency = config.IMAGE_PROCESSING_CONCURRENCY
         return async_to_sync(self._worker_async)(image_models, concurrency)
 
     # https://www.buildwithmatija.com/blog/reduce-image-sizes-ai-processing-costs#the-smart-optimization-strategy
-    def get_optimized_images(self, image_content, image_id):
+    def get_optimized_images(self, image_content: bytes, image_url: str) -> bytes:
+        """Optimize raw image bytes for downstream alt-text processing.
+
+        Opens image bytes with Pillow, resizes while preserving aspect ratio when
+        needed, normalizes color mode to RGB, and re-encodes the result as JPEG.
+
+        :param image_content: Raw bytes fetched from the source image URL.
+        :type image_content: bytes
+        :param image_url: Source URL used for logging context.
+        :type image_url: str
+        :return: Optimized JPEG bytes.
+        :rtype: bytes
+        :raises Exception: Re-raises any optimization error after logging.
+        """
         original_size = len(image_content)
         try:
             # Open with PIL
@@ -269,15 +252,15 @@ class ProcessContentImages:
                 'optimized_format': 'JPEG'
             }
 
-            logger.debug(f"Optimization metrics for {image_id}: {metrics}")
+            logger.debug(f"Optimization metrics for {image_url}: {metrics}")
             logger.info(
-                f"Optimized {image_id}: {original_size} \u2192 {optimized_size} bytes "
+                f"Optimized {image_url}: {original_size} \u2192 {optimized_size} bytes "
                 f"({size_reduction_percent:.1f}% reduction)"
             )
             return optimized_bytes
 
         except Exception as e:
-            logger.error(f"Failed to optimize image with ID {image_id} due to {e}")
+            logger.error(f"Failed to optimize image with URL {image_url} due to {e}")
             raise e
 
     def _calculate_optimal_size(self, original_size: Tuple[int, int]) -> Tuple[int, int]:

@@ -77,6 +77,8 @@ class CourseScan(models.Model):
     course_id = models.BigIntegerField()
     # Simple status string (pending, running, completed, failed)
     status = models.CharField(max_length=50, default=CourseScanStatus.PENDING, choices=CourseScanStatus.choices)
+    # Total number of images found in the course scan (defaults to 0 for previous scans)
+    total_image_count = models.IntegerField(default=0)
     # When the scan was created
     created_at = models.DateTimeField(auto_now_add=True)
     # When the scan was last updated
