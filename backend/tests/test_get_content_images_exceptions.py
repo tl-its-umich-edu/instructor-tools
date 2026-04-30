@@ -5,9 +5,8 @@ from django.test import TestCase
 
 
 class DummyProcessImages(ProcessContentImages):
-    def __init__(self, course_id):
-        # don't need canvas_api parameter anymore
-        super().__init__(course_id=course_id)
+    def __init__(self, course_scan_id, course_id):
+        super().__init__(course_scan_id=course_scan_id, course_id=course_id)
 
     async def get_image_content_async(self, img_url):
         # Mock the async fetch for testing
@@ -26,13 +25,13 @@ class TestGetContentImages(TestCase):
     def setUp(self):
         # Create CourseScan and ContentItem necessary for FK constraints
         self.course_scan = CourseScan.objects.create(course_id=1)
-        self.content_item = ContentItem.objects.create(course=self.course_scan, content_type='page', content_id=10, content_name='C')
+        self.content_item = ContentItem.objects.create(course_scan=self.course_scan, content_type='page', content_id=10, content_name='C')
 
-        self.image_item_1 = ImageItem.objects.create(course=self.course_scan, content_item=self.content_item, image_url='https://example.com/1')
-        self.image_item_2 = ImageItem.objects.create(course=self.course_scan, content_item=self.content_item, image_url='https://example.com/2')
+        self.image_item_1 = ImageItem.objects.create(content_item=self.content_item, image_url='https://example.com/1')
+        self.image_item_2 = ImageItem.objects.create(content_item=self.content_item, image_url='https://example.com/2')
 
     def test_retrieve_images_updates_successful_and_raises_on_errors(self):
-        proc = DummyProcessImages(course_id=1)
+        proc = DummyProcessImages(course_scan_id=self.course_scan.id, course_id=1)
         # stub alt_text_generator to deterministic value
         # The generate_alt_text receives a PIL Image object, not bytes
         proc.alt_text_processor.generate_alt_text = lambda img: 'GENERATED'
@@ -41,10 +40,6 @@ class TestGetContentImages(TestCase):
             proc.retrieve_images_with_alt_text()
 
         exc = cm.exception
-        # Debugging output to inspect why multiple errors are present
-        print("DEBUG: exc.errors repr:", repr(exc.errors))
-        print("DEBUG: exc.errors types:", [type(e) for e in exc.errors])
-        print("DEBUG: exc.errors contents:", exc.errors)
         self.assertIsInstance(exc.errors, list)
         self.assertEqual(len(exc.errors), 1)
 

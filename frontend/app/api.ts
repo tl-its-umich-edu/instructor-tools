@@ -153,8 +153,14 @@ async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLast
   }
 }
 
-async function getContentImages(contentType: 'assignment' | 'page' | 'quiz'): Promise<ContentItem[]> {
-  const url = `${API_BASE}/alt-text/content-images?content_type=${encodeURIComponent(contentType)}`;
+async function getContentImages(
+  contentType: 'assignment' | 'page' | 'quiz',
+  courseScanId: number
+): Promise<ContentItem[]> {
+  const params = new URLSearchParams();
+  params.set('content_type', contentType);
+  params.set('course_scan_id', String(courseScanId));
+  const url = `${API_BASE}/alt-text/content-images?${params.toString()}`;
   const res = await fetch(url, {
     headers: withSignedPayloadHeader(),
   });
