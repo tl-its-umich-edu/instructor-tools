@@ -48,6 +48,7 @@ export default function ReviewSelectForm({ scanPending, lastScan, selectedCatego
           <InputLabel id="review-category-select-label">Content Category</InputLabel>
           <Select
             labelId="review-category-select-label"
+            id="review-category-select"
             value={selectedCategory}
             label="Content Category"
             disabled={scanPending}

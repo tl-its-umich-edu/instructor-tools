@@ -135,7 +135,7 @@ export default function ContentImageCard({
         <Box>
           <Box sx={{display: 'flex', alignItems: 'center', gap: 0.5, marginBottom: 0.5}}>
             <Typography variant="body2">
-              Alt Text Label:
+              Review Status:
             </Typography>
             {getStatusChip()}
           </Box>
