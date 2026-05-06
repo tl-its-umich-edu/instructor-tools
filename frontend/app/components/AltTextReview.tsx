@@ -73,6 +73,8 @@ export default function AltTextReview() {
   const [allImages, setAllImages] = useState<ContentImageEnriched[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  // Tracks the current bulk action selection for "Set X as" dropdown
+  const [pageActionSelection, setPageActionSelection] = useState<ActionType | ''>('');
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
   const { categoryForReview, scanIdFromUrl } = useMemo(() => {
@@ -198,18 +200,34 @@ export default function AltTextReview() {
     setReviewStates(prev => {
       const newStates = { ...prev };
       paginatedImages.forEach(img => {
-        const key = img.image_id;
+        const key = String(img.image_id);
         newStates[key] = {
           ...newStates[key],
           action,
         };
       });
+      // Announce to screen readers how many items were affected
+      const changedCount = paginatedImages.length;
+      if (changedCount > 0) {
+        const msg = `${changedCount} alt text label${changedCount !== 1 ? 's' : ''} set as ${action}`;
+        const announcement = document.createElement('div');
+        announcement.setAttribute('role', 'status');
+        announcement.setAttribute('aria-live', 'polite');
+        announcement.textContent = msg;
+        announcement.style.position = 'absolute';
+        announcement.style.left = '-10000px';
+        document.body.appendChild(announcement);
+        setTimeout(() => announcement.remove(), 1000);
+      }
       return newStates;
     });
+    setPageActionSelection(action);
   };
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
+    // Reset bulk action selection when moving to a new page
+    setPageActionSelection('');
   };
 
   const errors = [error].filter(e => e !== null) as Error[];
@@ -268,17 +286,21 @@ export default function AltTextReview() {
             <>
               <TopControls>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Set {paginatedImages.length} alt text label{paginatedImages.length !== 1 ? 's' : ''} as</InputLabel>
+                  <InputLabel>Bulk set all alt text labels as</InputLabel>
                   <Select
-                    value=""
-                    label={`Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} as`}
+                    value={pageActionSelection}
+                    label="Bulk set all alt text labels as"
                     onChange={(e) => handleSetPageAs(e.target.value as ActionType)}
+                    aria-describedby="bulk-action-description"
                   >
                     <MenuItem value="approve">Approve</MenuItem>
                     <MenuItem value="skip">Skip for now</MenuItem>
                     <MenuItem value="decorative">Decorative</MenuItem>
                   </Select>
                 </FormControl>
+                <Typography id="bulk-action-description" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Applies to all items on this page.
+                </Typography>
               </TopControls>
               <Grid container spacing={3}>
                 {paginatedImages.map((imgData) => {

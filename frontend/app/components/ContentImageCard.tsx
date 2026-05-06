@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip, Link, Tooltip } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -57,17 +57,8 @@ export default function ContentImageCard({
   action = 'unreviewed',
   altText,
   onActionChange,
-  onAltTextChange 
+  onAltTextChange
 }: ContentImageCardProps) {
-  const [localAltText, setLocalAltText] = useState<string>(altText ?? '');
-
-  // Sync local state with prop when it changes
-  useEffect(() => {
-    if (altText !== undefined && altText !== null) {
-      setLocalAltText(altText);
-    }
-  }, [altText]);
-
   const handleActionChange = (newAction: ActionType) => {
     if (onActionChange) {
       onActionChange(newAction);
@@ -76,7 +67,6 @@ export default function ContentImageCard({
 
   const handleAltTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    setLocalAltText(newValue);
     if (onAltTextChange) {
       onAltTextChange(newValue);
     }
@@ -127,7 +117,7 @@ export default function ContentImageCard({
         <CardMedia
           component="img"
           image={contentImage.image_url}
-          alt={localAltText || String(contentImage.image_id)}
+          alt={altText || String(contentImage.image_id)}
           sx={{ width: '100%', height: 240, objectFit: 'contain' }}
         />
       </Box>
@@ -140,7 +130,7 @@ export default function ContentImageCard({
             {getStatusChip()}
           </Box>
           <TextField
-            value={localAltText}
+            value={altText}
             onChange={handleAltTextChange}
             size="small"
             fullWidth
@@ -151,7 +141,7 @@ export default function ContentImageCard({
             disabled={action === 'decorative' || action === 'skip'}
           />
           <Typography variant="body2">
-            {localAltText.length} characters
+            {altText.length} characters
           </Typography>
         </Box>
         <Box sx={{display: 'flex', gap: 1, width: '100%',}}>
