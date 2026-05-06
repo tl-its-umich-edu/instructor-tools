@@ -268,8 +268,10 @@ export default function AltTextReview() {
             <>
               <TopControls>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Set {paginatedImages.length} alt text label{paginatedImages.length !== 1 ? 's' : ''} as</InputLabel>
+                  <InputLabel id="bulk-alt-text-action-label">Set {paginatedImages.length} alt text label{paginatedImages.length !== 1 ? 's' : ''} as</InputLabel>
                   <Select
+                    id="bulk-alt-text-action-select"
+                    labelId="bulk-alt-text-action-label"
                     value=""
                     label={`Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} as`}
                     onChange={(e) => handleSetPageAs(e.target.value as ActionType)}

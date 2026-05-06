@@ -84,8 +84,8 @@ function AltTextHome(props: AltTextHomeProps) {
         </Typography>
         <Typography variant='body2'>
           <Link href={ai_services_url} target="_blank" rel="noopener">
-            Click here to learn more
-          </Link> about ITS Generative AI services. 
+            Learn more about ITS AI Services
+          </Link>
         </Typography>
       </TitleBlock>
       <Divider sx={{ marginBottom: 3}}/>
