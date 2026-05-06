@@ -20,47 +20,44 @@ class TestQuizParentName(TestCase):
         
         # Create a quiz (parent)
         quiz = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ,
             content_id=100,
             content_name='Quiz 1',
             content_parent_id=None,
         )
         quiz_img = ImageItem.objects.create(
-            course=cs,
             content_item=quiz,
             image_url='https://example.com/quiz1.png'
         )
         
         # Create quiz questions (children of the quiz)
         question1 = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ_QUESTION,
             content_id=101,
             content_name='Quiz Question 1',
             content_parent_id=100,  # References the quiz
         )
         q1_img = ImageItem.objects.create(
-            course=cs,
             content_item=question1,
             image_url='https://example.com/q1.png'
         )
         
         question2 = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ_QUESTION,
             content_id=102,
             content_name='Quiz Question 2',
             content_parent_id=100,  # References the quiz
         )
         q2_img = ImageItem.objects.create(
-            course=cs,
             content_item=question2,
             image_url='https://example.com/q2.png'
         )
 
         # Build request for quiz content type (which includes quiz questions)
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': cs.course_id}
         request.course_id = cs.course_id
@@ -100,19 +97,18 @@ class TestQuizParentName(TestCase):
         
         # Create a quiz question with a parent_id that doesn't exist
         orphan_question = ContentItem.objects.create(
-            course=cs,
+            course_scan=cs,
             content_type=ContentItem.CONTENT_TYPE_QUIZ_QUESTION,
             content_id=201,
             content_name='Orphan Question',
             content_parent_id=999,  # Non-existent parent
         )
         ImageItem.objects.create(
-            course=cs,
             content_item=orphan_question,
             image_url='https://example.com/orphan.png'
         )
 
-        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ})
+        request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ, 'course_scan_id': cs.id})
         request.user = self.user
         request.session = {'course_id': cs.course_id}
         request.course_id = cs.course_id

@@ -38,14 +38,18 @@ semaphore = asyncio.Semaphore(10)
 
 @log_execution_time
 def fetch_and_scan_course(task: Dict[str, Any]):
-    logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
-      # mark CourseScan as running (create if missing)
-    course_id = int(task.get('course_id'))
+    """Run the end-to-end background scan for a course.
 
-    # adding a status before start of the scan, if this DB action failed no need to stop next steps of fetching content images
-    update_course_scan(course_id, CourseScanStatus.RUNNING)
+    This task orchestrates Canvas client setup, content/image discovery,
+    persistence of scan results, AI alt-text generation, and final scan status
+    updates (COMPLETED or FAILED).
+    """
+    logger.info(f"Starting fetch_and_scan_course for course_id: {task.get('course_id')}")
 
     try:
+        course_scan_id = int(task.get('course_scan_id'))
+        course_id = int(task.get('course_id'))
+        update_course_scan(course_scan_id, CourseScanStatus.RUNNING, course_id=course_id)
         # Fetch course content using the manager
         user_id = task.get('user_id')
         req_user: User = get_user_model().objects.get(pk=user_id)
@@ -57,7 +61,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
             canvas_api: Canvas = manager.canvas_api
             bearer_token = manager.api_key
         except (InvalidOAuthReturnError, Exception) as e:
-            update_course_scan(course_id, CourseScanStatus.FAILED, f"Error creating Canvas API for course_id {course_id}: {e}")
+            update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"Error creating Canvas API for course_id {course_id}: {e}", course_id=course_id)
             CanvasOAuth2Token.objects.filter(user=request.user).delete()
             return
 
@@ -65,23 +69,23 @@ def fetch_and_scan_course(task: Dict[str, Any]):
         course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
         results = async_to_sync(get_courses_images)(course)
-        state_of_content_fetch: bool = unpack_and_store_content_images(results, course)
+        state_of_content_fetch: bool = unpack_and_store_content_images(results, course, course_scan_id, course_id)
 
         # this check is helping not to move to alt text retrieval if there was an error in fetching content images
         if not state_of_content_fetch:
-            update_course_scan(course_id, CourseScanStatus.FAILED, f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.")
+            update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"Failed to fetch content images for course_id {course_id}. Marking scan as FAILED.", course_id=course_id)
             return
         
         try:
-            retrieve_and_store_alt_text(course, bearer_token=bearer_token)
+            retrieve_and_store_alt_text(course_scan_id, course_id, bearer_token=bearer_token)
         except ImageContentExtractionException as e:
-            update_course_scan(course_id, CourseScanStatus.FAILED, f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}")
+            update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"ImageContentExtractionException while processing alt text for course_id {course_id}: {e}", course_id=course_id)
             return
 
         # Update that the course scan is completed
-        update_course_scan(course_id, CourseScanStatus.COMPLETED)
+        update_course_scan(course_scan_id, CourseScanStatus.COMPLETED, course_id=course_id)
     except Exception as e:
-        update_course_scan(course_id, CourseScanStatus.FAILED, f"Unexpected error in fetch_and_scan_course for course_id {course_id}: {e}")
+        update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"Unexpected error in fetch_and_scan_course for course_id {course_id}: {e}", course_id=course_id)
 
 
     
@@ -108,23 +112,24 @@ async def get_courses_images(course: Course):
     logger.info("raw results from gather course images: %s", results)
     return results
     
-def retrieve_and_store_alt_text(course: Course, bearer_token: Optional[str] = None):
+def retrieve_and_store_alt_text(course_scan_id: int, course_id: int, bearer_token: Optional[str] = None):
     """
-    Retrieve alt text for images in the given course using AI processor.
+    Retrieve alt text for images in the given course scan using AI processor.
     The images for the course need to have been processed first to get the image URLs.
 
-    :param course: Course object
-    :type course: Course
+    :param course_scan_id: CourseScan ID to scope images via ContentItem FK
+    :type course_scan_id: int
     :param bearer_token: Optional bearer token to pass directly to the image fetcher for Authorization
     """
     process_content_images = ProcessContentImages(
-        course_id=course.id,
+        course_scan_id=course_scan_id,
+        course_id=course_id,
         bearer_token=bearer_token,
     )
     images_with_alt_text = process_content_images.retrieve_images_with_alt_text()
     return images_with_alt_text
 
-def unpack_and_store_content_images(results, course: Course) -> bool:
+def unpack_and_store_content_images(results, course: Course, course_scan_id: int, course_id: int) -> bool:
      # unpack results (assignments, pages) and handle exceptions returned by gather. gather maintain call order
     assignments, pages, quizzes = results
 
@@ -141,7 +146,7 @@ def unpack_and_store_content_images(results, course: Course) -> bool:
     error_when_fetching_images = any(_has_fetch_error(r) for r in (assignments, pages, quizzes))
 
     if error_when_fetching_images:
-        update_course_scan(course.id, CourseScanStatus.FAILED)
+        update_course_scan(course_scan_id, CourseScanStatus.FAILED, course_id=course_id)
         return False
     
     combined = assignments + pages + quizzes
@@ -153,39 +158,44 @@ def unpack_and_store_content_images(results, course: Course) -> bool:
     ]
 
     logger.debug("Items before filter: %d; after filter (has images): %d", len(combined), len(filtered_content_with_images))
-    logger.info(f"Course {course.id} items with images: {filtered_content_with_images}")
+    logger.info(f"course_scan_id: {course_scan_id}, course_id: {course.id} items with images: {filtered_content_with_images}")
 
     # DB call to persist initial ContentItem and ImageItem records
-    save_scan_results(course.id, filtered_content_with_images)
+    save_scan_results(course_scan_id, course.id, filtered_content_with_images)
     return True
 
-def update_course_scan(course_id: int, status: CourseScanStatus, error_message: Optional[str] = None) -> None:
+def update_course_scan(course_scan_id: int, status: CourseScanStatus, error_message: Optional[str] = None, course_id: Optional[int] = None) -> None:
     """
-    Update or create a CourseScan record with the given status and log accordingly.
+    Update a CourseScan record with the given status and log accordingly.
     
-    :param course_id: Course ID
+    :param course_scan_id: CourseScan ID
     :param status: status of the scan (CourseScanStatus enum)
     :param error_message: Optional error message to log when status is FAILED
+    :param course_id: Optional course ID for logging purposes
     """
     try:
-        obj, created = CourseScan.objects.update_or_create(
-            course_id=course_id,
-            defaults={'status': status.value}
-        )
+        obj = CourseScan.objects.get(id=course_scan_id)
+        obj.status = status.value
+        obj.save()
+        log_context = f"course_scan_id={course_scan_id}, course_id={obj.course_id}"
         if status == CourseScanStatus.FAILED:
-            logger.error(error_message or f"Scan marked as FAILED for course_id {course_id}")
+            logger.error(error_message or f"Scan marked as FAILED for {log_context}")
         elif status == CourseScanStatus.COMPLETED:
-            logger.info(f"Scan completed successfully for course_id {course_id}")
+            logger.info(f"Scan completed successfully for {log_context}")
         else:
-            logger.debug(f"Scan status updated to {status.value} for course_id {course_id}")
+            logger.debug(f"Scan status updated to {status.value} for {log_context}")
     except (DatabaseError, Exception) as e:
-        logger.error(f"Error updating CourseScan for course_id {course_id} to status {status.value}: {e}")
+        log_context = f"course_scan_id={course_scan_id}"
+        logger.error(f"Error updating CourseScan {log_context} to status {status.value}: {e}")
     
-def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
+def save_scan_results(course_scan_id: int, course_id: int, items: List[Dict[str, Any]]):
     """
     Save the scan results into the database within a transaction.
-    Deletes previous ContentItem and ImageItem records for the course_id, then creates new records.
+    Creates ContentItem and ImageItem records scoped to the provided course_scan_id
+    without deleting records from prior scans for the course.
     
+    :param course_scan_id: CourseScan ID
+    :type course_scan_id: int
     :param course_id: Course ID
     :type course_id: int
     :param items: List of content items with images
@@ -193,14 +203,10 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
     """
     try:
         with transaction.atomic():
-            # 1. Delete previous items based on course_id if exists
-            ContentItem.objects.filter(course_id=course_id).delete()
-            ImageItem.objects.filter(course_id=course_id).delete()
             
-            # 2. Create ContentItem and ImageItem
             for item in items:
                 content_item = ContentItem.objects.create(
-                    course_id=course_id,
+                    course_scan_id=course_scan_id,
                     content_type=item.get('type'),
                     content_id=item.get('id'),
                     content_name=item.get('name'),
@@ -209,13 +215,12 @@ def save_scan_results(course_id: int, items: List[Dict[str, Any]]):
                 
                 for img in item['images']:
                     ImageItem.objects.create(
-                        course_id=course_id,
                         content_item=content_item,
                         image_url=img
                     )
 
     except (DatabaseError, Exception) as e:
-        logger.error(f"Error in save_scan_results transaction for course_id {course_id}: {e}")
+        logger.error(f"Error in save_scan_results transaction for course_scan_id {course_scan_id}, course_id {course_id}: {e}")
         return
   
 async def fetch_content_items_async(fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
