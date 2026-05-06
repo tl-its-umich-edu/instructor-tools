@@ -29,6 +29,7 @@ class ImagePayload(TypedDict):
     alt_text_failed_error_message: NotRequired[str | None]
 
 class ContentPayload(TypedDict):
+    id: int
     content_id: int
     content_name: str
     content_parent_id: str | None
@@ -267,18 +268,18 @@ class AltTextUpdate:
               If the field is absent or is True, the update was successful.
         """
         images_to_delete = []
-        content_ids_to_check = set()
+        content_item_ids_to_check = set()
         
         # Collect image IDs to delete
         for content in self.content_alt_text_update_report:
-            content_id = content['content_id']
+            content_item_id = content['id']
             for image in content['images']:
                 action = image.get('action')
                 is_failed = image.get('is_alt_text_updated') == False
                 
                 if action in ['approve', 'skip', 'decorative'] and not is_failed:
                     images_to_delete.append(image.get('image_id'))
-                    content_ids_to_check.add(content_id)
+                    content_item_ids_to_check.add(content_item_id)
         
         if not images_to_delete:
             logger.info("No successfully updated images to delete")
@@ -290,16 +291,16 @@ class AltTextUpdate:
             logger.info(f"Deleted {deleted_count} successfully updated ImageItem records")
             
             # Check for orphaned ContentItems and delete them
-            for content_id in content_ids_to_check:
+            for content_item_id in content_item_ids_to_check:
                 # Check if this content still has any images
-                remaining_images = ImageItem.objects.filter(content_item__content_id=content_id).count()
+                remaining_images = ImageItem.objects.filter(content_item_id=content_item_id).count()
                 
                 if remaining_images == 0:
                     # No images left, safe to delete the ContentItem
-                    deleted_count, _ = ContentItem.objects.filter(content_id=content_id).delete()
-                    logger.info(f"Deleted orphaned ContentItem with content_id={content_id}")
+                    deleted_count, _ = ContentItem.objects.filter(id=content_item_id).delete()
+                    logger.info(f"Deleted orphaned ContentItem with id={content_item_id}")
                 else:
-                    logger.info(f"ContentItem with content_id={content_id} still has {remaining_images} images, keeping it")
+                    logger.info(f"ContentItem with id={content_item_id} still has {remaining_images} images, keeping it")
         
         except (DatabaseError, Exception) as e:
             logger.error(f"Error deleting content items from Database: {e}")
@@ -490,6 +491,7 @@ class AltTextUpdate:
         """
         approved_decorative_content_ids = [
             {
+                "id": c["id"],
                 "content_id": c["content_id"],
                 "content_parent_id": c.get("content_parent_id"),
                 "content_type": c["content_type"]

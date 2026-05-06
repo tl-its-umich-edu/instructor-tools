@@ -53,7 +53,6 @@ interface ToolFiltersState {
 interface AltTextScan {
   id: number
   course_id: number
-  q_task_id: string
   status: string,
   created_at: string,
   updated_at: string
@@ -88,6 +87,7 @@ interface ContentImage {
 }
 
 interface ContentItem {
+  id: number
   content_id: number
   content_name: string
   content_parent_id: number | null
@@ -97,6 +97,7 @@ interface ContentItem {
 }
 
 interface ContentImageEnriched extends ContentImage {
+  id: number
   content_id: number
   content_name: string
   content_parent_id: number | null
@@ -119,6 +120,7 @@ interface ContentReviewRequestImageAction {
   approved_alt_text: string
 }
 interface ContentReviewRequest {
+  id: number
   content_id: number
   content_name: string | null
   content_parent_id: number | null

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AltTextLastScanCourseContentItem, AltTextLastScanDetail as ScanDetail } from '../interfaces';
+import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
 import { Button, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material';
 import { CONTENT_CATEGORY_FOR_REVIEW, ContentCategoryForReview } from '../constants';
 import { imageSum } from '../utils';
@@ -9,7 +9,7 @@ interface ReveiwSelectFormProps {
     scanPending: boolean;
     lastScan: ScanDetail;
     selectedCategory: ContentCategoryForReview;
-    handleStartReview: (selectedCategory:ContentCategoryForReview) => void;
+    handleStartReview: (selectedCategory: ContentCategoryForReview, scanId: number) => void;
     handleChangeCategory: (selectedCategory:ContentCategoryForReview) => void;
 }
 
@@ -31,7 +31,7 @@ export default function ReviewSelectForm({ scanPending, lastScan, selectedCatego
 
   const handleSubmit = () => {
     if (selectedCategory) {
-      handleStartReview(selectedCategory);
+      handleStartReview(selectedCategory, lastScan.id);
     }
   };
 
@@ -45,8 +45,10 @@ export default function ReviewSelectForm({ scanPending, lastScan, selectedCatego
       </Typography>
       <Stack direction="row" spacing={2} alignItems='flex-end'>
         <FormControl sx={{ minWidth: 200 }} >
-          <InputLabel>Content Category</InputLabel>
+          <InputLabel id="review-category-select-label">Content Category</InputLabel>
           <Select
+            labelId="review-category-select-label"
+            id="review-category-select"
             value={selectedCategory}
             label="Content Category"
             disabled={scanPending}

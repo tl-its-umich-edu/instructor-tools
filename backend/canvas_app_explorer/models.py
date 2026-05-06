@@ -74,9 +74,7 @@ class CourseScan(models.Model):
     # Big primary key
     id = models.BigAutoField(primary_key=True)
     # Course id (use BigInteger in case of large values)
-    course_id = models.BigIntegerField(unique=True)
-    # ID returned by the scan task system (e.g. django-q task id)
-    q_task_id = models.CharField(max_length=255, blank=True, null=True)
+    course_id = models.BigIntegerField()
     # Simple status string (pending, running, completed, failed)
     status = models.CharField(max_length=50, default=CourseScanStatus.PENDING, choices=CourseScanStatus.choices)
     # When the scan was created
@@ -89,7 +87,7 @@ class CourseScan(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"CourseScan(id={self.id}, course_id={self.course_id}, q_task_id={self.q_task_id}, status={self.status})"
+        return f"CourseScan(id={self.id}, course_id={self.course_id}, status={self.status})"
 
 
 
@@ -106,43 +104,36 @@ class ContentItem(models.Model):
     )
 
     id = models.BigAutoField(primary_key=True)
-    # FK to CourseScan (stored in DB column `course_id`)
-    course = models.ForeignKey(
+    # FK to CourseScan primary key
+    course_scan = models.ForeignKey(
         CourseScan,
-        to_field='course_id',
         on_delete=models.CASCADE,
-        db_column='course_id',
+        db_column='course_scan_id',
         related_name='content_items',
     )
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPE_CHOICES)
-    content_id = models.BigIntegerField(unique=True)
+    content_id = models.BigIntegerField()
     content_name = models.CharField(max_length=255, null=True, blank=True)
     # for quiz question
     content_parent_id = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = 'canvas_app_explorer_content_item'
+        constraints = [
+            models.UniqueConstraint(fields=['course_scan', 'content_id'], name='uniq_contentitem_scan_content_id'),
+        ]
 
     def __str__(self):
-        return f"ContentItem(id={self.id}, course_id={self.course_id}, type={self.content_type}, content_name={self.content_name}, content_parent_id={self.content_parent_id})"
+        return f"ContentItem(id={self.id}, course_scan_id={self.course_scan_id}, type={self.content_type}, content_name={self.content_name}, content_parent_id={self.content_parent_id})"
 
 
 class ImageItem(models.Model):
     id = models.BigAutoField(primary_key=True)
-    # FK to CourseScan using DB column `course_id`
-    course = models.ForeignKey(
-        CourseScan,
-        to_field='course_id',
-        on_delete=models.CASCADE,
-        db_column='course_id',
-        related_name='image_items',
-    )
-    # FK to ContentItem (stored in DB column `content_id`)
+    # FK to ContentItem primary key
     content_item = models.ForeignKey(
-        'ContentItem',
-        to_field='content_id',
+        ContentItem,
         on_delete=models.CASCADE,
-        db_column='content_id',
+        db_column='content_item_id',
         related_name='images',
     )
     image_url = models.URLField(max_length=2048)
@@ -153,4 +144,4 @@ class ImageItem(models.Model):
         db_table = 'canvas_app_explorer_image_item'
 
     def __str__(self):
-        return f"ImageItem(id={self.id}, course_id={self.course_id}, content_item_id={self.content_item_id})"
+        return f"ImageItem(id={self.id})"
