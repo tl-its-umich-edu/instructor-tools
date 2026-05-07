@@ -21,16 +21,15 @@ from canvas_oauth.models import CanvasOAuth2Token
 
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
-from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
+from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus, CourseScanErrorLog
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.decorators import log_execution_time
+from backend.canvas_app_explorer.utils import generate_canvas_content_url
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import (
-    CanvasManagerSetupError,
     ContentItemWithImages,
-    CourseFetchError,
-    ImageEntry,
+    CourseScanError,
+    ExtractedImageResult,
     ImageAltTextResult,
-    QuizQuestionFetchError,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,7 +42,45 @@ IMAGE_EXTENSIONS = tuple(Image.registered_extensions().keys())
 semaphore = asyncio.Semaphore(10)
 
 
-@log_execution_time
+def log_course_scan_error(course_scan_id: int, error: CourseScanError) -> None:
+    """
+    Persist a CourseScanError to the database for tracking and reporting.
+    
+    Creates a CourseScanErrorLog record with error type, message, and Canvas URL
+    for later review and analytics. Logs any persistence failures but does not raise
+    exceptions to avoid disrupting the scan pipeline.
+    
+    :param course_scan_id: CourseScan ID to associate with this error
+    :param error: CourseScanError dict with type, error (Exception), and canvas_url
+    """
+    log_course_scan_errors(course_scan_id, [error])
+
+
+def log_course_scan_errors(course_scan_id: int, errors: List[CourseScanError]) -> None:
+    """Persist multiple CourseScanError entries in a single database call."""
+    if not errors:
+        return
+    try:
+        rows = [
+            CourseScanErrorLog(
+                course_scan_id=course_scan_id,
+                error_type=error['type'],
+                error_title=error.get('title'),
+                error_message=str(error['error']),
+                canvas_url=error.get('canvas_url', ''),
+            )
+            for error in errors
+        ]
+        CourseScanErrorLog.objects.bulk_create(rows)
+        logger.debug(
+            "Logged %d CourseScanError entries to database: course_scan_id=%s",
+            len(rows),
+            course_scan_id,
+        )
+    except Exception as e:
+        logger.error(f"Failed to persist CourseScanErrorLog entries for course_scan_id {course_scan_id}: {e}")
+
+
 def fetch_and_scan_course(task: Dict[str, Any]):
     """Run the end-to-end background scan for a course.
 
@@ -68,13 +105,14 @@ def fetch_and_scan_course(task: Dict[str, Any]):
             canvas_api: Canvas = manager.canvas_api
             bearer_token = manager.api_key
         except (InvalidOAuthReturnError, Exception) as e:
-            setup_error: CanvasManagerSetupError = {
+            setup_error: CourseScanError = {
                 'type': 'canvas_manager_setup_error',
-                'course_id': course_id,
-                'course_scan_id': course_scan_id,
+                'title': 'Course',
                 'error': e,
+                'canvas_url': generate_canvas_content_url(course_id, 'course'),
             }
-            logger.error(f"Error creating Canvas API for course_id {setup_error['course_id']}: {setup_error['error']}:{setup_error}")
+            logger.error(f"Error creating Canvas API for course_id {course_id}: {setup_error['error']}")
+            log_course_scan_error(course_scan_id, setup_error)
             update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"Error creating Canvas API for course_id {course_id}: {e}", course_id=course_id)
             CanvasOAuth2Token.objects.filter(user=request.user).delete()
             return
@@ -94,12 +132,23 @@ def fetch_and_scan_course(task: Dict[str, Any]):
         
         # Check if any alt text results contain errors
         has_errors = any(
-            result['type'] in ('image_error', 'alt_text_error')
+            result.get('course_scan_error') is not None
             for result in alt_text_results
         )
         
         if has_errors:
-            error_results = [r for r in alt_text_results if r['type'] in ('image_error', 'alt_text_error')]
+            error_results = [
+                r for r in alt_text_results
+                if r.get('course_scan_error') is not None
+            ]
+            # Batch-log alt-text processing errors in one DB call.
+            errors_to_log = [
+                result['course_scan_error']
+                for result in error_results
+                if result.get('course_scan_error')
+            ]
+            log_course_scan_errors(course_scan_id, errors_to_log)
+            
             error_msg = f"Alt text generation completed with {len(error_results)} error(s) for course_id {course_id}"
             logger.error(error_msg)
             update_course_scan(course_scan_id, CourseScanStatus.FAILED, error_msg, course_id=course_id)
@@ -126,14 +175,7 @@ def _create_background_request(req_user: User, canvas_callback_url: str, course_
     logger.info("Background request object: %s", request)
     return request
 
-async def get_courses_images(course: Course) -> List[
-    Union[
-        List[Union[ContentItemWithImages, CourseFetchError]],
-        List[Union[ContentItemWithImages, CourseFetchError]],
-        List[Union[ContentItemWithImages, QuizQuestionFetchError, CourseFetchError]],
-        Exception,
-    ]
-]:
+async def get_courses_images(course: Course) -> List[List[Union[ContentItemWithImages, CourseScanError]]]:
     results = await asyncio.gather(
         fetch_content_items_async(get_assignments, course),
         fetch_content_items_async(get_pages, course),
@@ -163,56 +205,129 @@ def retrieve_and_store_alt_text(course_scan_id: int, course_id: int, bearer_toke
     return images_with_alt_text
 
 def unpack_and_store_content_images(
-    results: List[
-        Union[
-            List[Union[ContentItemWithImages, CourseFetchError]],
-            List[Union[ContentItemWithImages, CourseFetchError]],
-            List[Union[ContentItemWithImages, QuizQuestionFetchError, CourseFetchError]],
-            Exception,
-        ]
-    ],
+    results: List[List[Union[ContentItemWithImages, CourseScanError]]],
     course: Course,
     course_scan_id: int,
     course_id: int) -> bool:
-     # unpack results (assignments, pages) and handle exceptions returned by gather. gather maintain call order
+    """
+    Unpack async results, filter and persist extracted images to the database.
+    
+    Orchestrates the processing of content extraction results (assignments, pages, quizzes)
+    by unpacking async gather results, filtering for items with images, separating
+    success-only entries from error-bearing entries, and persisting only the successful
+    entries to the database. Determines whether to proceed to the alt-text generation
+    pipeline based on database save success and availability of content to process.
+    
+    **Error handling strategy:**
+    - Content-level extraction errors (some items fail): Tolerated and excluded from DB,
+      but pipeline proceeds if any success items exist.
+    - System-level errors (database save failure): Critical - blocks alt-text pipeline.
+    - No success items (all extraction failed): Skip alt-text pipeline, nothing to process.
+    
+    Args:
+        results (List[List[Union[ContentItemWithImages, CourseScanError]]]): 
+            Async gather results from content fetching tasks (assignments, pages, quizzes).
+            Each element is a list of either successful ContentItemWithImages dicts or
+            CourseScanError dicts. Maintains order: [assignments, pages, quizzes].
+        
+        course (Course): 
+            Canvas Course object used for logging and metadata retrieval.
+        
+        course_scan_id (int): 
+            The CourseScan record ID to associate persisted ContentItem and ImageItem
+            records with this specific scan run.
+        
+        course_id (int): 
+            The Canvas course ID for logging context and building Canvas UI URLs.
+    
+    Returns:
+        bool: 
+            True if persistence succeeded and there are content items to process via
+            alt-text pipeline; False if database save failed or no success items exist.
+    
+    Side effects:
+        - Persists ContentItem and ImageItem records to database (via save_scan_results).
+        - Updates CourseScan.total_image_count with the total number of images found.
+        - Logs detailed warnings and debug info about filtered and error-bearing entries.
+    
+    Raises:
+        Does not raise exceptions directly; logs errors and returns False on failure.
+    """
     assignments, pages, quizzes = results
-
-    # Simple error check: return True if result is an Exception or contains any Exception entries
-    def _has_fetch_error(result) -> bool:
-        if isinstance(result, Exception):
-            return True
-        if isinstance(result, list):
-            for item in result:
-                if isinstance(item, Exception):
-                    return True
-                if isinstance(item, dict) and item.get('type') in {
-                    'assignment_fetch_error',
-                    'page_fetch_error',
-                    'quiz_fetch_error',
-                    'quiz_question_error',
-                }:
-                    return True
-        return False
-
-    error_when_fetching_images = any(_has_fetch_error(r) for r in (assignments, pages, quizzes))
-
-    if error_when_fetching_images:
-        update_course_scan(course_scan_id, CourseScanStatus.FAILED, course_id=course_id)
-        return False
     
     combined = assignments + pages + quizzes
-    logger.debug("Combined items count: %s", combined)
-    # Filter to only those content with images with alt text
-    filtered_content_with_images = [
-        item for item in combined
-        if isinstance(item.get('images'), list) and len(item.get('images')) > 0
-    ]
+    logger.info("Combined items count: %s", combined)
 
-    logger.debug("Items before filter: %d; after filter (has images): %d", len(combined), len(filtered_content_with_images))
-    logger.info(f"course_scan_id: {course_scan_id}, course_id: {course.id} items with images: {filtered_content_with_images}")
+    def _is_course_scan_error_like(obj: Any) -> bool:
+        return isinstance(obj, dict) and bool(obj.get('type')) and bool(obj.get('error'))
 
-    # DB call to persist initial ContentItem and ImageItem records
-    save_scan_results(course_scan_id, course.id, filtered_content_with_images)
+    def _to_course_scan_error(raw_error: Dict[str, Any]) -> CourseScanError:
+        error: CourseScanError = {
+            'type': raw_error.get('type', 'unknown'),
+            'title': raw_error.get('title'),
+            'error': raw_error.get('error'),
+            'canvas_url': raw_error.get('canvas_url', generate_canvas_content_url(course_id, 'course')),
+        }
+        return error
+
+    success_content_with_images: List[ContentItemWithImages] = []
+    error_content_with_images: List[ContentItemWithImages] = []
+    errors_to_log: List[CourseScanError] = []
+
+    for item in combined:
+        if not isinstance(item, dict):
+            continue
+
+        # Handle complete fetch failures (e.g., assignment/page/quiz endpoint failures)
+        # returned directly as CourseScanError-like dicts.
+        if _is_course_scan_error_like(item):
+            errors_to_log.append(_to_course_scan_error(item))
+            continue
+
+        images = item.get('images')
+        if not isinstance(images, list) or len(images) == 0:
+            continue
+
+        nested_errors = [img for img in images if _is_course_scan_error_like(img)]
+        if nested_errors:
+            for img_error in nested_errors:
+                errors_to_log.append(_to_course_scan_error(img_error))
+            error_content_with_images.append(item)
+            continue
+
+        if all(isinstance(img, str) for img in images):
+            success_content_with_images.append(item)
+
+    logger.debug(
+        "Items before filter: %d; logged errors: %d; success-only: %d; with-errors: %d",
+        len(combined),
+        len(errors_to_log),
+        len(success_content_with_images),
+        len(error_content_with_images),
+    )
+    logger.info(
+        "course_scan_id: %s, course_id: %s success content entries to persist: %s",
+        course_scan_id,
+        course.id,
+        success_content_with_images,
+    )
+
+    save_error = save_scan_results(course_scan_id, course.id, success_content_with_images)
+    
+    if save_error:
+        logger.error(f"Database save failed (system error) - stopping alt-text pipeline: {save_error}")
+        errors_to_log.append(save_error)
+        log_course_scan_errors(course_scan_id, errors_to_log)
+        return False
+
+    # Persist all collected extraction/fetch errors in a single DB write.
+    log_course_scan_errors(course_scan_id, errors_to_log)
+    
+    if not success_content_with_images:
+        logger.warning(f"No successfully extracted content for course_id {course_id}. Skipping alt-text generation.")
+        return False
+    
+    logger.info(f"Proceeding to alt-text pipeline for course_id {course_id} with {len(success_content_with_images)} content item(s)")
     return True
 
 def update_course_scan(course_scan_id: int, status: CourseScanStatus, error_message: Optional[str] = None, course_id: Optional[int] = None) -> None:
@@ -239,13 +354,14 @@ def update_course_scan(course_scan_id: int, status: CourseScanStatus, error_mess
         log_context = f"course_scan_id={course_scan_id}"
         logger.error(f"Error updating CourseScan {log_context} to status {status.value}: {e}")
     
-def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentItemWithImages]):
+def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentItemWithImages]) -> Optional[CourseScanError]:
     """
     Save the scan results into the database within a transaction.
     Creates ContentItem and ImageItem records scoped to the provided course_scan_id
     without deleting records from prior scans for the course.
     Also updates the CourseScan.total_image_count with the total number of images found.
-    Only saves images with 'success' status; images with 'error' status are logged but not persisted.
+    Expects success-only content items (image payloads as URL strings), and persists
+    ContentItem/ImageItem records for those entries.
     
     :param course_scan_id: CourseScan ID
     :type course_scan_id: int
@@ -253,16 +369,20 @@ def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentIt
     :type course_id: int
     :param items: List of content items with images
     :type items: List[ContentItemWithImages]
+    :return: None if successful, CourseScanError dict if failed
+    :rtype: Optional[CourseScanError]
     """
     try:
         with transaction.atomic():
-            # Calculate total image count across all items (only counting successful images)
+            valid_items = items
+
+            # Calculate total image count across valid items only.
             total_image_count = sum(
-                len([img for img in item.get('images', []) if img.get('status') == 'success'])
-                for item in items
+                len(item.get('images', []))
+                for item in valid_items
             )
             
-            for item in items:
+            for item in valid_items:
                 content_item = ContentItem.objects.create(
                     course_scan_id=course_scan_id,
                     content_type=item.get('type'),
@@ -272,30 +392,30 @@ def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentIt
                 )
                 
                 for img in item['images']:
-                    # img is an ImageEntry dict with 'url', 'status', and optional 'error'
-                    img_status = img.get('status')
-                    image_url = img.get('url')
-                    
-                    # Only save images with success status; log errors but do not persist them
-                    if img_status == 'success':
-                        logger.debug(f"Saving ImageItem - URL: {image_url}, Status: {img_status}")
-                        ImageItem.objects.create(
-                            content_item=content_item,
-                            image_url=image_url
-                        )
-                    elif img_status == 'error':
-                        error_obj = img.get('error')
-                        logger.warning(f"Skipping ImageItem with error - URL: {image_url}, Error: {error_obj}")
+                    image_url = img
+                    logger.debug(f"Saving ImageItem - URL: {image_url}")
+                    ImageItem.objects.create(
+                        content_item=content_item,
+                        image_url=image_url
+                    )
             
             # Update the CourseScan with the total image count
             course_scan = CourseScan.objects.get(id=course_scan_id)
             course_scan.total_image_count = total_image_count
             course_scan.save()
             logger.info(f"Updated course_scan_id {course_scan_id} with total_image_count: {total_image_count}")
+            return None
 
     except (DatabaseError, Exception) as e:
-        logger.error(f"Error in save_scan_results transaction for course_scan_id {course_scan_id}, course_id {course_id}: {e}")
-        return
+        error_msg = f"Error in save_scan_results transaction for course_scan_id {course_scan_id}, course_id {course_id}: {e}"
+        logger.error(error_msg)
+        # Return CourseScanError to propagate failure state to caller
+        return {
+            'type': 'content_database_save',
+            'title': 'Course',
+            'error': e,
+            'canvas_url': generate_canvas_content_url(course_id, 'course'),
+        }
   
 async def fetch_content_items_async(fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
     """
@@ -311,17 +431,17 @@ async def fetch_content_items_async(fn: Callable[[T], R], ctx: T) -> Union[R, Ex
         return e
 
 
-def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseFetchError]]:
+def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseScanError]]:
     """
     Synchronously fetches assignments for a given course using canvas_api.get_assignments().
     """
-    user_id = 1
-    req_user: User = get_user_model().objects.get(pk=user_id)
-    canvas_callback_url = '/oauth/oauth-callback'
-    request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
-    manager = MANAGER_FACTORY.create_manager(request)
-    canvas_api: Canvas = manager.canvas_api
-    course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
+    # user_id = 1
+    # req_user: User = get_user_model().objects.get(pk=user_id)
+    # canvas_callback_url = '/oauth/oauth-callback'
+    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
+    # manager = MANAGER_FACTORY.create_manager(request)
+    # canvas_api: Canvas = manager.canvas_api
+    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
 
     try:
         logger.info(f"Fetching assignments for course {course.id}.")
@@ -342,19 +462,28 @@ def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseF
                 images_from_assignments,
                 assignment.id,
                 assignment.name,
-                extract_images_from_html(assignment.description, course.id, 'assignment'),
+                extract_images_from_html(
+                    assignment.description,
+                    course.id,
+                    'assignment',
+                    content_title=assignment.name,
+                    content_id=assignment.id,
+                    content_parent_id=None,
+                ),
                 'assignment',
                 None)
         return images_from_assignments
     except (CanvasException, Exception) as e:
         logger.error(f"Step A1: Error fetching assignments for course {course.id}: {e}")
-        return [{
-            'type': 'assignment_fetch_error',
-            'course_id': getattr(course, 'id', None),
+        fetch_error: CourseScanError = {
+            'type': 'assignment',
+            'title': 'assignments',
             'error': e,
-        }]
+            'canvas_url': generate_canvas_content_url(course.id, 'assignment'),
+        }
+        return [fetch_error]
  
-def get_pages(course: Course) -> List[Union[ContentItemWithImages, CourseFetchError]]:
+def get_pages(course: Course) -> List[Union[ContentItemWithImages, CourseScanError]]:
     """
     Synchronously fetches pages for a given course using canvas_api.get_pages().
     """
@@ -379,20 +508,29 @@ def get_pages(course: Course) -> List[Union[ContentItemWithImages, CourseFetchEr
                 images_from_pages,
                 page.page_id,
                 page.title,
-                extract_images_from_html(page.body, course.id, 'page'),
+                extract_images_from_html(
+                    page.body,
+                    course.id,
+                    'page',
+                    content_title=page.title,
+                    content_id=page.page_id,
+                    content_parent_id=None,
+                ),
                 'page',
                 None)
         return images_from_pages
     except (CanvasException, Exception) as e:
         logger.error(f"Step PageErr: Error fetching pages for course {course.id}: {e}")
-        return [{
-            'type': 'page_fetch_error',
-            'course_id': getattr(course, 'id', None),
+        fetch_error: CourseScanError = {
+            'type': 'page',
+            'title': 'pages',
             'error': e,
-        }]
+            'canvas_url': generate_canvas_content_url(course.id, 'page'),
+        }
+        return [fetch_error]
 
 
-def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, QuizQuestionFetchError, CourseFetchError]]:
+def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, CourseScanError]]:
     """
     Synchronously fetches quizzes for a given course using canvas_api.get_quizzes().
     """
@@ -415,36 +553,52 @@ def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, QuizQuestio
                 images_from_quizzes,
                 quiz.id,
                 quiz.title,
-                extract_images_from_html(getattr(quiz, 'description', ''), course.id, 'quiz'),
+                extract_images_from_html(
+                    getattr(quiz, 'description', ''),
+                    course.id,
+                    'quiz',
+                    content_title=quiz.title,
+                    content_id=quiz.id,
+                    content_parent_id=None,
+                ),
                 'quiz',
                 None)
         logger.info(f"Fetched {len(quizzes)} quizzes. Now fetching questions for quizzes.")
         quiz_question_results = async_to_sync(get_quiz_questions)(quizzes)
 
-        mapped_quiz_question_results: List[Union[List[ContentItemWithImages], QuizQuestionFetchError]] = []
+        mapped_quiz_question_results: List[List[Union[ContentItemWithImages, CourseScanError]]] = []
         for quiz_obj, result in zip(quizzes, quiz_question_results):
             if isinstance(result, Exception):
-                mapped_quiz_question_results.append({
-                    'type': 'quiz_question_error',
-                    'quiz_id': getattr(quiz_obj, 'id', None),
-                    'quiz_title': getattr(quiz_obj, 'title', ''),
-                    'error': result,
-                })
+                mapped_quiz_question_results.append([
+                    {
+                        'type': 'question',
+                        'title': getattr(quiz_obj, 'title', 'Quiz'),
+                        'error': result,
+                        'canvas_url': generate_canvas_content_url(
+                            course.id,
+                            'quiz_question',
+                            content_id=None,
+                            content_parent_id=getattr(quiz_obj, 'id', None),
+                        ),
+                    }
+                ])
             else:
                 mapped_quiz_question_results.append(result)
 
         return process_quiz_with_questions(images_from_quizzes, mapped_quiz_question_results)
     except (CanvasException, Exception) as e:
         logger.error(f"Step QuizErr: Errors fetching Quizzes for course {course.id}: {e}")
-        return [{
-            'type': 'quiz_fetch_error',
-            'course_id': getattr(course, 'id', None),
+        fetch_error: CourseScanError = {
+            'type': 'quiz',
+            'title': 'quizzes',
             'error': e,
-        }]
+            'canvas_url': generate_canvas_content_url(course.id, 'quiz'),
+        }
+        return [fetch_error]
 
 def process_quiz_with_questions(
     quiz: List[ContentItemWithImages],
-    questions: List[Union[List[ContentItemWithImages], QuizQuestionFetchError]]) -> List[Union[ContentItemWithImages, QuizQuestionFetchError]]:
+    questions: List[List[Union[ContentItemWithImages, CourseScanError]]]) -> List[Union[ContentItemWithImages, CourseScanError]]:
     """
     Process a quiz and its questions to extract images from the quiz description and questions.
     """
@@ -472,7 +626,7 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
             'description': getattr(source_quiz, 'description', ''),
         })
 
-    if quiz.id == 485516:  # specific quiz ID to trigger error for testing
+    if quiz.id == 1277:  # specific quiz ID to trigger error for testing
         quiz = _build_debug_quiz(quiz)
 
     logger.info(f"Fetching questions for quiz ID: {quiz.id}, Title: {quiz.title}")
@@ -486,7 +640,14 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
                 images_from_questions,
                 question.id,
                 question.question_name,
-                extract_images_from_html(getattr(question, 'question_text', ''), quiz.course_id, 'question'),
+                extract_images_from_html(
+                    getattr(question, 'question_text', ''),
+                    quiz.course_id,
+                    'question',
+                    content_title=getattr(quiz, 'title', 'Quiz'),
+                    content_id=question.id,
+                    content_parent_id=quiz.id,
+                ),
                 'quiz_question',
                 quiz.id)
 
@@ -568,7 +729,7 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
                 break
         if not file_id:
             logger.error(f"Could not find file_id in Canvas file URL path: {img_src}")
-            raise ValueError(f"Step PErr File_id: File ID not found in URL path: {img_src}")
+            raise ValueError(f"File ID not found in URL path: {img_src}")
 
         # preserve original query params (verifier, etc.)
         qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -588,14 +749,22 @@ def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
         download_url = f"{parsed.scheme}://{parsed.netloc}{download_path}?{urlencode(flat_qs)}"
         return download_url
     except Exception as e:
-        logger.error(f"Step PErr: Error parsing img src URL '{img_src}': {e}")
+        logger.error(f"Error parsing img src URL '{img_src}': {e}")
         raise e
 
-def extract_images_from_html(html_content: str, course_id: int, content_type: str = 'unknown') -> List[ImageEntry]:
+def extract_images_from_html(
+    html_content: str,
+    course_id: int,
+    content_type: str = 'unknown',
+    content_title: Optional[str] = None,
+    content_id: Optional[int] = None,
+    content_parent_id: Optional[int] = None,
+) -> ExtractedImageResult:
     if not html_content:
         return []
     soup = BeautifulSoup(html_content, "html.parser")
-    extracted_image_urls: List[ImageEntry] = []
+    extracted_image_urls: List[str] = []
+    extracted_image_errors: List[CourseScanError] = []
     image_extensions = IMAGE_EXTENSIONS
     for img in soup.find_all("img"):
         try:
@@ -627,21 +796,21 @@ def extract_images_from_html(html_content: str, course_id: int, content_type: st
             else:
                 logger.info(f"Non-Canvas image URL found: {img_src}")
                 download_url = img_src
-            extracted_image_urls.append({
-                "url": download_url,
-                "content_type": content_type,
-                "status": "success",
-            })
+            if download_url:
+                extracted_image_urls.append(download_url)
         except Exception as e:
-            img_src_for_log = img_src if 'img_src' in locals() else "unknown_url"
             logger.error(f"Error processing image tag for course_id {course_id}: {e}")
-            extracted_image_urls.append({
-                "url": img_src_for_log,
-                "content_type": content_type,
-                "status": "error",
+            error_entry: CourseScanError = {
+                "type": content_type,
+                "title": content_title,
                 "error": e,
-                "error_type": f"{content_type}_type_error",
-            })
+                "canvas_url": generate_canvas_content_url(course_id, content_type, content_id, content_parent_id),
+            }
+            extracted_image_errors.append(error_entry)
+
+    if extracted_image_errors:
+        logger.info(extracted_image_errors)
+        return extracted_image_errors
 
     if extracted_image_urls:
         logger.info(extracted_image_urls)
@@ -652,7 +821,7 @@ def append_image_items(
         images_list: List[ContentItemWithImages],
         content_id: int,
         content_name: str,
-        images: List[ImageEntry],
+    images: ExtractedImageResult,
         content_type: str,
         content_parent_id: Optional[int]) -> List[ContentItemWithImages]:
     """
@@ -661,7 +830,7 @@ def append_image_items(
     :param images_list: Accumulating list of content items with images
     :param content_id: Content item ID (assignment/page/quiz/question ID)
     :param content_name: Content item name (title/description)
-    :param images: List of extracted ImageEntry objects with URLs and error details
+    :param images: Either List[str] for successful extraction or List[CourseScanError] on error
     :param content_type: Type of content ('assignment', 'page', 'quiz', 'quiz_question')
     :param content_parent_id: Optional parent content ID (e.g., quiz_id for quiz_question)
     :return: Updated images_list with new content item appended if images non-empty

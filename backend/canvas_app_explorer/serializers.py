@@ -104,3 +104,14 @@ class ReviewContentItemSerializer(serializers.Serializer):
     content_parent_name = serializers.CharField(allow_null=True, required=False)
     content_type = serializers.ChoiceField(choices=ContentItem.CONTENT_TYPE_CHOICES, required=False)
     images = ReviewImageItemSerializer(many=True)
+
+
+class CourseScanErrorLogSerializer(serializers.ModelSerializer):
+    """
+    Serializer for CourseScanErrorLog model to display scan errors in the UI.
+    Includes error type, title, message, and canvas URL for context.
+    """
+    class Meta:
+        model = models.CourseScanErrorLog
+        fields = ['id', 'error_type', 'error_title', 'error_message', 'canvas_url']
+        read_only_fields = ['id', 'error_type', 'error_title', 'error_message', 'canvas_url']

@@ -10,6 +10,7 @@ from backend.canvas_app_explorer.canvas_lti_manager.exception import AltTextGene
 from backend.canvas_app_explorer.alt_text_helper.ai_processor import AltTextProcessor
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import ImageAltTextResult
 from backend.canvas_app_explorer.decorators import log_execution_time
+from backend.canvas_app_explorer.utils import generate_canvas_content_url
 from PIL import Image
 import httpx
 from backend.canvas_app_explorer.models import ImageItem
@@ -38,6 +39,39 @@ class ProcessContentImages:
         if bearer_token and not self._auth_header:
             self._auth_header = {'Authorization': f'Bearer {bearer_token}'}
 
+    def _build_error_result(
+        self,
+        error_type: str,
+        error: Exception,
+        image: Optional[ImageItem] = None,
+        canvas_url: Optional[str] = None,
+    ) -> ImageAltTextResult:
+        """Build a normalized ImageAltTextResult for failure cases."""
+        resolved_canvas_url = canvas_url
+        error_title = image.content_item.content_name if image else 'Course'
+        if not resolved_canvas_url:
+            if image:
+                content_item = image.content_item
+                resolved_canvas_url = generate_canvas_content_url(
+                    self.course_id,
+                    content_item.content_type,
+                    content_item.content_id,
+                    content_item.content_parent_id,
+                )
+            else:
+                resolved_canvas_url = f"https://{settings.CANVAS_OAUTH_CANVAS_DOMAIN}/courses/{self.course_id}"
+
+        return {
+            'image': image,
+            'alt_text': '',
+            'course_scan_error': {
+                'type': error_type,
+                'title': error_title,
+                'error': error,
+                'canvas_url': resolved_canvas_url,
+            },
+        }
+
 
     @log_execution_time
     def retrieve_images_with_alt_text(self) -> List[ImageAltTextResult]:
@@ -48,12 +82,11 @@ class ProcessContentImages:
         - Bulk-updates ImageItem.image_alt_text for successful ones
         - Returns a list of ImageAltTextResult dicts, one per image
 
-        Each result discriminated by 'type': 'success' | 'image_error' | 'alt_text_error'
+        Success result shape: {'image': ImageItem, 'alt_text': str}
+        Error result shape: {'image': ImageItem|None, 'alt_text': '', 'course_scan_error': CourseScanError}
         """
         try:
-            # Traverse FK: ImageItem -> ContentItem -> CourseScan (single JOIN query)
-            # raise NotImplementedError("Debug exception to test error handling in image retrieval")  # --- IGNORE ---
-            qs = ImageItem.objects.filter(content_item__course_scan_id=self.course_scan_id)
+            qs = ImageItem.objects.filter(content_item__course_scan_id=self.course_scan_id).select_related('content_item')
             logger.info(f"Retrieved {qs.count()} ImageItems for course_scan_id: {self.course_scan_id}, course_id: {self.course_id}")
 
             to_update = []
@@ -68,20 +101,29 @@ class ProcessContentImages:
             gen_results = self._process_images_concurrently(image_models)
 
             for res in gen_results:
-                img = res['img']
-                alt_or_exc = res['alt_text']
-                img_url = img.image_url
+                img: ImageItem = res['image']
+                alt_text = res['alt_text']
 
-                if isinstance(alt_or_exc, Exception):
-                    logger.error(f"Processing failed for image {img_url}: {alt_or_exc}")
+                if res.get('course_scan_error'):
+                    logger.error(
+                        "Processing failed for image %s: %s",
+                        img.image_url if img else None,
+                        res.get('course_scan_error'),
+                    )
                     continue
 
+                if not img:
+                    logger.error("Success result missing image object: %s", res)
+                    continue
+
+                img_url = img.image_url
+
                 # Skip if alt_text is None or empty string
-                if not alt_or_exc:
+                if not alt_text:
                     logger.warning(f"No alt text generated for image {img_url}")
                     continue
 
-                img.image_alt_text = alt_or_exc
+                img.image_alt_text = alt_text
                 to_update.append(img)
                 logger.info(f"Generated alt text for image url={img_url}")
 
@@ -94,8 +136,8 @@ class ProcessContentImages:
             return gen_results
         except Exception as e:
             logger.error(f"Error retrieving images for course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {e}")
-            # Return a single error ImageAltTextResult with the exception
-            error_result: ImageAltTextResult = {'type': 'image_error', 'img': None, 'alt_text': e}
+            # Return a single system-level error entry with a course URL fallback.
+            error_result = self._build_error_result('image_process_error', e)
             return [error_result]
 
     async def get_image_content_async(self, img_url):
@@ -120,7 +162,6 @@ class ProcessContentImages:
         try:
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 # Only pass headers parameter if headers is not None
-                # img_url = 'https://canvas-test.it.umich.edu/courses/560359/file_contents/course%20files/~%20Course%20Images%20for%20Elementary%20Greek/mic1_3590r-copy~s600x600.jpg'
                 if headers:
                     resp = await client.get(img_url, headers=headers)
                 else:
@@ -147,8 +188,8 @@ class ProcessContentImages:
 
         - Fetches image content (async) then generates alt text (in thread)
         - Limits concurrent in-flight tasks via asyncio.Semaphore
-        - Returns a list of ImageAltTextResult dicts discriminated by 'type':
-            'success' | 'image_error' | 'alt_text_error'
+        - Success result shape: {'image': ImageItem, 'alt_text': str}
+        - Error result shape: {'image': ImageItem|None, 'alt_text': '', 'course_scan_error': CourseScanError}
         """
         sem = asyncio.Semaphore(concurrency)
 
@@ -159,20 +200,20 @@ class ProcessContentImages:
                     # Fetch image content
                     contents = await self.get_image_content_async(img_url)
                     if isinstance(contents, Exception):
-                        return {'type': 'image_error', 'img': img, 'alt_text': contents}
+                        return self._build_error_result('image_process_error', contents, image=img)
 
                     # Convert to PIL Image and generate alt text
                     pil_image = Image.open(io.BytesIO(contents))
                     logger.info(f"Generating alt text for image {img_url} using Azure OpenAI")
                     alt_text = await asyncio.to_thread(self.alt_text_processor.generate_alt_text, pil_image, img_url)
                     # Handle None return value by providing empty string fallback
-                    return {'type': 'success', 'img': img, 'alt_text': alt_text or ''}
+                    return {'image': img, 'alt_text': alt_text or ''}
                 except AltTextGenerationException as alt_exc:
                     logger.error(f"AltTextGenerationException for image {img_url}: {alt_exc}")
-                    return {'type': 'alt_text_error', 'img': img, 'alt_text': alt_exc}
+                    return self._build_error_result('alt_text_process_error', alt_exc, image=img)
                 except Exception as e:
                     logger.error(f"Processing exception for image {img_url}: {e}")
-                    return {'type': 'image_error', 'img': img, 'alt_text': e}
+                    return self._build_error_result('image_process_error', e, image=img)
 
         tasks = [_process_single_image(img) for img in image_models]
         return await asyncio.gather(*tasks, return_exceptions=False)
@@ -183,8 +224,8 @@ class ProcessContentImages:
 
         - Uses asyncio.Semaphore to limit concurrent in-flight image processing tasks (from settings IMAGE_PROCESSING_CONCURRENCY)
         - Each task fetches image content (async) then generates alt text (in thread)
-        - Returns a list of ImageAltTextResult dicts discriminated by 'type':
-            'success' | 'image_error' | 'alt_text_error'
+        - Success result shape: {'image': ImageItem, 'alt_text': str}
+        - Error result shape: {'image': ImageItem|None, 'alt_text': '', 'course_scan_error': CourseScanError}
         """
         concurrency = config.IMAGE_PROCESSING_CONCURRENCY
         return async_to_sync(self._worker_async)(image_models, concurrency)

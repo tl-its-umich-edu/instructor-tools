@@ -1,9 +1,10 @@
-import { Box, Button, Divider, LinearProgress, Link, Typography } from '@mui/material';
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Divider, LinearProgress, Link, Typography, Alert, Stack } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { styled } from '@mui/material/styles';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ErrorsDisplay from './ErrorsDisplay';
-import { Globals } from '../interfaces';
+import { Globals, CourseScanError } from '../interfaces';
 import LastScanInfo from './CourseScanComponent';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
@@ -24,6 +25,7 @@ function AltTextHome(props: AltTextHomeProps) {
   const navigate = useNavigate();
   const [scanPending, setScanPending] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
+  const [scanErrors, setScanErrors] = useState<CourseScanError[]>([]);
 
   const { data: lastScan, 
     isLoading: lastScanIsLoading, 
@@ -35,8 +37,8 @@ function AltTextHome(props: AltTextHomeProps) {
       return await getAltTextLastScan({ courseId: course_id }); 
     },
     refetchInterval: (data) => {
-      if (!!data && 
-        (data.status == 'running' || data.status == 'pending')
+      if (data && typeof data === 'object' && 'scan_details' in data &&
+        (data.scan_details.status == 'running' || data.scan_details.status == 'pending')
       ) {
         console.log('Last scan is in progress, waiting to refetch');
         return COURSE_SCAN_POLL_DURATION;
@@ -45,8 +47,9 @@ function AltTextHome(props: AltTextHomeProps) {
       }
     },
     onSuccess: (data) => {
-      if (data) {
-        setScanPending(data.status == 'running' || data.status == 'pending');
+      if (data && typeof data === 'object') {
+        setScanPending(data.scan_details.status == 'running' || data.scan_details.status == 'pending');
+        setScanErrors(data.scan_error_details || []);
       }
     }
   });
@@ -121,16 +124,57 @@ function AltTextHome(props: AltTextHomeProps) {
             </Box>
           ) : (
             <>
+              {scanErrors.length > 0 && (() => {
+                // A "complete failure" is when no images were fetched at all (total_image_count === 0).
+                // In that case show error (red) severity; otherwise show warning (yellow) for partial failures.
+                const isCompleteFail = lastScan.scan_details.total_image_count === 0;
+                const severity = isCompleteFail ? 'error' : 'warning';
+                const borderColor = isCompleteFail ? 'error.main' : 'warning.main';
+                const summaryText = isCompleteFail
+                  ? 'Scan completely failed'
+                  : `Scan encountered ${scanErrors.length} error(s) during processing`;
+                return (
+                  <Accordion sx={{ marginBottom: 2, border: '1px solid', borderColor }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Alert severity={severity} sx={{ width: '100%', padding: 0, background: 'transparent' }} icon={false}>
+                        <Typography variant='body2'>
+                          <strong>{summaryText}</strong> &mdash; expand to view details
+                        </Typography>
+                      </Alert>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Stack spacing={1}>
+                        {scanErrors.map((error, index) => (
+                          <Box key={error.id} sx={{ paddingLeft: 2 }}>
+                            <Typography variant='body2'>
+                              <strong>{index + 1}. {error.error_type}</strong>
+                              {error.error_title && <> ({error.error_title})</>}
+                              : {error.error_message}
+                            </Typography>
+                            {error.canvas_url && (
+                              <Typography variant='caption'>
+                                <Link href={error.canvas_url} target="_blank" rel="noopener">
+                                  View &ldquo;{error.error_title || 'Course'}&rdquo; in Canvas &mdash; {error.remediation_message}
+                                </Link>
+                              </Typography>
+                            )}
+                          </Box>
+                        ))}
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+                );
+              })()}
               <LastScanInfo
                 scanPending={scanPending}
-                lastScan={lastScan}
+                lastScan={lastScan.scan_details}
                 handleStartScan={handleStartScan}
               />
               {lastScan && (
                 <ReviewSelectForm
                   scanPending={scanPending}
                   selectedCategory={selectedCategory}
-                  lastScan={lastScan}
+                  lastScan={lastScan.scan_details}
                   handleStartReview={handleStartReview}
                   handleChangeCategory={(category) => setSelectedCategory(category)}
                 />

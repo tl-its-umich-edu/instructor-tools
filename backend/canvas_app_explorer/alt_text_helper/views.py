@@ -13,11 +13,11 @@ from django.urls import reverse
 from rest_framework_tracking.mixins import LoggingMixin
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
-from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem
+from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem, CourseScanErrorLog
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
-from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer
+from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer, CourseScanErrorLogSerializer
 from backend.canvas_app_explorer.alt_text_helper.alt_text_update import AltTextUpdate, ContentPayload
 from backend.canvas_app_explorer.utils import generate_canvas_content_url
 
@@ -97,18 +97,22 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                 return Response(resp, status=HTTPStatus.OK)
             
             scan_obj = scan_queryset.first()
-            scan_detail = {
+            scan_details = {
                     'id': scan_obj.id,
                     'course_id': scan_obj.course_id,
                     'status': scan_obj.status,
                     'created_at': scan_obj.created_at,
                     'updated_at': scan_obj.updated_at,
+                    'total_image_count': scan_obj.total_image_count,
                     'course_content': self.__get_scan_course_content(scan_obj.id)
                 }
+            scan_error_details = self.__get_scan_error_details(scan_obj.id)
+            
             logger.info(f"Returning scan {scan_obj.id} for course id {course_id} and user {request.user.id}")
             resp = {
                 'found': True,
-                'scan_detail': scan_detail
+                'scan_details': scan_details,
+                'scan_error_details': scan_error_details
             }
             return Response(resp, status=HTTPStatus.OK)
         except (DatabaseError, Exception) as e:
@@ -134,6 +138,66 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
         except (Exception) as e:
             logger.error(f"Problem appending course content to scan for course scan id {course_scan_id}")
             raise e
+
+    # Error types that indicate a specific content item or image failed processing.
+    # These point to a Canvas page where the user can edit or remove the problematic image.
+    _ITEM_LEVEL_ERROR_TYPES = frozenset({
+        'image_process_error', 'alt_text_process_error',
+    })
+
+    # Error titles assigned when an entire content-type fetch fails (e.g. all assignments)
+    # or when a system-level failure occurs.  Neither maps to a single editable item.
+    _SYSTEM_LEVEL_TITLES = frozenset({'Course', 'assignments', 'pages', 'quizzes'})
+
+    # Error types that are always system/infrastructure failures regardless of title.
+    _SYSTEM_LEVEL_ERROR_TYPES = frozenset({'canvas_manager_setup_error', 'content_database_save'})
+
+    def _get_remediation_message(self, error_type: str, error_title: str | None) -> str:
+        """
+        Return a short user-facing remediation hint based on error classification.
+
+        Item-level errors (specific assignment/page/quiz/image failed) →
+            suggest editing or removing the image in Canvas.
+        System-level errors (whole fetch failed or infrastructure error) →
+            suggest retrying or contacting support.
+        """
+        is_system = (
+            error_type in self._SYSTEM_LEVEL_ERROR_TYPES
+            or error_title in self._SYSTEM_LEVEL_TITLES
+        )
+        if is_system:
+            return 'Try again or contact support'
+        return 'Edit or delete the image in this content'
+
+    def __get_scan_error_details(self, course_scan_id: int) -> list:
+        """
+        Retrieve all errors logged for a given course scan.
+
+        Returns a list of error objects with type, title, message, canvas URL,
+        and a computed remediation_message for display in the UI.
+        If no errors exist, returns an empty list.
+        """
+        try:
+            error_logs = CourseScanErrorLog.objects.filter(course_scan_id=course_scan_id).order_by('-created_at')
+            serializer = CourseScanErrorLogSerializer(error_logs, many=True)
+            return [
+                {
+                    'id': error.get('id'),
+                    'error_type': error.get('error_type'),
+                    'error_title': error.get('error_title'),
+                    'error_message': error.get('error_message'),
+                    'canvas_url': error.get('canvas_url'),
+                    # Computed in the view — not stored in DB — so it stays flexible
+                    'remediation_message': self._get_remediation_message(
+                        error.get('error_type', ''),
+                        error.get('error_title'),
+                    ),
+                }
+                for error in serializer.data
+            ]
+        except Exception as e:
+            logger.error(f"Problem retrieving error details for course scan id {course_scan_id}: {e}")
+            return []
 
 class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
