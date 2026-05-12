@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Button, Chip, Link, Tooltip } from '@mui/material';
+import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Chip, Link, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -14,24 +14,6 @@ const StyledCard = styled(Card)(({ theme }) => ({
   borderColor: theme.palette.divider,
 }));
 
-const ActionButton = styled(Button)<{ selected?: boolean }>(({ theme, selected }) => ({
-  flex: 1,
-  minWidth: 0,
-  padding: theme.spacing(1, 1.5),
-  fontSize: '0.875rem',
-  fontWeight: 500,
-  textTransform: 'none',
-  borderRadius: theme.spacing(0.75),
-  border: '1px solid',
-  borderColor: selected ? theme.palette.primary.main : theme.palette.divider,
-  backgroundColor: selected ? theme.palette.primary.main : 'transparent',
-  color: selected ? theme.palette.primary.contrastText : theme.palette.text.primary,
-  '&:hover': {
-    borderColor: theme.palette.primary.main,
-    backgroundColor: selected ? theme.palette.primary.dark : theme.palette.action.hover,
-  },
-}));
-
 const StatusChip = styled(Chip)(() => ({
   alignSelf: 'flex-start',
   fontWeight: 500,
@@ -42,6 +24,29 @@ const CardHeader = styled(Box)(({ theme }) => ({
   padding: theme.spacing(2),
   paddingBottom: theme.spacing(1),
   borderBottom: `1px solid ${theme.palette.divider}`,
+}));
+
+const StyledToggleButtonGroup = styled(ToggleButtonGroup)(({ theme }) => ({
+  width: '100%',
+  '& .MuiToggleButtonGroup-grouped': {
+    flex: 1,
+    minWidth: 0,
+    padding: theme.spacing(1, 1.5),
+    fontSize: '0.875rem',
+    fontWeight: 500,
+    textTransform: 'none',
+    color: theme.palette.text.primary,
+    '&.Mui-selected': {
+      color: theme.palette.primary.contrastText,
+      backgroundColor: theme.palette.primary.main,
+      '&:hover': {
+        backgroundColor: theme.palette.primary.dark,
+      },
+    },
+    '&:focus-visible': {
+      boxShadow: `0 0 0 2px ${theme.palette.common.white}, 0 0 0 4px ${theme.palette.primary.main}`,
+    },
+  },
 }));
 
 interface ContentImageCardProps {
@@ -71,6 +76,12 @@ export default function ContentImageCard({
   const handleActionChange = (newAction: ActionType) => {
     if (onActionChange) {
       onActionChange(newAction);
+    }
+  };
+
+  const handleToggleChange = (_event: React.MouseEvent<HTMLElement>, newValue: ActionType | null) => {
+    if (newValue !== null) {
+      handleActionChange(newValue);
     }
   };
 
@@ -155,39 +166,38 @@ export default function ContentImageCard({
             {localAltText.length} characters
           </Typography>
         </Box>
-        <Box sx={{display: 'flex', gap: 1, width: '100%',}}>
-          <ActionButton 
-            selected={action === 'approve'}
-            startIcon={<CheckIcon />}
-            onClick={() => handleActionChange('approve')}
-          >
+        <StyledToggleButtonGroup
+          value={action}
+          exclusive
+          onChange={handleToggleChange}
+          fullWidth
+          size="small"
+          color="primary"
+          aria-label="Image action"
+        >
+          <ToggleButton value="approve" aria-label="Approve">
+            <CheckIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
             Approve
-          </ActionButton>
+          </ToggleButton>
           <Tooltip
             title="Skip for now — this image will be resurfaced on the next scan and is not updated."
             placement="top"
           >
-            <ActionButton 
-              selected={action === 'skip'}
-              startIcon={<AccessTimeIcon />}
-              onClick={() => handleActionChange('skip')}
-            >
+            <ToggleButton value="skip" aria-label="Skip">
+              <AccessTimeIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
               Skip
-            </ActionButton>
+            </ToggleButton>
           </Tooltip>
           <Tooltip
             title="Decorative images have no alt text and will be ignored by assistive technology."
             placement="top"
           >
-            <ActionButton 
-              selected={action === 'decorative'}
-              startIcon={<VisibilityOffIcon />}
-              onClick={() => handleActionChange('decorative')}
-            >
+            <ToggleButton value="decorative" aria-label="Decorative">
+              <VisibilityOffIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
               Decorative
-            </ActionButton>
+            </ToggleButton>
           </Tooltip>
-        </Box>
+        </StyledToggleButtonGroup>
       </CardContent>
     </StyledCard>
   );
