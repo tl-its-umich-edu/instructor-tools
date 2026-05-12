@@ -125,15 +125,23 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
             content_by_type = {}
             for content_type,_ in ContentItem.CONTENT_TYPE_CHOICES:
                 content_queryset = ContentItem.objects.filter(course_scan_id=course_scan_id, content_type=content_type).all()
-                content_by_type[f'{content_type}_list'] = [
-                    {
-                        'id': content_item.id,
-                        'canvas_id': content_item.content_id,
-                        'canvas_name': content_item.content_name,
-                        'image_count': ImageItem.objects.filter(content_item=content_item).count()
-                    }
-                    for content_item in content_queryset
-                ]
+                content_type_list = []
+                for content_item in content_queryset:
+                    image_count = ImageItem.objects.filter(
+                        content_item=content_item,
+                        image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
+                    ).count()
+                    if image_count == 0:
+                        continue
+                    content_type_list.append(
+                        {
+                            'id': content_item.id,
+                            'canvas_id': content_item.content_id,
+                            'canvas_name': content_item.content_name,
+                            'image_count': image_count,
+                        }
+                    )
+                content_by_type[f'{content_type}_list'] = content_type_list
             return content_by_type
         except (Exception) as e:
             logger.error(f"Problem appending course content to scan for course scan id {course_scan_id}")
@@ -324,6 +332,8 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
             for content_item in items_qs:
                 images = []
                 for img in content_item.images.all():
+                    if img.image_process_state != ImageItem.IMAGE_STATE_SUCCESS:
+                        continue
                     image_url = img.image_url
                     # Generate Canvas link URL based on content type and IDs
                     canvas_link_url = generate_canvas_content_url(
@@ -346,6 +356,9 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
 
                 # Set default content_name if missing
                 content_name = content_item.content_name or f"Untitled : {content_item.content_type.title()}"
+
+                if not images:
+                    continue
 
                 content_items.append({
                     'id': content_item.id,

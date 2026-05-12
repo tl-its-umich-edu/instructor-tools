@@ -26,6 +26,7 @@ function AltTextHome(props: AltTextHomeProps) {
   const [scanPending, setScanPending] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
   const [scanErrors, setScanErrors] = useState<CourseScanError[]>([]);
+  const [errorsExpanded, setErrorsExpanded] = useState(false);
 
   const { data: lastScan, 
     isLoading: lastScanIsLoading, 
@@ -133,12 +134,19 @@ function AltTextHome(props: AltTextHomeProps) {
                 const summaryText = isCompleteFail
                   ? 'Scan completely failed'
                   : `Scan encountered ${scanErrors.length} error(s) during processing`;
+                const actionText = errorsExpanded
+                  ? 'collapse to hide details'
+                  : 'expand to view details';
                 return (
-                  <Accordion sx={{ marginBottom: 2, border: '1px solid', borderColor }}>
+                  <Accordion
+                    expanded={errorsExpanded}
+                    onChange={(_, expanded) => setErrorsExpanded(expanded)}
+                    sx={{ marginBottom: 2, border: '1px solid', borderColor }}
+                  >
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                       <Alert severity={severity} sx={{ width: '100%', padding: 0, background: 'transparent' }} icon={false}>
                         <Typography variant='body2'>
-                          <strong>{summaryText}</strong> &mdash; expand to view details
+                          <strong>{summaryText}</strong> &mdash; {actionText}
                         </Typography>
                       </Alert>
                     </AccordionSummary>

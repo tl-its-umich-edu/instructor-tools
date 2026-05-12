@@ -130,6 +130,15 @@ class ContentItem(models.Model):
 
 
 class ImageItem(models.Model):
+    IMAGE_STATE_PENDING = 'pending'
+    IMAGE_STATE_SUCCESS = 'success'
+    IMAGE_STATE_FAILED = 'failed'
+    IMAGE_STATE_CHOICES = [
+        (IMAGE_STATE_PENDING, 'Pending'),
+        (IMAGE_STATE_SUCCESS, 'Success'),
+        (IMAGE_STATE_FAILED, 'Failed'),
+    ]
+
     id = models.BigAutoField(primary_key=True)
     # FK to ContentItem primary key
     content_item = models.ForeignKey(
@@ -141,6 +150,12 @@ class ImageItem(models.Model):
     image_url = models.URLField(max_length=2048)
     # optional alt text produced by AI or provided by user; limit to ~2000 characters
     image_alt_text = models.TextField(blank=True, null=True, validators=[MaxLengthValidator(2000)])
+    # Tracks image processing lifecycle. Failed items are excluded from review payloads.
+    image_process_state = models.CharField(
+        max_length=20,
+        choices=IMAGE_STATE_CHOICES,
+        default=IMAGE_STATE_PENDING,
+    )
 
     class Meta:
         db_table = 'canvas_app_explorer_image_item'
