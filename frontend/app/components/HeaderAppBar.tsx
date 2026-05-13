@@ -49,7 +49,7 @@ export default function HeaderAppBar (props: HeaderAppBarProps) {
           </Grid>
         </Grid>
         <Grid item xs='auto' container justifyContent='space-around'>
-          <Button color='inherit' target='_blank' href={helpURL}>Help</Button>
+          <Button color='inherit' target='_blank' rel='noopener noreferrer' href={helpURL}>Help</Button>
           {user?.is_staff && <Button color='inherit' href='/admin'>Admin</Button>}
         </Grid>
       </Toolbar>
