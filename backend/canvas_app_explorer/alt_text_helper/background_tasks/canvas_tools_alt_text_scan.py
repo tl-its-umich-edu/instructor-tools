@@ -96,6 +96,13 @@ def fetch_and_scan_course(task: Dict[str, Any]):
             update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"Scan failed for course_id {course_id}: content_fetch_result={content_fetch_result}, image_process_result={image_process_result}", course_id=course_id)
     except Exception as e:
         logger.error(f"Unexpected error in fetch_and_scan_course for course_id {course_id}: {e}")
+        unexpected_error: CourseScanError = {
+            'type': 'unexpected_error',
+            'title': 'Course',
+            'error': e,
+            'canvas_url': generate_canvas_content_url(course_id, 'course'),
+        }
+        log_course_scan_errors(course_scan_id, [unexpected_error])
         update_course_scan(course_scan_id, CourseScanStatus.FAILED, f"Unexpected error in fetch_and_scan_course for course_id {course_id}: {e}", course_id=course_id)
 
 
