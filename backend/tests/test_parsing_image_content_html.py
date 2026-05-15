@@ -106,10 +106,7 @@ class TestParsingImageContentHTML(TestCase):
                 "id": 2936007,
                 "name": "Assignment 2",
                 "images": [
-                    {
-                        "image_id": "43525485",
-                        "download_url": "https://umich.test.instructure.com/files/43525485/download?verifier=DWBmBFpQ7vEUEyTdTf4e2wwESRGRpCMCnRtCxeDg&download_frd=1",
-                    }
+                    "https://umich.test.instructure.com/files/43525485/download?verifier=DWBmBFpQ7vEUEyTdTf4e2wwESRGRpCMCnRtCxeDg&download_frd=1",
                 ],
                 "type": "assignment",
             },
@@ -117,10 +114,7 @@ class TestParsingImageContentHTML(TestCase):
 
         sample_pages = [
             {"id": 1664893, "name": "Page 1", "images": [
-                {
-                    "image_id": "43525482",
-                    "download_url": "https://umich.test.instructure.com/files/43525482/download?verifier=Qomqu8ZhT5G2k5s6xa2qpS6orXV0ItIlE7sfhq1c&download_frd=1",
-                }
+                "https://umich.test.instructure.com/files/43525482/download?verifier=Qomqu8ZhT5G2k5s6xa2qpS6orXV0ItIlE7sfhq1c&download_frd=1",
             ], "type": "page"},
             {"id": 1664894, "name": "Page 2", "images": [], "type": "page"},
         ]
@@ -130,10 +124,7 @@ class TestParsingImageContentHTML(TestCase):
                 "id": 2936007,
                 "name": "Assignment 2",
                 "images": [
-                    {
-                        "image_id": "43525485",
-                        "download_url": "https://umich.test.instructure.com/files/43525485/download?verifier=DWBmBFpQ7vEUEyTdTf4e2wwESRGRpCMCnRtCxeDg&download_frd=1",
-                    }
+                    "https://umich.test.instructure.com/files/43525485/download?verifier=DWBmBFpQ7vEUEyTdTf4e2wwESRGRpCMCnRtCxeDg&download_frd=1",
                 ],
                 "type": "assignment",
             },
@@ -141,10 +132,7 @@ class TestParsingImageContentHTML(TestCase):
                 "id": 1664893,
                 "name": "Page 1",
                 "images": [
-                    {
-                        "image_id": "43525482",
-                        "download_url": "https://umich.test.instructure.com/files/43525482/download?verifier=Qomqu8ZhT5G2k5s6xa2qpS6orXV0ItIlE7sfhq1c&download_frd=1",
-                    }
+                    "https://umich.test.instructure.com/files/43525482/download?verifier=Qomqu8ZhT5G2k5s6xa2qpS6orXV0ItIlE7sfhq1c&download_frd=1",
                 ],
                 "type": "page",
             },

@@ -32,9 +32,3 @@ class ImageAltTextResult(TypedDict):
     image: Optional[object]  # ImageItem — avoid circular import by using object
     alt_text: str
     course_scan_error: NotRequired[CourseScanError]  # Present only for error cases
-
-
-class ScanState(TypedDict):
-    """Typed response payload for content extraction/persistence state."""
-    type: str
-    state: str

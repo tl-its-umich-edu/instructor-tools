@@ -2,14 +2,13 @@ import logging
 import asyncio
 import io
 from urllib.parse import urlparse
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union
 from django.conf import settings
 from constance import config
 from asgiref.sync import async_to_sync
 from backend.canvas_app_explorer.canvas_lti_manager.exception import AltTextGenerationException
 from backend.canvas_app_explorer.alt_text_helper.ai_processor import AltTextProcessor
-from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import ImageAltTextResult, ScanState
-from backend.canvas_app_explorer.alt_text_helper.background_tasks.error_logging import log_course_scan_errors
+from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import ImageAltTextResult, CourseScanError
 from backend.canvas_app_explorer.decorators import log_execution_time
 from backend.canvas_app_explorer.utils import generate_canvas_content_url
 from PIL import Image
@@ -41,7 +40,6 @@ class ProcessContentImages:
         self._auth_header = auth_header
         if bearer_token and not self._auth_header:
             self._auth_header = {'Authorization': f'Bearer {bearer_token}'}
-        self.scan_state: ScanState = {'type': 'image_alt_text_process', 'state': 'success'}
 
     def _build_error_result(
         self,
@@ -78,28 +76,27 @@ class ProcessContentImages:
 
 
     @log_execution_time
-    def retrieve_images_with_alt_text(self) -> ScanState:
+    def retrieve_images_with_alt_text(self) -> Union[bool, List[CourseScanError]]:
         """Process ImageItem records for this course concurrently and generate alt text.
 
         - Reads ImageItem rows for course_scan_id
         - Fetches image content and generates alt text concurrently (bounded to avoid memory/API spikes)
         - Bulk-updates ImageItem.image_alt_text and ImageItem.image_process_state
         - Marks image download/parse failures as failed, while keeping alt-text failures reviewable
-        - Returns a ScanState payload describing image-process status
+        - Returns True on success, or list of CourseScanError objects on failure
         """
         try:
             qs = ImageItem.objects.filter(content_item__course_scan_id=self.course_scan_id).select_related('content_item')
             logger.info(f"Retrieved {qs.count()} ImageItems for course_scan_id: {self.course_scan_id}, course_id: {self.course_id}")
 
             to_update = []
-            self.error_image_results = []
 
             # Collect image models
             image_models = list(qs.iterator())
 
             # Early return if no images to process
             if not image_models:
-                return self.scan_state
+                return True
 
             gen_results = self._process_images_concurrently(image_models)
 
@@ -155,38 +152,31 @@ class ProcessContentImages:
                 )
 
             if self.error_image_results:
-                has_blocking_image_errors = any(
-                    result.get('course_scan_error', {}).get('type') == 'image_process_error'
-                    for result in self.error_image_results
-                )
-                if has_blocking_image_errors:
-                    self.scan_state = {'type': 'image_alt_text_process', 'state': 'failed'}
-                errors_to_log = [
+                errors_to_log: list[CourseScanError] = [
                     result['course_scan_error']
                     for result in self.error_image_results
                     if result.get('course_scan_error')
                 ]
-                log_course_scan_errors(self.course_scan_id, errors_to_log)
                 logger.info(
                     "Captured %d image processing error result(s) for course_scan_id %s",
                     len(self.error_image_results),
                     self.course_scan_id,
                 )
+                return errors_to_log
 
-            return self.scan_state
+            return True
         except Exception as e:
             logger.error(f"Error retrieving images for course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {e}")
-            # Return a single system-level error entry with a course URL fallback.
-            error_result = self._build_error_result('image_process_error', e)
-            self.error_image_results = [error_result]
-            self.scan_state = {'type': 'image_alt_text_process', 'state': 'failed'}
-            errors_to_log = [
+            # Build a new system-level error entry.
+            error_result: ImageAltTextResult = self._build_error_result('image_process_error', e)
+            # Always append the new error to error_image_results (attribute always exists)
+            self.error_image_results.append(error_result)
+            errors_to_log: list[CourseScanError] = [
                 result['course_scan_error']
                 for result in self.error_image_results
                 if result.get('course_scan_error')
             ]
-            log_course_scan_errors(self.course_scan_id, errors_to_log)
-            return self.scan_state
+            return errors_to_log
 
     async def get_image_content_async(self, img_url):
         logger.info(f"Fetching image content for url: {img_url}")

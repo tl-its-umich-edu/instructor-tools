@@ -43,7 +43,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
     def test_fetch_and_scan_course_marks_failed_on_content_fetch_failure(
         self, mock_factory, mock_async_to_sync, mock_unpack
     ):
-        """Test that content fetch failure (unpack returns False) results in FAILED status."""
+        """Test that content fetch failure (unpack returns errors) results in FAILED status."""
         # Setup successful manager
         mock_manager = MagicMock()
         mock_factory.create_manager.return_value = mock_manager
@@ -52,8 +52,13 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         mock_manager.canvas_api = mock_canvas_api
         mock_manager.api_key = 'fake-token'
         
-        # Make unpack_and_store_content_images return False (fetch failed)
-        mock_unpack.return_value = False
+        # Make unpack_and_store_content_images return errors (fetch failed)
+        mock_unpack.return_value = [{
+            'type': 'content_fetch_error',
+            'title': 'Course',
+            'error': Exception('fetch failed'),
+            'canvas_url': 'https://example.com/course',
+        }]
         
         # Call the function
         fetch_and_scan_course(self.task)
@@ -190,7 +195,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         
         mock_async_to_sync.return_value = MagicMock(return_value=([], [], []))
         mock_unpack.return_value = True
-        mock_retrieve_alt.return_value = {}
+        mock_retrieve_alt.return_value = True
         
         # Call the function
         fetch_and_scan_course(self.task)

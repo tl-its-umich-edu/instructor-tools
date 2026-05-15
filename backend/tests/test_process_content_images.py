@@ -6,7 +6,6 @@ from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_a
     fetch_and_scan_course,
 )
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
-from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from django.contrib.auth.models import User
 
 
@@ -36,9 +35,8 @@ class TestProcessContentImages(TestCase):
         proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         results = proc.retrieve_images_with_alt_text()
 
-        # ensure results contain our image_url and generated alt text
-        self.assertIn('http://example.com/img.jpg', results)
-        self.assertEqual(results['http://example.com/img.jpg']['image_alt_text'], self.EXPECTED_ALT_TEXT)
+        # Success path returns True
+        self.assertTrue(results)
 
         # DB record should be updated
         img = ImageItem.objects.get(id=self.image_item.id)
@@ -49,11 +47,12 @@ class TestProcessContentImages(TestCase):
         mock_get_content.return_value = Exception('fetch failed')
 
         proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
-        with self.assertRaises(ImageContentExtractionException) as ctx:
-            proc.retrieve_images_with_alt_text()
+        results = proc.retrieve_images_with_alt_text()
 
-        # ensure the underlying errors were captured
-        self.assertTrue(len(ctx.exception.errors) >= 1)
+        # Failures are returned as CourseScanError entries (not raised)
+        self.assertIsInstance(results, list)
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]['type'], 'image_process_error')
 
         # image alt text should still be blank/None
         img = ImageItem.objects.get(id=self.image_item.id)
@@ -92,11 +91,22 @@ class TestProcessContentImages(TestCase):
         
         mock_get_images.return_value = ([], [], [])
         mock_unpack.return_value = True
-        
-        # Make retrieve_and_store_alt_text raise ImageContentExtractionException
-        mock_retrieve_alt.side_effect = ImageContentExtractionException(
-            errors=['Image fetch failed', 'Processing error']
-        )
+
+        # Make retrieve_and_store_alt_text return extraction errors
+        mock_retrieve_alt.return_value = [
+            {
+                'type': 'image_process_error',
+                'title': 'Course',
+                'error': Exception('Image fetch failed'),
+                'canvas_url': 'https://example.com/course',
+            },
+            {
+                'type': 'alt_text_process_error',
+                'title': 'Course',
+                'error': Exception('Processing error'),
+                'canvas_url': 'https://example.com/course',
+            },
+        ]
         
         task = {
             'course_scan_id': course_scan.id,
@@ -129,10 +139,10 @@ class TestProcessContentImages(TestCase):
         proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         results = proc.retrieve_images_with_alt_text()
 
-        # Results should be empty since the image was skipped
-        self.assertEqual(results, {})
+        # No processing errors occurred
+        self.assertTrue(results)
 
-        # DB record should NOT be updated (should still be None)
+        # No alt text persisted for None output
         img_record = ImageItem.objects.get(id=self.image_item.id)
         self.assertIsNone(img_record.image_alt_text)
 
@@ -161,7 +171,7 @@ class TestProcessContentImages(TestCase):
         
         # Should have one result
         self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]['img'].id, self.image_item.id)
+        self.assertEqual(results[0]['image'].id, self.image_item.id)
         # alt_text should be empty string, not None
         self.assertEqual(results[0]['alt_text'], '')
 
@@ -189,15 +199,13 @@ class TestProcessContentImages(TestCase):
         proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
         results = proc.retrieve_images_with_alt_text()
 
-        # Only the first image should be in results
-        self.assertEqual(len(results), 1)
-        self.assertIn('http://example.com/img.jpg', results)
-        self.assertEqual(results['http://example.com/img.jpg']['image_alt_text'], 'First image alt text')
+        # No processing errors occurred
+        self.assertTrue(results)
 
         # First image should be updated
         img1 = ImageItem.objects.get(id=self.image_item.id)
         self.assertEqual(img1.image_alt_text, 'First image alt text')
         
-        # Second image should NOT be updated (remain None)
+        # Second image should remain without alt text because generator returned None
         img2 = ImageItem.objects.get(id=image_item_2.id)
         self.assertIsNone(img2.image_alt_text)
