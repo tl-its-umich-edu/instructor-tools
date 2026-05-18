@@ -63,21 +63,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
         canvas_callback_url = task.get('canvas_callback_url')
         request = _create_background_request(req_user, canvas_callback_url, course_id)
         
-        try:
-            manager = MANAGER_FACTORY.create_manager(request)
-            canvas_api: Canvas = manager.canvas_api
-            bearer_token = manager.api_key
-        except (InvalidOAuthReturnError, Exception) as e:
-            setup_error: CourseScanError = {
-                'type': 'canvas_manager_setup_error',
-                'title': 'Course',
-                'error': e,
-                'canvas_url': generate_canvas_content_url(course_id, 'course'),
-            }
-            logger.error(f"Error creating Canvas API for course_id {course_id}: {setup_error['error']}")
-            update_course_scan(course_scan_id, CourseScanStatus.FAILED, course_id=course_id, errors=[setup_error])
-            CanvasOAuth2Token.objects.filter(user=request.user).delete()
-            return
+        canvas_api, bearer_token = canvas_setup(course_scan_id, course_id, request)
 
         # Fetch full course details to ensure attributes like course_code are present for logging
         course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
@@ -107,6 +93,20 @@ def fetch_and_scan_course(task: Dict[str, Any]):
             'canvas_url': generate_canvas_content_url(course_id, 'course'),
         }
         update_course_scan(course_scan_id, CourseScanStatus.FAILED, course_id=course_id, errors=[unexpected_error])
+
+def canvas_setup(course_scan_id, course_id, request):
+    try:
+        manager = MANAGER_FACTORY.create_manager(request)
+        canvas_api: Canvas = manager.canvas_api
+        bearer_token = manager.api_key
+        return canvas_api, bearer_token
+    except (InvalidOAuthReturnError) as e:
+        logger.error(f"Error creating Canvas API for course_scan_id {course_scan_id}, course_id {course_id}: {e}")
+        CanvasOAuth2Token.objects.filter(user=request.user).delete()
+        raise e
+    except Exception as e:
+        logger.error(f"Unexpected error during Canvas API setup for course_scan_id {course_scan_id}, course_id {course_id}: {e}")
+        raise e
 
 def _merge_error_results(*results: Union[bool, List[CourseScanError]]) -> List[CourseScanError]:
     """
@@ -219,7 +219,7 @@ def unpack_and_store_content_images(
     assignments, pages, quizzes = results
     
     combined = assignments + pages + quizzes
-    logger.info("Combined items count: %s", combined)
+    logger.info("Combined items count: %s", len(combined))
 
     def _is_course_scan_error_like(obj: Any) -> bool:
         return isinstance(obj, dict) and bool(obj.get('type')) and bool(obj.get('error'))
@@ -263,8 +263,8 @@ def unpack_and_store_content_images(
         "course_scan_id: %s, course_id: %s success content: %s, errors to log: %s",
         course_scan_id,
         course.id,
-        success_content_with_images,
-        errors_to_log,
+        len(success_content_with_images),
+        len(errors_to_log),
     )
 
     save_results_status = save_scan_results(course_scan_id, course.id, success_content_with_images)

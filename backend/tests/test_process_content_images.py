@@ -10,6 +10,35 @@ from django.contrib.auth.models import User
 
 
 class TestProcessContentImages(TestCase):
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.ProcessContentImages.get_image_content_async')
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.AltTextProcessor.generate_alt_text')
+    def test_retrieve_images_with_alt_text_handles_alt_text_exception(self, mock_generate_alt, mock_get_content):
+        """Test that exceptions from generate_alt_text are caught and returned as image_process_error."""
+        from PIL import Image
+        import io
+
+        # Simulate valid image content
+        img = Image.new('RGB', (10, 10), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        mock_get_content.return_value = buf.getvalue()
+
+        # Simulate exception from alt text processor
+        mock_generate_alt.side_effect = Exception('alt text failed')
+
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
+        results = proc.retrieve_images_with_alt_text()
+
+        # Should return a list of errors
+        self.assertIsInstance(results, list)
+        self.assertGreaterEqual(len(results), 1)
+        self.assertEqual(results[0]['type'], 'image_process_error')
+        self.assertIn('alt text failed', str(results[0]['error']))
+
+        # image alt text should still be blank/None
+        img = ImageItem.objects.get(id=self.image_item.id)
+        self.assertTrue(img.image_alt_text in (None, ''))
     EXPECTED_ALT_TEXT = 'A descriptive alt text'
 
     def setUp(self):
