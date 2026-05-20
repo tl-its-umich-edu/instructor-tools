@@ -256,7 +256,7 @@ TINYMCE_DEFAULT_CONFIG = {
     "plugins": "advlist,autolink,code,lists,link,anchor,insertdatetime,media,table,wordcount",
     "toolbar": "bold italic backcolor | "
         "bullist numlist outdent indent | removeformat | code | help",
-    "default_link_target": "_blank",
+    "link_default_target": "_blank",
     "invalid_elements": "h1, h2, h3, h4, h5, h6",
     "invalid_styles": "color, font-family, background-color, line-height",
     "promotion": False,
@@ -293,7 +293,6 @@ TINYMCE_DEFAULT_CONFIG = {
             ]
         }
     ],
-    "block_formats": "Paragraph=p",
     "removed_menuitems": "fontformats fontsizes lineheight forecolor backcolor",
 }
 
