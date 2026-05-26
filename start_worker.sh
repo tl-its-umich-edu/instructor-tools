@@ -29,7 +29,7 @@ fi
 if [ "${RUN_QWORKER_DEV_MODE:-false}" = "true" ]; then
     echo "qworker: Running in DEV mode"
     rm /tmp/backend_ready
-    watchfiles --filter python "${QCLUSTER_CMD}" /code/backend
+    watchfiles --filter python  ${PYTHON_FLAGS} "${QCLUSTER_CMD}" /code/backend
 else
     echo "qworker: Running in PROD mode"
     ${QCLUSTER_CMD}

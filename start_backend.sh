@@ -57,7 +57,7 @@ if [ "${DEBUGPY_ENABLE:-"false"}" == "false" ]; then
     CMD="gunicorn backend.asgi:application --bind 0.0.0.0:${GUNICORN_PORT} --workers=${GUNICORN_WORKERS} -k uvicorn_worker.UvicornWorker --timeout=${GUNICORN_TIMEOUT}"
 else
     echo "Starting uvicorn for Development"
-    CMD="uvicorn backend.asgi:application --host=0.0.0.0 --port=${GUNICORN_PORT} --reload"
+    CMD="python ${PYTHON_FLAGS} -m debugpy --listen 0.0.0.0:5020 -m uvicorn backend.asgi:application --host=0.0.0.0 --port=${GUNICORN_PORT} --reload"
 fi
 
 # Signal backend is ready for qworker
