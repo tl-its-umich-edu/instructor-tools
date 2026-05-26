@@ -147,12 +147,6 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
             logger.error(f"Problem appending course content to scan for course scan id {course_scan_id}")
             raise e
 
-    # Error types that indicate a specific content item or image failed processing.
-    # These point to a Canvas page where the user can edit or remove the problematic image.
-    _ITEM_LEVEL_ERROR_TYPES = frozenset({
-        'image_process_error', 'alt_text_process_error',
-    })
-
     # Error titles assigned when an entire content-type fetch fails (e.g. all assignments)
     # or when a system-level failure occurs.  Neither maps to a single editable item.
     _SYSTEM_LEVEL_TITLES = frozenset({'Course', 'assignments', 'pages', 'quizzes'})
@@ -168,13 +162,14 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
             suggest editing or removing the image in Canvas.
         System-level errors (whole fetch failed or infrastructure error) →
             suggest retrying or contacting support.
+        Token errors → suggest refreshing browser or contacting support.
         """
         is_system = (
             error_type in self._SYSTEM_LEVEL_ERROR_TYPES
             or error_title in self._SYSTEM_LEVEL_TITLES
         )
         if is_system:
-            return 'Try again or contact support'
+            return 'Try again, refresh browser, or contact support'
         return 'Edit or delete the image in this content'
 
     def __get_scan_error_details(self, course_scan_id: int) -> list:

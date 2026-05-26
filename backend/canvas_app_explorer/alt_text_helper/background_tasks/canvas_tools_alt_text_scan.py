@@ -84,6 +84,15 @@ def fetch_and_scan_course(task: Dict[str, Any]):
             )
         else:
             update_course_scan(course_scan_id, CourseScanStatus.COMPLETED, course_id=course_id)
+    except InvalidOAuthReturnError as e:
+        logger.error(f"OAuth token error in fetch_and_scan_course for course_id {course_id}: {e}")
+        oauth_error: CourseScanError = {
+            'type': 'Token Error',
+            'title': 'Course',
+            'error': e,
+            'canvas_url': generate_canvas_content_url(course_id, 'course'),
+        }
+        update_course_scan(course_scan_id, CourseScanStatus.FAILED, course_id=course_id, errors=[oauth_error])
     except Exception as e:
         logger.error(f"Unexpected error in fetch_and_scan_course for course_id {course_id}: {e}")
         unexpected_error: CourseScanError = {
@@ -100,7 +109,7 @@ def canvas_setup(course_scan_id, course_id, request):
         canvas_api: Canvas = manager.canvas_api
         bearer_token = manager.api_key
         return canvas_api, bearer_token
-    except (InvalidOAuthReturnError) as e:
+    except InvalidOAuthReturnError as e:
         logger.error(f"Error creating Canvas API for course_scan_id {course_scan_id}, course_id {course_id}: {e}")
         CanvasOAuth2Token.objects.filter(user=request.user).delete()
         raise e
