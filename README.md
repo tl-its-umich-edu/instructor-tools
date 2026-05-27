@@ -111,6 +111,30 @@ All test are in the `tests` folder. To run the tests
 ```sh 
 docker exec -it instructor_tools python manage.py test
 ```
+
+### Configuring Canvas Staff Role Access
+Access to the tool is controlled by Canvas course role values sent in the LTI custom parameter
+`canvas_course_roles`.
+
+The following base roles are always treated as staff:
+1. `Account Admin`
+2. `Sub-Account Admin`
+3. `TeacherEnrollment`
+
+To add institution-specific roles without code changes:
+1. Open Django Admin.
+2. Go to `Constance`.
+3. Edit `ADDITIONAL_STAFF_COURSE_ROLES` with a comma-separated list of exact role strings.
+
+Default additional roles:
+1. none (empty value)
+
+Notes:
+1. Role matching is case-insensitive after trimming whitespace.
+2. You can add or remove entries at runtime from Django Admin.
+3. Environment variable `ADDITIONAL_STAFF_COURSE_ROLES` only provides the initial default value.
+    After a value is saved in Constance, the admin value takes precedence.
+
 ### Django Queue
 1. Getting the Alt text from course images run as a background task.
 2. We are using [Django ORM](https://django-q2.readthedocs.io/en/master/brokers.html#django-orm) is set a default message Broker.
