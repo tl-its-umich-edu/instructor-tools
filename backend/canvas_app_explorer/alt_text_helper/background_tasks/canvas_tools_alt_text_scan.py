@@ -73,7 +73,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
 
         image_process_result: Union[bool, List[CourseScanError]] = retrieve_and_store_alt_text(course_scan_id, course_id, bearer_token=bearer_token)
 
-        # Determine final status: FAILED if both stages had errors, else COMPLETED
+        # Determine final status: FAILED if either stage had errors, else COMPLETED
         if content_fetch_result is not True or image_process_result is not True:
             merged_errors = _merge_error_results(content_fetch_result, image_process_result)
             update_course_scan(
