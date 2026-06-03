@@ -10,6 +10,7 @@ from rest_framework import authentication, permissions, viewsets
 from rest_framework.request import Request
 from rest_framework.response import Response
 from django.urls import reverse
+from django.db.models import Count, Q
 from rest_framework_tracking.mixins import LoggingMixin
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
@@ -123,22 +124,26 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     def __get_scan_course_content(self, course_scan_id: int) -> object:
         try:
             content_by_type = {}
-            for content_type,_ in ContentItem.CONTENT_TYPE_CHOICES:
-                content_queryset = ContentItem.objects.filter(course_scan_id=course_scan_id, content_type=content_type).all()
+            for content_type, _content_type_label in ContentItem.CONTENT_TYPE_CHOICES:
+                content_queryset = (
+                    ContentItem.objects
+                    .filter(course_scan_id=course_scan_id, content_type=content_type)
+                    .annotate(
+                        successful_image_count=Count(
+                            'images',
+                            filter=Q(images__image_process_state=ImageItem.IMAGE_STATE_SUCCESS),
+                        )
+                    )
+                    .filter(successful_image_count__gt=0)
+                )
                 content_type_list = []
                 for content_item in content_queryset:
-                    image_count = ImageItem.objects.filter(
-                        content_item=content_item,
-                        image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
-                    ).count()
-                    if image_count == 0:
-                        continue
                     content_type_list.append(
                         {
                             'id': content_item.id,
                             'canvas_id': content_item.content_id,
                             'canvas_name': content_item.content_name,
-                            'image_count': image_count,
+                            'image_count': content_item.successful_image_count,
                         }
                     )
                 content_by_type[f'{content_type}_list'] = content_type_list
