@@ -678,7 +678,7 @@ def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
         return True
     except (ValueError, IndexError) as e:
         logger.warning(f"Could not parse course_id from URL {img_src}: {e}")
-        raise e  
+        raise type(e)(f" parsing error {img_src} due to {e}") from e
 
 def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
     """
