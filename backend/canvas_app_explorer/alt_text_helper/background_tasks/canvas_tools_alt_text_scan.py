@@ -20,7 +20,7 @@ from canvas_oauth.models import CanvasOAuth2Token
 
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
-from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus, CourseScanErrorLog
+from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem, CourseScanStatus
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.error_logging import log_course_scan_errors
 from backend.canvas_app_explorer.utils import generate_canvas_content_url
