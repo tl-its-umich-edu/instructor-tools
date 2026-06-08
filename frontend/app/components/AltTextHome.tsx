@@ -146,7 +146,7 @@ function AltTextHome(props: AltTextHomeProps) {
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                       <Alert severity={severity} sx={{ width: '100%', padding: 0, background: 'transparent' }} icon={false}>
                         <Typography variant='body2'>
-                          <strong>{summaryText}</strong> &mdash; {actionText}
+                          <strong>{summaryText}</strong> - {actionText}
                         </Typography>
                       </Alert>
                     </AccordionSummary>
@@ -162,7 +162,7 @@ function AltTextHome(props: AltTextHomeProps) {
                             {error.canvas_url && (
                               <Typography variant='body2'>
                                 <Link href={error.canvas_url} target="_blank" rel="noopener">
-                                  View &ldquo;{error.error_title || 'Course'}&rdquo; in Canvas &mdash; {error.remediation_message}
+                                  {`View "${error.error_title || 'Course'}" in Canvas - ${error.remediation_message}`}
                                 </Link>
                               </Typography>
                             )}
