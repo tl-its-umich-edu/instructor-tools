@@ -166,8 +166,7 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
         Item-level errors (specific assignment/page/quiz/image failed) →
             suggest editing or removing the image in Canvas.
         System-level errors (whole fetch failed or infrastructure error) →
-            suggest retrying or contacting support.
-        Token errors → suggest refreshing browser or contacting support.
+            suggest retrying, refreshing browser, or contacting support.
         """
         is_system = (
             error_type in self._SYSTEM_LEVEL_ERROR_TYPES
