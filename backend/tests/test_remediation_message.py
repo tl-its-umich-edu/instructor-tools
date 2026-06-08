@@ -39,10 +39,3 @@ class TestRemediationMessage(TestCase):
         """System-level title should override item-level error type."""
         message = self.viewset._get_remediation_message('image_process_error', 'Course')
         self.assertEqual(message, 'Try again, refresh browser, or contact support')
-
-    def test_token_error_type_returns_edit_delete_message(self):
-        """Token Error type (when not system-level title) returns edit/delete message."""
-        # Current implementation doesn't have special handling for Token Error
-        # so it falls through to default behavior
-        message = self.viewset._get_remediation_message('Token Error', 'Some Title')
-        self.assertEqual(message, 'Edit or delete the image in this content')

@@ -87,7 +87,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
     except InvalidOAuthReturnError as e:
         logger.error(f"OAuth token error in fetch_and_scan_course for course_id {course_id}: {e}")
         oauth_error: CourseScanError = {
-            'type': 'Token Error',
+            'type': 'token_error',
             'title': 'Course',
             'error': e,
             'canvas_url': generate_canvas_content_url(course_id, 'course'),
