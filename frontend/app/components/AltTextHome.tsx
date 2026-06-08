@@ -1,5 +1,4 @@
-import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Divider, LinearProgress, Link, Typography, Alert, Stack } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Box, Button, Divider, LinearProgress, Link, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +25,6 @@ function AltTextHome(props: AltTextHomeProps) {
   const [scanPending, setScanPending] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
   const [scanErrors, setScanErrors] = useState<CourseScanError[]>([]);
-  const [errorsExpanded, setErrorsExpanded] = useState(false);
 
   const { data: lastScan, 
     isLoading: lastScanIsLoading, 
@@ -125,57 +123,10 @@ function AltTextHome(props: AltTextHomeProps) {
             </Box>
           ) : (
             <>
-              {scanErrors.length > 0 && (() => {
-                // A "complete failure" is when no images were fetched at all (total_image_count === 0).
-                // In that case show error (red) severity; otherwise show warning (yellow) for partial failures.
-                const isCompleteFail = lastScan.scan_details.total_image_count === 0;
-                const severity = isCompleteFail ? 'error' : 'warning';
-                const borderColor = isCompleteFail ? 'error.main' : 'warning.main';
-                const summaryText = isCompleteFail
-                  ? 'Scan completely failed'
-                  : `Scan encountered ${scanErrors.length} error(s) during processing`;
-                const actionText = errorsExpanded
-                  ? 'collapse to hide details'
-                  : 'expand to view details';
-                return (
-                  <Accordion
-                    expanded={errorsExpanded}
-                    onChange={(_, expanded) => setErrorsExpanded(expanded)}
-                    sx={{ marginBottom: 2, border: '1px solid', borderColor }}
-                  >
-                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Alert severity={severity} sx={{ width: '100%', padding: 0, background: 'transparent' }} icon={false}>
-                        <Typography variant='body2'>
-                          <strong>{summaryText}</strong> - {actionText}
-                        </Typography>
-                      </Alert>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Stack spacing={1}>
-                        {scanErrors.map((error, index) => (
-                          <Box key={error.id} sx={{ paddingLeft: 2 }}>
-                            <Typography variant='body2'>
-                              <strong>{index + 1}. {error.error_type}</strong>
-                              {error.error_title && <> ({error.error_title})</>}
-                              : {error.error_message}
-                            </Typography>
-                            {error.canvas_url && (
-                              <Typography variant='body2'>
-                                <Link href={error.canvas_url} target="_blank" rel="noopener">
-                                  {`View "${error.error_title || 'Course'}" in Canvas - ${error.remediation_message}`}
-                                </Link>
-                              </Typography>
-                            )}
-                          </Box>
-                        ))}
-                      </Stack>
-                    </AccordionDetails>
-                  </Accordion>
-                );
-              })()}
               <LastScanInfo
                 scanPending={scanPending}
                 lastScan={lastScan.scan_details}
+                scanErrors={scanErrors}
                 handleStartScan={handleStartScan}
               />
               {lastScan && (
