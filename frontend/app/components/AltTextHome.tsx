@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ErrorsDisplay from './ErrorsDisplay';
 import { Globals, CourseScanError } from '../interfaces';
-import LastScanInfo from './CourseScanComponent';
+import LastScanInfo from './LastScanInfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
 import ReviewSelectForm from './ReviewSelectForm';
