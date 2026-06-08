@@ -329,7 +329,7 @@ def update_course_scan(course_scan_id: int, status: CourseScanStatus, course_id:
         # Log the update error to database
         update_error: CourseScanError = {
             'type': 'course_scan_update_error',
-            'title': 'CourseScan Status Update',
+            'title': 'Course',
             'error': e,
             'canvas_url': generate_canvas_content_url(course_id, 'course') if course_id else 'N/A',
         }
@@ -392,12 +392,13 @@ def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentIt
         error_msg = f"Error in save_scan_results transaction for course_scan_id {course_scan_id}, course_id {course_id}: {e}"
         logger.error(error_msg)
         # Return CourseScanError to propagate failure state to caller
-        return {
+        error_result: CourseScanError = {
             'type': 'content_database_save',
             'title': 'Course',
             'error': e,
             'canvas_url': generate_canvas_content_url(course_id, 'course'),
         }
+        return error_result
   
 async def fetch_content_items_async(fn: Callable[[T], R], ctx: T) -> Union[R, Exception]:
     """
@@ -553,7 +554,7 @@ def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, CourseScanE
             if isinstance(result, Exception):
                 mapped_quiz_question_results.append([
                     {
-                        'type': 'question',
+                        'type': 'quiz_question',
                         'title': getattr(quiz_obj, 'title', 'Quiz'),
                         'error': result,
                         'canvas_url': generate_canvas_content_url(
@@ -569,7 +570,7 @@ def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, CourseScanE
 
         return process_quiz_with_questions(images_from_quizzes, mapped_quiz_question_results)
     except (CanvasException, Exception) as e:
-        logger.error(f"Step QuizErr: Errors fetching Quizzes for course {course.id}: {e}")
+        logger.error(f"Errors fetching Quizzes for course {course.id}: {e}")
         fetch_error: CourseScanError = {
             'type': 'quiz',
             'title': 'quizzes',
@@ -608,7 +609,7 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
             'description': getattr(source_quiz, 'description', ''),
         })
 
-    if quiz.id == 1277:  # specific quiz ID to trigger error for testing
+    if quiz.id == 286:  # specific quiz ID to trigger error for testing
         quiz = _build_debug_quiz(quiz)
 
     logger.info(f"Fetching questions for quiz ID: {quiz.id}, Title: {quiz.title}")
@@ -625,7 +626,7 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
                 extract_images_from_html(
                     getattr(question, 'question_text', ''),
                     quiz.course_id,
-                    'question',
+                    'quiz_question',
                     content_title=getattr(quiz, 'title', 'Quiz'),
                     content_id=question.id,
                     content_parent_id=quiz.id,

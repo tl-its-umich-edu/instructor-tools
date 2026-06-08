@@ -169,13 +169,14 @@ class CourseScanErrorLog(models.Model):
     Stores errors that occur during a course scan.
     
     Related to CourseScan via FK, capturing error details including:
-    - Error type (e.g., content_database_save, image_process_error, alt_text_process_error)
+    - Error type (assignment | page | quiz | question | quiz_question | image_process_error | alt_text_process_error | 
+        token_error | content_database_save | course_scan_update_error
+    - title = Content title if related to specific content item, otherwise 'Course' or other relevant descriptor
     - Exception message/traceback
-    - Canvas UI URL pointing to the failing content
+    - Canvas UI URL pointing to the failing content/course
     """
     id = models.BigAutoField(primary_key=True)
     
-    # FK to CourseScan primary key; when scan is deleted, errors are cascaded
     course_scan = models.ForeignKey(
         CourseScan,
         on_delete=models.CASCADE,
@@ -183,19 +184,14 @@ class CourseScanErrorLog(models.Model):
         related_name='scan_errors',
     )
     
-    # Type of error (e.g., 'content_database_save', 'image_process_error', 'alt_text_process_error', 'canvas_manager_setup_error')
     error_type = models.CharField(max_length=50)
 
-    # Content title/context where error happened (e.g., assignment/page/quiz name)
     error_title = models.CharField(max_length=255, blank=True, null=True)
     
-    # Exception message/details (stores str(exception) for traceability)
     error_message = models.TextField()
     
-    # Canvas UI URL pointing to the failing content item
     canvas_url = models.URLField(max_length=2048, blank=True, null=True)
     
-    # When the error was logged
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

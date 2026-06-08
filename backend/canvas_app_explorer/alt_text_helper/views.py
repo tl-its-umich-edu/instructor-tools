@@ -36,6 +36,8 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = None
+    
+    _CONTENT_TYPE_ERROR = frozenset({'quiz_question', 'assignment', 'page', 'quiz', 'image_process_error', 'alt_text_process_error'})
 
     def start_scan(self, request: Request) -> Response:
         """Create a new course scan record and enqueue the background scan task.
@@ -152,29 +154,23 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
             logger.error(f"Problem appending course content to scan for course scan id {course_scan_id}")
             raise e
 
-    # Error titles assigned when an entire content-type fetch fails (e.g. all assignments)
-    # or when a system-level failure occurs.  Neither maps to a single editable item.
-    _SYSTEM_LEVEL_TITLES = frozenset({'Course', 'assignments', 'pages', 'quizzes'})
 
-    # Error types that are always system/infrastructure failures regardless of title.
-    _SYSTEM_LEVEL_ERROR_TYPES = frozenset({'canvas_manager_setup_error', 'content_database_save'})
 
-    def _get_remediation_message(self, error_type: str, error_title: str | None) -> str:
+    def _get_remediation_message(self, error_type: str) -> str:
         """
         Return a short user-facing remediation hint based on error classification.
 
-        Item-level errors (specific assignment/page/quiz/image failed) →
+        Item-level errors (specific assignment/page/quiz/question/image/alt_text failed) →
             suggest editing or removing the image in Canvas.
         System-level errors (whole fetch failed or infrastructure error) →
             suggest retrying, refreshing browser, or contacting support.
         """
-        is_system = (
-            error_type in self._SYSTEM_LEVEL_ERROR_TYPES
-            or error_title in self._SYSTEM_LEVEL_TITLES
+        is_content = (
+            error_type in self._CONTENT_TYPE_ERROR
         )
-        if is_system:
-            return 'Try again, refresh browser, or contact support'
-        return 'Edit or delete the image in this content'
+        if is_content:
+            return 'Edit or delete the image in this content'
+        return 'Try again, refresh browser, or contact support'
 
     def __get_scan_error_details(self, course_scan_id: int) -> list:
         """
@@ -197,7 +193,6 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                     # Computed in the view — not stored in DB — so it stays flexible
                     'remediation_message': self._get_remediation_message(
                         error.get('error_type', ''),
-                        error.get('error_title'),
                     ),
                 }
                 for error in serializer.data

@@ -13,29 +13,31 @@ class TestRemediationMessage(TestCase):
         """System-level error types should return system-level message."""
         for error_type in ['canvas_manager_setup_error', 'content_database_save']:
             with self.subTest(error_type=error_type):
-                message = self.viewset._get_remediation_message(error_type, 'Some Title')
+                message = self.viewset._get_remediation_message(error_type)
                 self.assertEqual(message, 'Try again, refresh browser, or contact support')
 
     def test_system_level_error_title_returns_system_message(self):
         """System-level error titles should return system-level message."""
         for error_title in ['Course', 'assignments', 'pages', 'quizzes']:
             with self.subTest(error_title=error_title):
-                message = self.viewset._get_remediation_message('some_error', error_title)
+                message = self.viewset._get_remediation_message('some_error')
                 self.assertEqual(message, 'Try again, refresh browser, or contact support')
 
     def test_item_level_error_returns_edit_delete_message(self):
         """Item-level errors should return edit or delete message."""
         for error_type in ['image_process_error', 'alt_text_process_error']:
             with self.subTest(error_type=error_type):
-                message = self.viewset._get_remediation_message(error_type, 'Some Image')
+                message = self.viewset._get_remediation_message(error_type)
                 self.assertEqual(message, 'Edit or delete the image in this content')
 
     def test_generic_error_returns_edit_delete_message(self):
-        """Generic (non-system, non-token) errors should return edit or delete message."""
-        message = self.viewset._get_remediation_message('unknown_error', 'Unknown')
-        self.assertEqual(message, 'Edit or delete the image in this content')
+        """Unknown error types (not in content allowlist) return the system-level message."""
+        message = self.viewset._get_remediation_message('unknown_error')
+        self.assertEqual(message, 'Try again, refresh browser, or contact support')
 
     def test_system_level_title_overrides_item_level_error_type(self):
-        """System-level title should override item-level error type."""
-        message = self.viewset._get_remediation_message('image_process_error', 'Course')
+        """Error type not in content allowlist returns system message regardless of title."""
+        # New logic checks only error_type against _CONTENT_TYPE_ERROR; title is not evaluated.
+        # canvas_manager_setup_error is not in the allowlist so always returns system message.
+        message = self.viewset._get_remediation_message('canvas_manager_setup_error')
         self.assertEqual(message, 'Try again, refresh browser, or contact support')

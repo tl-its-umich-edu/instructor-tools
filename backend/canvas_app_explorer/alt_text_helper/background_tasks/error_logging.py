@@ -8,8 +8,8 @@ from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import C
 
 logger = logging.getLogger(__name__)
 
-ERROR_LOG_MAX_RETRY_ATTEMPTS = 3  # Maximum number of retry attempts for DB persistence
-ERROR_LOG_RETRY_BACKOFF_BASE = 2  # Base for exponential backoff calculation (2^attempt seconds)
+ERROR_LOG_MAX_RETRY_ATTEMPTS = 3 
+ERROR_LOG_RETRY_BACKOFF_BASE = 2 
 
 
 def log_course_scan_errors(course_scan_id: int, errors: List[CourseScanError]) -> None:
