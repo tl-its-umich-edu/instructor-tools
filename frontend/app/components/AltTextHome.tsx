@@ -160,7 +160,7 @@ function AltTextHome(props: AltTextHomeProps) {
                               : {error.error_message}
                             </Typography>
                             {error.canvas_url && (
-                              <Typography variant='caption'>
+                              <Typography variant='body2'>
                                 <Link href={error.canvas_url} target="_blank" rel="noopener">
                                   View &ldquo;{error.error_title || 'Course'}&rdquo; in Canvas &mdash; {error.remediation_message}
                                 </Link>
