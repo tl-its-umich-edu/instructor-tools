@@ -8,8 +8,6 @@ from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import C
 
 logger = logging.getLogger(__name__)
 
-# Retry configuration for error logging persistence
-# Used when attempting to save CourseScanErrorLog entries to the database
 ERROR_LOG_MAX_RETRY_ATTEMPTS = 3  # Maximum number of retry attempts for DB persistence
 ERROR_LOG_RETRY_BACKOFF_BASE = 2  # Base for exponential backoff calculation (2^attempt seconds)
 
