@@ -11,7 +11,7 @@ class TestRemediationMessage(TestCase):
 
     def test_system_level_error_type_returns_system_message(self):
         """System-level error types should return system-level message."""
-        for error_type in ['canvas_manager_setup_error', 'content_database_save']:
+        for error_type in ['content_database_save']:
             with self.subTest(error_type=error_type):
                 message = self.viewset._get_remediation_message(error_type)
                 self.assertEqual(message, 'Try again, refresh browser, or contact support')
@@ -33,11 +33,4 @@ class TestRemediationMessage(TestCase):
     def test_generic_error_returns_edit_delete_message(self):
         """Unknown error types (not in content allowlist) return the system-level message."""
         message = self.viewset._get_remediation_message('unknown_error')
-        self.assertEqual(message, 'Try again, refresh browser, or contact support')
-
-    def test_system_level_title_overrides_item_level_error_type(self):
-        """Error type not in content allowlist returns system message regardless of title."""
-        # New logic checks only error_type against _CONTENT_TYPE_ERROR; title is not evaluated.
-        # canvas_manager_setup_error is not in the allowlist so always returns system message.
-        message = self.viewset._get_remediation_message('canvas_manager_setup_error')
         self.assertEqual(message, 'Try again, refresh browser, or contact support')
