@@ -89,7 +89,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         # When setup fails, error records are persisted for scan visibility/auditing
         self.assertTrue(CourseScanErrorLog.objects.filter(course_scan=self.course_scan).exists())
 
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
     def test_fetch_and_scan_course_marks_failed_on_content_fetch_failure(
@@ -104,7 +104,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         mock_manager.canvas_api = mock_canvas_api
         mock_manager.api_key = 'fake-token'
         
-        # Make unpack_and_store_content_images return errors (fetch failed)
+        # Make unpack_content_images return errors (fetch failed)
         mock_unpack.return_value = ([], [{
             'type': 'content_fetch_error',
             'title': 'Course',
@@ -119,7 +119,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self.course_scan.refresh_from_db()
         self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
     def test_fetch_and_scan_course_marks_failed_on_get_courses_images_exception(
@@ -144,7 +144,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self.course_scan.refresh_from_db()
         self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.Course')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
@@ -171,7 +171,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
     def test_fetch_and_scan_course_marks_failed_on_image_content_extraction_exception(
@@ -200,7 +200,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         self.assertEqual(self.course_scan.status, CourseScanStatus.FAILED.value)
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
     def test_fetch_and_scan_course_marks_failed_on_unexpected_exception(
@@ -238,7 +238,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.MANAGER_FACTORY')
     def test_fetch_and_scan_course_completes_successfully(

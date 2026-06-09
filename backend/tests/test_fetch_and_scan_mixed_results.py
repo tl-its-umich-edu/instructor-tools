@@ -38,7 +38,7 @@ class TestFetchAndScanCourseWithMixedResults(TestCase):
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.get_courses_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan._create_background_request')
@@ -120,7 +120,7 @@ class TestFetchAndScanCourseWithMixedResults(TestCase):
             [],  # Quizzes: empty (no quizzes)
         ]
 
-        # Setup unpack_and_store_content_images to return:
+        # Setup unpack_content_images to return:
         # - 2 successful page items
         # - list of 2 errors (assignment endpoint error + page endpoint error)
         content_errors = [assignment_error, page_endpoint_error]
@@ -144,7 +144,7 @@ class TestFetchAndScanCourseWithMixedResults(TestCase):
         # Verify get_courses_images was called
         mock_get_courses_images.assert_called_once_with(mock_course)
 
-        # Verify unpack_and_store_content_images was called with the mixed results
+        # Verify unpack_content_images was called with the mixed results
         mock_unpack_and_store.assert_called_once()
         call_args = mock_unpack_and_store.call_args
         results_arg = call_args[0][0]  # First argument to unpack_and_store
@@ -180,7 +180,7 @@ class TestFetchAndScanCourseWithMixedResults(TestCase):
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.get_courses_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan._create_background_request')
@@ -244,7 +244,7 @@ class TestFetchAndScanCourseWithMixedResults(TestCase):
             [],  # No quizzes
         ]
 
-        # unpack_and_store_content_images returns one successful page and one assignment error
+        # unpack_content_images returns one successful page and one assignment error
         mock_unpack_and_store.return_value = ([page_success], [assignment_error])
 
         # retrieve_and_store_alt_text successfully processes the 2 images

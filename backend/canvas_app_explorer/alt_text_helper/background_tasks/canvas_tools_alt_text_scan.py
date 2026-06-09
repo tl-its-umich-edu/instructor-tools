@@ -70,7 +70,7 @@ def fetch_and_scan_course(task: Dict[str, Any]):
         course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
         results = async_to_sync(get_courses_images)(course)
-        success_content_with_images, content_errors = unpack_and_store_content_images(
+        success_content_with_images, content_errors = unpack_content_images(
             results,
             course_scan_id,
             course_id,
@@ -200,13 +200,13 @@ def retrieve_and_store_alt_text(course_scan_id: int, course_id: int, bearer_toke
     image_process_state = process_content_images.retrieve_images_with_alt_text()
     return image_process_state
 
-def unpack_and_store_content_images(
+def unpack_content_images(
     results: list[list[ContentItemWithImages | CourseScanError]],
     course_scan_id: int,
     course_id: int
 ) -> ScanExtractionResult:
     """
-    Unpack async results, filter and persist extracted images to the database.
+    Unpack async results, filter success and errors.
     
     """
     assignments, pages, quizzes = results

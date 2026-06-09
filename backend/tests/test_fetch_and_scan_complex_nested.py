@@ -47,7 +47,7 @@ class TestFetchAndScanCourseComplexNestedScenario(TestCase):
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.get_courses_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan._create_background_request')
@@ -195,7 +195,7 @@ class TestFetchAndScanCourseComplexNestedScenario(TestCase):
             ],
         ]
 
-        # Setup unpack_and_store_content_images:
+        # Setup unpack_content_images:
         # Returns 7 successful items and 3 errors (page endpoint + quiz 2 + question 3 URL parse)
         content_errors = [page_error, quiz_2_error, question_3_error]
         success_items = [assignment_1, assignment_2, page_1, page_2, quiz_1_desc, question_1, question_2]
@@ -220,7 +220,7 @@ class TestFetchAndScanCourseComplexNestedScenario(TestCase):
         # Verify get_courses_images was called
         mock_get_courses_images.assert_called_once()
 
-        # Verify unpack_and_store_content_images was called
+        # Verify unpack_content_images was called
         mock_unpack_and_store.assert_called_once()
         call_args = mock_unpack_and_store.call_args
         results_arg = call_args[0][0]
@@ -263,7 +263,7 @@ class TestFetchAndScanCourseComplexNestedScenario(TestCase):
 
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.get_courses_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan._create_background_request')

@@ -17,7 +17,7 @@ from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_a
 
 class TestMixedErrorsWithAltTextProcessing(TestCase):
     """
-    Test that when unpack_and_store_content_images results in mixed success/errors,
+    Test that when unpack_content_images results in mixed success/errors,
     retrieve_and_store_alt_text still processes alt text for the successfully stored items.
     
     Ensures partial errors in content extraction don't block alt text generation for
@@ -35,7 +35,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.Course')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     def test_mixed_errors_unpack_still_retrieves_alt_text(
@@ -49,7 +49,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
         mock_get_user_model,
     ):
         """
-        GIVEN: unpack_and_store_content_images returns mixed results
+        GIVEN: unpack_content_images returns mixed results
                (some items stored successfully, but some errors occurred)
         
         WHEN: fetch_and_scan_course orchestration runs
@@ -85,7 +85,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
             [],  # quizzes empty
         ]
 
-        # unpack_and_store_content_images returns mixed: some items stored, but errors occurred
+        # unpack_content_images returns mixed: some items stored, but errors occurred
         unpack_error_result = [
             {
                 'type': 'page',
@@ -132,7 +132,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.Course')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     def test_mixed_errors_with_successfully_stored_images_processed_for_alt_text(
@@ -146,7 +146,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
         mock_get_user_model,
     ):
         """
-        GIVEN: unpack_and_store_content_images successfully stored images to DB
+        GIVEN: unpack_content_images successfully stored images to DB
                but also encountered some errors during content extraction
         
         WHEN: fetch_and_scan_course runs through the orchestration
@@ -177,7 +177,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
         mock_async_to_sync.return_value = mock_get_courses_images
         mock_get_courses_images.return_value = [[], [], []]
 
-        # Simulate: unpack_and_store_content_images stored 5 images successfully
+        # Simulate: unpack_content_images stored 5 images successfully
         # but encountered 2 errors during extraction
         # Returns error list to indicate mixed results
         unpack_mixed_errors = [
@@ -236,7 +236,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.Course')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     def test_alt_text_retrieval_happens_even_with_unpack_errors(
@@ -250,7 +250,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
         mock_get_user_model,
     ):
         """
-        GIVEN: unpack_and_store_content_images returns ONLY errors (no items stored)
+        GIVEN: unpack_content_images returns ONLY errors (no items stored)
         
         WHEN: fetch_and_scan_course orchestration runs
         
@@ -281,7 +281,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
         mock_async_to_sync.return_value = mock_get_courses_images
         mock_get_courses_images.return_value = [[], [], []]
 
-        # unpack_and_store_content_images returns ONLY errors (no successful items)
+        # unpack_content_images returns ONLY errors (no successful items)
         all_errors = [
             {
                 'type': 'assignment',
@@ -336,7 +336,7 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.canvas_setup')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.Course')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.async_to_sync')
-    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_and_store_content_images')
+    @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.unpack_content_images')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.retrieve_and_store_alt_text')
     @patch('backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan.update_course_scan')
     def test_partial_failures_user_sees_alt_text_for_successful_items(
