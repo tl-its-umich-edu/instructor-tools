@@ -90,11 +90,11 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
             {
                 'type': 'page',
                 'title': 'Page Fetch Error',
-                'error': 'Failed to fetch page content',
+                'error': Exception('Failed to fetch page content'),
                 'canvas_url': 'https://canvas.example.com/courses/999/pages',
             }
         ]
-        mock_unpack_and_store.return_value = unpack_error_result
+        mock_unpack_and_store.return_value = ([], unpack_error_result)
 
         # retrieve_and_store_alt_text succeeds
         mock_retrieve_and_store_alt_text.return_value = True
@@ -184,17 +184,17 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
             {
                 'type': 'quiz',
                 'title': 'Quiz Fetch Error',
-                'error': 'API rate limit exceeded',
+                'error': Exception('API rate limit exceeded'),
                 'canvas_url': 'https://canvas.example.com/courses/999/quizzes',
             },
             {
                 'type': 'question',
                 'title': 'Question in Quiz',
-                'error': 'Failed to parse question content',
+                'error': Exception('Failed to parse question content'),
                 'canvas_url': 'https://canvas.example.com/courses/999/questions/123',
             },
         ]
-        mock_unpack_and_store.return_value = unpack_mixed_errors
+        mock_unpack_and_store.return_value = ([], unpack_mixed_errors)
 
         # Simulate: retrieve_and_store_alt_text processes the 5 stored images
         # and successfully generates alt text for them
@@ -286,23 +286,23 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
             {
                 'type': 'assignment',
                 'title': 'Assignment Fetch Error',
-                'error': 'Connection timeout',
+                'error': Exception('Connection timeout'),
                 'canvas_url': 'https://canvas.example.com/courses/999/assignments',
             },
             {
                 'type': 'page',
                 'title': 'Page Fetch Error',
-                'error': 'Unauthorized',
+                'error': Exception('Unauthorized'),
                 'canvas_url': 'https://canvas.example.com/courses/999/pages',
             },
             {
                 'type': 'quiz',
                 'title': 'Quiz Fetch Error',
-                'error': 'Not found',
+                'error': Exception('Not found'),
                 'canvas_url': 'https://canvas.example.com/courses/999/quizzes',
             },
         ]
-        mock_unpack_and_store.return_value = all_errors
+        mock_unpack_and_store.return_value = ([], all_errors)
 
         # retrieve_and_store_alt_text returns True (nothing to process, but succeeds)
         mock_retrieve_and_store_alt_text.return_value = True
@@ -384,41 +384,41 @@ class TestMixedErrorsWithAltTextProcessing(TestCase):
             {
                 'type': 'assignment',
                 'title': 'Assignment 2',
-                'error': 'Content fetch failed',
+                'error': Exception('Content fetch failed'),
                 'canvas_url': 'https://canvas.example.com/courses/999/assignments/2',
             },
             {
                 'type': 'assignment',
                 'title': 'Assignment 5',
-                'error': 'Content fetch failed',
+                'error': Exception('Content fetch failed'),
                 'canvas_url': 'https://canvas.example.com/courses/999/assignments/5',
             },
             {
                 'type': 'page',
                 'title': 'Page 2',
-                'error': 'Content fetch failed',
+                'error': Exception('Content fetch failed'),
                 'canvas_url': 'https://canvas.example.com/courses/999/pages/2',
             },
             {
                 'type': 'page',
                 'title': 'Page 4',
-                'error': 'Content fetch failed',
+                'error': Exception('Content fetch failed'),
                 'canvas_url': 'https://canvas.example.com/courses/999/pages/4',
             },
             {
                 'type': 'quiz',
                 'title': 'Quiz 2',
-                'error': 'Content fetch failed',
+                'error': Exception('Content fetch failed'),
                 'canvas_url': 'https://canvas.example.com/courses/999/quizzes/2',
             },
             {
                 'type': 'quiz',
                 'title': 'Quiz 3',
-                'error': 'Content fetch failed',
+                'error': Exception('Content fetch failed'),
                 'canvas_url': 'https://canvas.example.com/courses/999/quizzes/3',
             },
         ]
-        mock_unpack_and_store.return_value = extraction_errors
+        mock_unpack_and_store.return_value = ([], extraction_errors)
 
         # retrieve_and_store_alt_text processes the 12 stored items
         # Simulates: for each of 12 items, alt text is generated

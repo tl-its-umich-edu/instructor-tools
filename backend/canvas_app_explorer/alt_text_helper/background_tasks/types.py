@@ -32,7 +32,6 @@ class CourseScanError(TypedDict):
 
 ExtractedImageResult = Union[List[str], List[CourseScanError]]
 
-
 class ContentItemWithImages(TypedDict):
     """Represents content item with extracted images and their processing results."""
     id: int
@@ -40,7 +39,6 @@ class ContentItemWithImages(TypedDict):
     images: ExtractedImageResult
     type: str
     content_parent_id: Optional[int]
-
 
 class ImageAltTextResult(TypedDict):
     """Represents result of processing one image for alt text generation.
@@ -54,3 +52,5 @@ class ImageAltTextResult(TypedDict):
     image: Optional[object]  # ImageItem — avoid circular import by using object
     alt_text: str
     course_scan_error: NotRequired[CourseScanError]  # Present only for error cases
+
+ScanExtractionResult = tuple[List[ContentItemWithImages], List[CourseScanError]]

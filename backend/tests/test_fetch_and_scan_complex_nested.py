@@ -196,10 +196,10 @@ class TestFetchAndScanCourseComplexNestedScenario(TestCase):
         ]
 
         # Setup unpack_and_store_content_images:
-        # Returns list of 3 errors (page endpoint + quiz 2 + question 3 URL parse)
-        # But all 7 successful items are saved to DB
+        # Returns 7 successful items and 3 errors (page endpoint + quiz 2 + question 3 URL parse)
         content_errors = [page_error, quiz_2_error, question_3_error]
-        mock_unpack_and_store.return_value = content_errors
+        success_items = [assignment_1, assignment_2, page_1, page_2, quiz_1_desc, question_1, question_2]
+        mock_unpack_and_store.return_value = (success_items, content_errors)
 
         # Setup retrieve_and_store_alt_text to succeed
         # (Processes 7 images: 2 assignment + 2 page + 1 quiz + 2 questions)
@@ -308,7 +308,7 @@ class TestFetchAndScanCourseComplexNestedScenario(TestCase):
         }
 
         mock_get_courses_images.return_value = [[], [], [question_with_parse_error]]
-        mock_unpack_and_store.return_value = [question_with_parse_error]
+        mock_unpack_and_store.return_value = ([], [question_with_parse_error])
         mock_retrieve_alt_text.return_value = True
 
         # Call the function

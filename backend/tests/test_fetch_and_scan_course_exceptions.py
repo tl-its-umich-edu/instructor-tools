@@ -105,12 +105,12 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         mock_manager.api_key = 'fake-token'
         
         # Make unpack_and_store_content_images return errors (fetch failed)
-        mock_unpack.return_value = [{
+        mock_unpack.return_value = ([], [{
             'type': 'content_fetch_error',
             'title': 'Course',
             'error': Exception('fetch failed'),
             'canvas_url': 'https://example.com/course',
-        }]
+        }])
         
         # Call the function
         fetch_and_scan_course(self.task)
@@ -187,7 +187,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         mock_manager.api_key = 'fake-token'
         
         mock_async_to_sync.return_value = MagicMock(return_value=([], [], []))
-        mock_unpack.return_value = True
+        mock_unpack.return_value = ([], [])
         
         # Make retrieve_and_store_alt_text raise ImageContentExtractionException
         mock_retrieve_alt.side_effect = ImageContentExtractionException(errors=['Alt text fetch failed'])
@@ -216,7 +216,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         mock_manager.api_key = 'fake-token'
         
         mock_async_to_sync.return_value = MagicMock(return_value=([], [], []))
-        mock_unpack.return_value = True
+        mock_unpack.return_value = ([], [])
         
         # Make retrieve_and_store_alt_text raise a generic exception
         mock_retrieve_alt.side_effect = ValueError("Unexpected error occurred")
@@ -254,7 +254,7 @@ class TestFetchAndScanCourseExceptionHandling(TestCase):
         mock_manager.api_key = 'fake-token'
         
         mock_async_to_sync.return_value = MagicMock(return_value=([], [], []))
-        mock_unpack.return_value = True
+        mock_unpack.return_value = ([], [])
         mock_retrieve_alt.return_value = True
         
         # Call the function

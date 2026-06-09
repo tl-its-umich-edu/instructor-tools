@@ -2,7 +2,7 @@ import asyncio
 import logging
 from django.db import transaction
 from urllib.parse import urlparse, parse_qs, urlencode
-from typing import List, Dict, Any, Optional, TypeVar, Callable, Union
+from typing import List, Dict, Any, Optional, TypeVar, Callable, Union, TypeGuard
 from asgiref.sync import async_to_sync
 from django.test import RequestFactory
 from django.contrib.auth.models import User
@@ -28,6 +28,7 @@ from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import (
     ContentItemWithImages,
     CourseScanError,
     ExtractedImageResult,
+    ScanExtractionResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,9 +70,23 @@ def fetch_and_scan_course(task: Dict[str, Any]):
         course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
 
         results = async_to_sync(get_courses_images)(course)
-        content_fetch_result: Union[bool, List[CourseScanError]] = unpack_and_store_content_images(results, course, course_scan_id, course_id)
+        success_content_with_images, content_errors = unpack_and_store_content_images(
+            results,
+            course_scan_id,
+            course_id,
+        )
+        save_results_status: bool | CourseScanError = save_scan_content_fetch_items(
+            course_scan_id,
+            course_id,
+            success_content_with_images,
+        )
 
-        image_process_result: Union[bool, List[CourseScanError]] = retrieve_and_store_alt_text(course_scan_id, course_id, bearer_token=bearer_token)
+        if _is_course_scan_error(save_results_status):
+            content_errors.append(save_results_status)
+
+        content_fetch_result: bool | list[CourseScanError] = content_errors if content_errors else True
+
+        image_process_result: bool | list[CourseScanError] = retrieve_and_store_alt_text(course_scan_id, course_id, bearer_token=bearer_token)
 
         # Determine final status: FAILED if either stage had errors, else COMPLETED
         if content_fetch_result is not True or image_process_result is not True:
@@ -134,6 +149,16 @@ def _merge_error_results(*results: Union[bool, List[CourseScanError]]) -> List[C
     return merged
 
 
+def _is_course_scan_error(obj: Any) -> TypeGuard[CourseScanError]:
+    return (
+        isinstance(obj, dict)
+        and isinstance(obj.get('type'), str)
+        and isinstance(obj.get('title'), str)
+        and isinstance(obj.get('error'), Exception)
+        and isinstance(obj.get('canvas_url'), str)
+    )
+
+
 def _create_background_request(req_user: User, canvas_callback_url: str, course_id: int) -> Request:
     logger.info(f"Creating background request - User: {req_user}, Course ID: {course_id}, Callback URL: {canvas_callback_url}")
     # Create a request factory and build the request for background task usage.
@@ -176,93 +201,37 @@ def retrieve_and_store_alt_text(course_scan_id: int, course_id: int, bearer_toke
     return image_process_state
 
 def unpack_and_store_content_images(
-    results: List[List[Union[ContentItemWithImages, CourseScanError]]],
-    course: Course,
+    results: list[list[ContentItemWithImages | CourseScanError]],
     course_scan_id: int,
     course_id: int
-) -> Union[bool, List[CourseScanError]]:
+) -> ScanExtractionResult:
     """
     Unpack async results, filter and persist extracted images to the database.
     
-    Orchestrates the processing of content extraction results (assignments, pages, quizzes)
-    by unpacking async gather results, filtering for items with images, separating
-    success-only entries from error-bearing entries, and persisting only the successful
-    entries to the database. Determines whether to proceed to the alt-text generation
-    pipeline based on database save success and availability of content to process.
-    
-    **Error handling strategy:**
-    - Content-level extraction errors (some items fail): Tolerated and excluded from DB,
-      but pipeline proceeds if any success items exist.
-    - System-level errors (database save failure): Critical - blocks alt-text pipeline.
-    - No success items (all extraction failed): Skip alt-text pipeline, nothing to process.
-    
-    Args:
-        results (List[List[Union[ContentItemWithImages, CourseScanError]]]): 
-            Async gather results from content fetching tasks (assignments, pages, quizzes).
-            Each element is a list of either successful ContentItemWithImages dicts or
-            CourseScanError dicts. Maintains order: [assignments, pages, quizzes].
-        
-        course (Course): 
-            Canvas Course object used for logging and metadata retrieval.
-        
-        course_scan_id (int): 
-            The CourseScan record ID to associate persisted ContentItem and ImageItem
-            records with this specific scan run.
-        
-        course_id (int): 
-            The Canvas course ID for logging context and building Canvas UI URLs.
-    
-    Returns:
-        True if content extraction and persistence succeeded with no errors,
-        or list of CourseScanError objects if any extraction/fetch errors or
-        database save failures occurred.
-    
-    Side effects:
-        - Persists ContentItem and ImageItem records to database (via save_scan_results).
-        - Updates CourseScan.total_image_count with the total number of images found.
-        - Logs detailed warnings and debug info about filtered and error-bearing entries.
-    
-    Raises:
-        Does not raise exceptions directly; logs errors and returns list on failure.
     """
     assignments, pages, quizzes = results
-    
-    combined = assignments + pages + quizzes
+    combined: list[ContentItemWithImages | CourseScanError] = assignments + pages + quizzes
     logger.info("Combined items count: %s", len(combined))
 
-    def _is_course_scan_error_like(obj: Any) -> bool:
-        return isinstance(obj, dict) and bool(obj.get('type')) and bool(obj.get('error'))
-
-    def _to_course_scan_error(raw_error: Dict[str, Any]) -> CourseScanError:
-        error: CourseScanError = {
-            'type': raw_error.get('type', 'unknown'),
-            'title': raw_error.get('title'),
-            'error': raw_error.get('error'),
-            'canvas_url': raw_error.get('canvas_url', generate_canvas_content_url(course_id, 'course')),
-        }
-        return error
-
-    success_content_with_images: List[ContentItemWithImages] = []
-    errors_to_log: List[CourseScanError] = []
+    success_content_with_images: list[ContentItemWithImages] = []
+    errors_to_log: list[CourseScanError] = []
 
     for item in combined:
-        if not isinstance(item, dict):
-            continue
 
-        # Handle complete fetch failures (e.g., assignment/page/quiz endpoint failures)
+        # Handle complete fetch failures first (e.g., assignment/page/quiz endpoint failures)
         # returned directly as CourseScanError-like dicts.
-        if _is_course_scan_error_like(item):
-            errors_to_log.append(_to_course_scan_error(item))
+        if _is_course_scan_error(item):
+            errors_to_log.append(item)
             continue
 
         images = item.get('images')
         if not isinstance(images, list) or len(images) == 0:
             continue
 
-        nested_errors = [img for img in images if _is_course_scan_error_like(img)]
+        nested_errors = [img for img in images if _is_course_scan_error(img)]
         if nested_errors:
             for img_error in nested_errors:
-                errors_to_log.append(_to_course_scan_error(img_error))
+                errors_to_log.append(img_error)
             continue
 
         if all(isinstance(img, str) for img in images):
@@ -271,25 +240,12 @@ def unpack_and_store_content_images(
     logger.info(
         "course_scan_id: %s, course_id: %s success content: %s, errors to log: %s",
         course_scan_id,
-        course.id,
+        course_id,
         len(success_content_with_images),
         len(errors_to_log),
     )
+    return success_content_with_images, errors_to_log
 
-    save_results_status = save_scan_results(course_scan_id, course.id, success_content_with_images)
-
-    # If save failed, return as a single error in a list
-    if isinstance(save_results_status, dict):
-        logger.error(f"Database save failed (system error) - stopping alt-text pipeline: {save_results_status}")
-        return [save_results_status]
-
-    # If save succeeded but there were extraction/fetch errors, return all errors
-    if errors_to_log:
-        logger.error(f"Content extraction completed with {len(errors_to_log)} error(s) for course_id {course_id}")
-        return errors_to_log
-
-    logger.info(f"Proceeding to alt-text pipeline for course_id {course_id} with {len(success_content_with_images)} content item(s)")
-    return True
 
 def update_course_scan(course_scan_id: int, status: CourseScanStatus, course_id: int = None, errors: Optional[List[CourseScanError]] = None) -> bool:
     """
@@ -336,7 +292,7 @@ def update_course_scan(course_scan_id: int, status: CourseScanStatus, course_id:
         log_course_scan_errors(course_scan_id, [update_error])
         return False
 
-def save_scan_results(course_scan_id: int, course_id: int, items: List[ContentItemWithImages]) -> Union[bool, CourseScanError]:
+def save_scan_content_fetch_items(course_scan_id: int, course_id: int, items: List[ContentItemWithImages]) -> bool | CourseScanError:
     """
     Save the scan results into the database within a transaction.
     Creates ContentItem and ImageItem records scoped to the provided course_scan_id

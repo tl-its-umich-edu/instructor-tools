@@ -121,10 +121,10 @@ class TestFetchAndScanCourseWithMixedResults(TestCase):
         ]
 
         # Setup unpack_and_store_content_images to return:
-        # - Saves the 2 successful pages to DB
-        # - Returns list of 2 errors (assignment endpoint error + page endpoint error)
+        # - 2 successful page items
+        # - list of 2 errors (assignment endpoint error + page endpoint error)
         content_errors = [assignment_error, page_endpoint_error]
-        mock_unpack_and_store.return_value = content_errors
+        mock_unpack_and_store.return_value = ([page_1_success, page_2_success], content_errors)
 
         # Setup retrieve_and_store_alt_text to return True (successful alt text generation for 2 images)
         mock_retrieve_alt_text.return_value = True
@@ -244,9 +244,8 @@ class TestFetchAndScanCourseWithMixedResults(TestCase):
             [],  # No quizzes
         ]
 
-        # unpack_and_store_content_images returns only the assignment error
-        # (page was successfully saved to DB)
-        mock_unpack_and_store.return_value = [assignment_error]
+        # unpack_and_store_content_images returns one successful page and one assignment error
+        mock_unpack_and_store.return_value = ([page_success], [assignment_error])
 
         # retrieve_and_store_alt_text successfully processes the 2 images
         mock_retrieve_alt_text.return_value = True
