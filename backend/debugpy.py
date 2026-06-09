@@ -12,7 +12,4 @@ def check_and_enable_debugpy():
 
     if debugpy_enable:
         logging.debug('DEBUGPY: Enabled Listening on ({0}:{1})'.format(debugpy_address, debugpy_port))
-        try:
-            debugpy.listen((debugpy_address, debugpy_port))
-        except Exception as e:
-            logging.error('DEBUGPY: Failed to listen on ({0}:{1}) with error: {2}'.format(debugpy_address, debugpy_port, e))
+        debugpy.listen((debugpy_address, debugpy_port))

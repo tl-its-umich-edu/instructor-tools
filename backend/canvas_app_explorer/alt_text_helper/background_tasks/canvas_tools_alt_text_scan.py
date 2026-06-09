@@ -374,14 +374,6 @@ def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseS
     """
     Synchronously fetches assignments for a given course using canvas_api.get_assignments().
     """
-    # user_id = 1
-    # req_user: User = get_user_model().objects.get(pk=user_id)
-    # canvas_callback_url = '/oauth/oauth-callback'
-    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
-    # manager = MANAGER_FACTORY.create_manager(request)
-    # canvas_api: Canvas = manager.canvas_api
-    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
-
     try:
         logger.info(f"Fetching assignments for course {course.id}.")
         assignments = list(course.get_assignments(per_page=PER_PAGE))
@@ -426,13 +418,6 @@ def get_pages(course: Course) -> List[Union[ContentItemWithImages, CourseScanErr
     """
     Synchronously fetches pages for a given course using canvas_api.get_pages().
     """
-    # user_id = 1
-    # req_user: User = get_user_model().objects.get(pk=user_id)
-    # canvas_callback_url = '/oauth/oauth-callback'
-    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
-    # manager = MANAGER_FACTORY.create_manager(request)
-    # canvas_api: Canvas = manager.canvas_api
-    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
 
     try:
         logger.info(f"Fetching pages for course {course.id}.")
@@ -473,13 +458,6 @@ def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, CourseScanE
     """
     Synchronously fetches quizzes for a given course using canvas_api.get_quizzes().
     """
-    # user_id = 1
-    # req_user: User = get_user_model().objects.get(pk=user_id)
-    # canvas_callback_url = '/oauth/oauth-callback'
-    # request = _create_background_request(req_user, canvas_callback_url, 1111111111111)
-    # manager = MANAGER_FACTORY.create_manager(request)
-    # canvas_api: Canvas = manager.canvas_api
-    # course: Course = Course(canvas_api._Canvas__requester, {'id': 1111111111111111})
 
     try:
         logger.info(f"Fetching quizzes for course {course.id}.")
@@ -554,19 +532,6 @@ async def get_quiz_questions(quizzes: List[Quiz]) -> List[Union[List[ContentItem
         return await asyncio.gather(*quiz_q_tasks, return_exceptions=True)
 
 def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
-    # Temporary debugging behavior: force a non-existent quiz id to trigger Canvas API error.
-    import random
-
-    def _build_debug_quiz(source_quiz: Quiz) -> Quiz:
-        return Quiz(source_quiz._requester, {
-            'id': random.randint(100000000, 999999999),
-            'title': random.choice(['Ghost Quiz', 'Phantom Exam', 'Broken Test', 'Mystery Quiz', 'Fake Assessment']),
-            'course_id': getattr(source_quiz, 'course_id', None),
-            'description': getattr(source_quiz, 'description', ''),
-        })
-
-    if quiz.id == 286:  # specific quiz ID to trigger error for testing
-        quiz = _build_debug_quiz(quiz)
 
     logger.info(f"Fetching questions for quiz ID: {quiz.id}, Title: {quiz.title}")
     images_from_questions: List[ContentItemWithImages] = []
