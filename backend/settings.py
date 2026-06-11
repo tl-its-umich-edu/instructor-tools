@@ -106,6 +106,23 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
+# Helper function to build database OPTIONS with optional SSL support
+def _get_db_options():
+    """
+    Build database OPTIONS dict with conditional SSL support.
+    
+    SSL Configuration:
+    - DB_SSL_MODE: Set to 'REQUIRED', 'VERIFY_IDENTITY', 'VERIFY_CA', or 'DISABLED' (default: 'REQUIRED')
+    - DB_SSL_CA: Path to CA certificate (optional, used for verification)
+    """
+    options = {'charset': 'utf8mb4'}
+    options['ssl_mode'] = os.getenv('DB_SSL_MODE', 'REQUIRED')
+    
+    ca_cert = os.getenv('DB_SSL_CA')
+    ca_cert and options.update({'ssl_ca': ca_cert})
+    
+    return options
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
@@ -114,7 +131,7 @@ DATABASES = {
         'PASSWORD': os.getenv('DB_PASSWORD', 'cae_pw'),
         'HOST': os.getenv('DB_HOST', 'instructor_tools_mysql'),
         'PORT': os.getenv('DB_PORT', '3306'),
-        'OPTIONS': {'charset': 'utf8mb4'},
+        'OPTIONS': _get_db_options(),
         'TEST': {
             'NAME': 'test_it',
             'CHARSET': 'utf8mb4',
