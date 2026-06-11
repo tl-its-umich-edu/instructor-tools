@@ -28,7 +28,8 @@ class TestQuizParentName(TestCase):
         )
         quiz_img = ImageItem.objects.create(
             content_item=quiz,
-            image_url='https://example.com/quiz1.png'
+            image_url='https://example.com/quiz1.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
         
         # Create quiz questions (children of the quiz)
@@ -41,7 +42,8 @@ class TestQuizParentName(TestCase):
         )
         q1_img = ImageItem.objects.create(
             content_item=question1,
-            image_url='https://example.com/q1.png'
+            image_url='https://example.com/q1.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
         
         question2 = ContentItem.objects.create(
@@ -53,7 +55,8 @@ class TestQuizParentName(TestCase):
         )
         q2_img = ImageItem.objects.create(
             content_item=question2,
-            image_url='https://example.com/q2.png'
+            image_url='https://example.com/q2.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
 
         # Build request for quiz content type (which includes quiz questions)
@@ -105,7 +108,8 @@ class TestQuizParentName(TestCase):
         )
         ImageItem.objects.create(
             content_item=orphan_question,
-            image_url='https://example.com/orphan.png'
+            image_url='https://example.com/orphan.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
 
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ, 'course_scan_id': cs.id})

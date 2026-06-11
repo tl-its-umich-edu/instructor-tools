@@ -8,6 +8,7 @@ from constance import config
 from openai import AzureOpenAI
 from PIL import Image
 from backend.canvas_app_explorer.decorators import log_execution_time
+from backend.canvas_app_explorer.canvas_lti_manager.exception import AltTextGenerationException
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class AltTextProcessor:
         self.model = config.AZURE_MODEL
     
     @log_execution_time
-    def generate_alt_text(self, image: Image.Image) -> Optional[str]:
+    def generate_alt_text(self, image: Image.Image, image_url: str) -> Optional[str]:
         """
         Generate alt text for an image using Azure OpenAI.
         
@@ -36,39 +37,45 @@ class AltTextProcessor:
         Returns:
             Generated alt text string, or None if generation fails
         """
-        # Encode image to base64 (converts to JPEG if needed)
-        img_buffer = io.BytesIO()
-        image.save(img_buffer, format='JPEG')
-        imagedata = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
-        
-        prompt = config.AZURE_ALT_TEXT_PROMPT
-        
-        messages = [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": [
-                {"type": "image_url", "image_url": {
-                    "url": f"data:image/jpeg;base64,{imagedata}"}}
-            ]}
-        ]
-        
-        response = self.client.chat.completions.with_raw_response.create(
-            model=self.model,
-            messages=messages,
-            temperature=config.AZURE_ALT_TEXT_TEMPERATURE,
-        )
-        
-        completion = response.parse()
-        
-        # Validate that completion and choices exist before accessing
-        if not completion or not completion.choices or len(completion.choices) == 0:
-            logger.error(
-                f"Invalid API response: completion={completion}, "
-                f"choices={completion.choices if completion else 'completion is None'}, "
-                f"parsed_response={completion}"
+        logger.info(f"Starting alt text generation for image: {image_url}")
+        try:
+            # Encode image to base64 (converts to JPEG if needed)
+            img_buffer = io.BytesIO()
+            image.save(img_buffer, format='JPEG')
+            imagedata = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+            
+            prompt = config.AZURE_ALT_TEXT_PROMPT
+            
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": [
+                    {"type": "image_url", "image_url": {
+                        "url": f"data:image/jpeg;base64,{imagedata}"}}
+                ]}
+            ]
+            
+            response = self.client.chat.completions.with_raw_response.create(
+                model=self.model,
+                messages=messages,
+                temperature=config.AZURE_ALT_TEXT_TEMPERATURE,
             )
-            return None
-        
-        alt_text = completion.choices[0].message.content
-        logger.info(f"AI response: {alt_text}")
-        
-        return alt_text
+            
+            completion = response.parse()
+            
+            # Validate that completion and choices exist before accessing
+            if not completion or not completion.choices or len(completion.choices) == 0:
+                error_msg = (
+                    f"Invalid API response: completion={completion}, "
+                    f"choices={completion.choices if completion else 'completion is None'}, "
+                    f"parsed_response={completion}"
+                )
+                logger.error(error_msg)
+                raise AltTextGenerationException(ValueError(error_msg))
+            
+            alt_text = completion.choices[0].message.content
+            logger.info(f"AI response: {alt_text}")
+            
+            return alt_text
+        except Exception as e:
+            logger.error(f"Alt text generation failed for image '{image_url}': {e}")
+            raise AltTextGenerationException(e) from e

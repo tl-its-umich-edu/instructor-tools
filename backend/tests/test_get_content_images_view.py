@@ -25,12 +25,14 @@ class TestGetContentImagesView(TestCase):
         )
         img_explicit = ImageItem.objects.create(
             content_item=assignment,
-            image_url='https://example.com/a1.png'
+            image_url='https://example.com/a1.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
         # image for comparison
         img_without_id = ImageItem.objects.create(
             content_item=assignment,
-            image_url='https://example.com/a1b.png'
+            image_url='https://example.com/a1b.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
 
         # another content item (different type) should not be returned
@@ -43,7 +45,8 @@ class TestGetContentImagesView(TestCase):
         )
         ImageItem.objects.create(
             content_item=page,
-            image_url='https://example.com/p1.png'
+            image_url='https://example.com/p1.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
 
         # build request with session course_id and query param
@@ -89,7 +92,8 @@ class TestGetContentImagesView(TestCase):
         )
         ImageItem.objects.create(
             content_item=assignment,
-            image_url='https://example.com/a2.png'
+            image_url='https://example.com/a2.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
 
         # build request with session course_id and query param
