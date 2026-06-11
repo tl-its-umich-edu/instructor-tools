@@ -18,7 +18,7 @@ QWORKER_DEBUGPY_WAIT_FOR_CLIENT="${QWORKER_DEBUGPY_WAIT_FOR_CLIENT:-false}"
 QCLUSTER_CMD="python manage.py qcluster"
 if [ "${QWORKER_DEBUGPY_ENABLE}" = "true" ]; then
     echo "qworker: Debugpy enabled on 0.0.0.0:${QWORKER_DEBUGPY_PORT}"
-    DEBUGPY_ARGS="python -m debugpy --listen 0.0.0.0:${QWORKER_DEBUGPY_PORT}"
+    DEBUGPY_ARGS="python ${PYTHON_FLAGS} -m debugpy --listen 0.0.0.0:${QWORKER_DEBUGPY_PORT}"
     if [ "${QWORKER_DEBUGPY_WAIT_FOR_CLIENT}" = "true" ]; then
         DEBUGPY_ARGS="${DEBUGPY_ARGS} --wait-for-client"
         echo "qworker: Waiting for debugger client before starting qcluster"
@@ -26,10 +26,12 @@ if [ "${QWORKER_DEBUGPY_ENABLE}" = "true" ]; then
     QCLUSTER_CMD="${DEBUGPY_ARGS} manage.py qcluster"
 fi
 
+echo "qworker: Running command: ${QCLUSTER_CMD}"
+
 if [ "${RUN_QWORKER_DEV_MODE:-false}" = "true" ]; then
     echo "qworker: Running in DEV mode"
     rm /tmp/backend_ready
-    watchfiles --filter python  ${PYTHON_FLAGS} "${QCLUSTER_CMD}" /code/backend
+    watchfiles --filter python "${QCLUSTER_CMD}" /code/backend
 else
     echo "qworker: Running in PROD mode"
     ${QCLUSTER_CMD}

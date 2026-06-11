@@ -25,6 +25,10 @@ if [ -z "${DB_PORT}" ]; then
     DB_PORT=3306
 fi
 
+if [ -z "${DEBUGPY_PORT}" ]; then
+    DEBUGPY_PORT=5020
+fi
+
 # To have a more static default secret key, this should still be defined
 if [ -z "${DJANGO_SECRET_KEY}" ]; then
     export DJANGO_SECRET_KEY=`python -c 'from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())'`
@@ -57,7 +61,7 @@ if [ "${DEBUGPY_ENABLE:-"false"}" == "false" ]; then
     CMD="gunicorn backend.asgi:application --bind 0.0.0.0:${GUNICORN_PORT} --workers=${GUNICORN_WORKERS} -k uvicorn_worker.UvicornWorker --timeout=${GUNICORN_TIMEOUT}"
 else
     echo "Starting uvicorn for Development"
-    CMD="python ${PYTHON_FLAGS} -m debugpy --listen 0.0.0.0:5020 -m uvicorn backend.asgi:application --host=0.0.0.0 --port=${GUNICORN_PORT} --reload"
+    CMD="python ${PYTHON_FLAGS} -m debugpy --listen 0.0.0.0:${DEBUGPY_PORT} -m uvicorn backend.asgi:application --host=0.0.0.0 --port=${GUNICORN_PORT} --reload"
 fi
 
 # Signal backend is ready for qworker
