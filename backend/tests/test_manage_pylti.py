@@ -47,6 +47,24 @@ class TestResolveCanvasUrls(SimpleTestCase):
         self.assertEqual(urls['auth_token_url'], 'https://custom-sso.example.com/login/oauth2/token')
         self.assertEqual(urls['key_set_url'], 'https://custom-sso.example.com/api/lti/security/jwks')
 
+    def test_overrides_strip_both_http_and_https_schemes(self):
+        """Test that both http:// and https:// prefixes are stripped from override URLs."""
+        urls_https = _resolve_canvas_urls(
+            'beta',
+            platform_override='https://canvas.beta.instructure.com/',
+            auth_domain_override='https://sso.beta.canvaslms.com',
+        )
+        urls_http = _resolve_canvas_urls(
+            'beta',
+            platform_override='http://canvas.beta.instructure.com/',
+            auth_domain_override='http://sso.beta.canvaslms.com',
+        )
+
+        self.assertEqual(urls_https['issuer'], 'https://canvas.beta.instructure.com')
+        self.assertEqual(urls_http['issuer'], 'https://canvas.beta.instructure.com')
+        self.assertEqual(urls_https['auth_login_url'], 'https://sso.beta.canvaslms.com/api/lti/authorize_redirect')
+        self.assertEqual(urls_http['auth_login_url'], 'https://sso.beta.canvaslms.com/api/lti/authorize_redirect')
+
 
 class TestManagePyltiCommandDatabaseUpdate(TestCase):
     def test_cli_input_creates_and_updates_ltitool_in_db(self):

@@ -28,8 +28,10 @@ CANVAS_DOMAIN_MAP = {
 
 def _normalize_domain_value(value: str) -> str:
     normalized_value = value.strip().lower()
-    if normalized_value.startswith('https://'):
-        normalized_value = normalized_value[len('https://'):]
+    for scheme in ('https://', 'http://'):
+        if normalized_value.startswith(scheme):
+            normalized_value = normalized_value[len(scheme):]
+            break
     return normalized_value.rstrip('/')
 
 
