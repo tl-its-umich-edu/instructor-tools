@@ -112,7 +112,7 @@ def _get_db_options():
     Build database OPTIONS dict with conditional SSL support.
     
     SSL Configuration:
-    - DB_SSL_MODE: Set to 'REQUIRED', 'VERIFY_IDENTITY', 'VERIFY_CA', or 'DISABLED' (default: 'REQUIRED')
+    - DB_SSL_MODE: Values include 'REQUIRED', 'VERIFY_IDENTITY', 'VERIFY_CA', 'DISABLED', 'PREFERRED'
     - DB_SSL_CA: Path to CA certificate (optional, used for verification)
     """
     options = {'charset': 'utf8mb4'}
