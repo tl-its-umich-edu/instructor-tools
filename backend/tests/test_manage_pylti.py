@@ -1,4 +1,9 @@
-from django.test import SimpleTestCase
+import json
+
+from Crypto.PublicKey import RSA
+from django.core.management import call_command
+from django.test import TestCase, SimpleTestCase
+from pylti1p3.contrib.django.lti1p3_tool_config.models import LtiTool, LtiToolKey
 
 from backend.canvas_app_explorer.management.commands.manage_pylti import _resolve_canvas_urls
 
@@ -41,3 +46,47 @@ class TestResolveCanvasUrls(SimpleTestCase):
         self.assertEqual(urls['auth_login_url'], 'https://custom-sso.example.com/api/lti/authorize_redirect')
         self.assertEqual(urls['auth_token_url'], 'https://custom-sso.example.com/login/oauth2/token')
         self.assertEqual(urls['key_set_url'], 'https://custom-sso.example.com/api/lti/security/jwks')
+
+
+class TestManagePyltiCommandDatabaseUpdate(TestCase):
+    def test_cli_input_creates_and_updates_ltitool_in_db(self):
+        key = RSA.generate(1024)
+        existing_key = LtiToolKey.objects.create(
+            name='ipt-test-key',
+            private_key=key.export_key().decode('utf-8'),
+            public_key=key.publickey().export_key().decode('utf-8'),
+        )
+
+        call_command(
+            'manage_pylti',
+            '--domain=beta',
+            '--client_id=98765',
+            '--title=First Title',
+            '--key=ipt-test-key',
+            '--deployment_ids',
+            'dep-1',
+            'dep-2',
+        )
+
+        created_tool = LtiTool.objects.get(client_id=98765, issuer='https://canvas.beta.instructure.com')
+        self.assertEqual(created_tool.title, 'First Title')
+        self.assertEqual(created_tool.tool_key_id, existing_key.id)
+        self.assertEqual(created_tool.auth_login_url, 'https://sso.beta.canvaslms.com/api/lti/authorize_redirect')
+        self.assertEqual(created_tool.auth_token_url, 'https://sso.beta.canvaslms.com/login/oauth2/token')
+        self.assertEqual(created_tool.key_set_url, 'https://sso.beta.canvaslms.com/api/lti/security/jwks')
+        self.assertEqual(created_tool.deployment_ids, json.dumps(['dep-1', 'dep-2']))
+
+        call_command(
+            'manage_pylti',
+            '--domain=beta',
+            '--client_id=98765',
+            '--title=Updated Title',
+            '--key=ipt-test-key',
+            '--deployment_ids',
+            'dep-updated',
+        )
+
+        updated_tool = LtiTool.objects.get(client_id=98765, issuer='https://canvas.beta.instructure.com')
+        self.assertEqual(updated_tool.id, created_tool.id)
+        self.assertEqual(updated_tool.title, 'Updated Title')
+        self.assertEqual(updated_tool.deployment_ids, json.dumps(['dep-updated']))
