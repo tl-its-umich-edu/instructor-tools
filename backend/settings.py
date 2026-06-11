@@ -117,9 +117,10 @@ def _get_db_options():
     """
     options = {'charset': 'utf8mb4'}
     options['ssl_mode'] = os.getenv('DB_SSL_MODE', 'REQUIRED')
-    
+
     ca_cert = os.getenv('DB_SSL_CA')
-    ca_cert and options.update({'ssl_ca': ca_cert})
+    if ca_cert:
+        options['ssl'] = {'ca': ca_cert}
     
     return options
 
