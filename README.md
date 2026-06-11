@@ -31,11 +31,11 @@ docker exec -it instructor_tools python manage.py manage_pylti \
     --deployment_ids <deployment_id_1> <deployment_id_2>
 ```
 
-Required inputs:
-1. `domain` - One of `prod`, `dev`, `beta`, or `test`
-2. `client_id` - Canvas LTI client ID
-3. `title` - Tool title saved in the PyLTI tool record
-4. `key` - Tool key name to reuse or create
+Inputs:
+1. `client_id` - Canvas LTI client ID (required)
+2. `title` - Tool title saved in the PyLTI tool record (required)
+3. `key` - Tool key name to reuse or create (required)
+4. `domain` - One of `prod`, `dev`, `beta`, or `test` (default: `prod`)
 5. `deployment_ids` - Optional deployment ID values
 
 Domain mapping:
