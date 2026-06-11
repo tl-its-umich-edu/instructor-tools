@@ -366,7 +366,7 @@ async def fetch_content_items_async(fn: Callable[[T], R], ctx: T) -> Union[R, Ex
     try:
         return await asyncio.to_thread(fn, ctx)
     except (CanvasException, Exception) as e:
-        logger.error("Step CIErr: Error fetching content items using %s: %s", getattr(fn, '__name__', str(fn)), e)
+        logger.error("Error fetching content items using %s: %s", getattr(fn, '__name__', str(fn)), e)
         return e
 
 
@@ -405,7 +405,7 @@ def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseS
                 None)
         return images_from_assignments
     except (CanvasException, Exception) as e:
-        logger.error(f"Step A1: Error fetching assignments for course {course.id}: {e}")
+        logger.error(f"Error fetching assignments for course {course.id}: {e}")
         fetch_error: CourseScanError = {
             'type': 'assignment',
             'title': 'assignments',
@@ -444,7 +444,7 @@ def get_pages(course: Course) -> List[Union[ContentItemWithImages, CourseScanErr
                 None)
         return images_from_pages
     except (CanvasException, Exception) as e:
-        logger.error(f"Step PageErr: Error fetching pages for course {course.id}: {e}")
+        logger.error(f"Error fetching pages for course {course.id}: {e}")
         fetch_error: CourseScanError = {
             'type': 'page',
             'title': 'pages',
@@ -557,7 +557,7 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
 
         return images_from_questions
     except (CanvasException, Exception) as e:
-        logger.error(f"Step QuizQErr: Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
+        logger.error(f"Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
         raise e
 
 def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
