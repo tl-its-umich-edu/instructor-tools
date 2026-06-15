@@ -254,7 +254,9 @@ export default function AltTextReview() {
   };
 
   const handleNextPage = () => {
-    setCurrentPage(currentPage + 1);
+    // Use functional updater to ensure correct page increment even if handler
+    // is called multiple times before React flushes state updates
+    setCurrentPage(prev => prev + 1);
     setPageActionSelection('');
   };
 
