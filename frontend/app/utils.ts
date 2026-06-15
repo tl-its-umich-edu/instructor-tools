@@ -1,24 +1,25 @@
 import { AltTextLastScanCourseContentItem, ActionType } from './interfaces';
 
-export const imageSum = (contentItems: AltTextLastScanCourseContentItem[]): number => 
+export const imageSum = (contentItems: AltTextLastScanCourseContentItem[]): number =>
   contentItems.reduce((sum, item) => sum + item.image_count, 0);
 
 /**
- * Maps internal ActionType values to user-facing labels for UI display and accessibility announcements.
- * This ensures consistency across all components and makes it easier to update labels when new actions are added.
+ * Maps internal ActionType values to both action and status labels.
+ * Action labels are for controls and announcements.
+ * Status labels are for chips and read-only state summaries.
  * @param action - The internal ActionType value
- * @returns User-facing label for the action
+ * @returns User-facing action and status labels
  */
-export const getActionLabel = (action: ActionType): string => {
+export const getActionLabels = (action: ActionType): { actionLabel: string; statusLabel: string } => {
   switch (action) {
     case 'approve':
-      return 'Approved';
+      return { actionLabel: 'Approve', statusLabel: 'Approved' };
     case 'skip':
-      return 'Skipped for now';
+      return { actionLabel: 'Skip for now', statusLabel: 'Skipped for now' };
     case 'decorative':
-      return 'Decorative';
+      return { actionLabel: 'Decorative', statusLabel: 'Decorative' };
     case 'unreviewed':
     default:
-      return 'Not yet reviewed';
+      return { actionLabel: 'Mark as unreviewed', statusLabel: 'Not yet reviewed' };
   }
 };

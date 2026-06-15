@@ -9,7 +9,7 @@ import { getContentImages } from '../api';
 import { ContentItem, ContentImage, ContentImageEnriched, ActionType, ContentImageReviewState } from '../interfaces';
 import ErrorsDisplay from './ErrorsDisplay';
 import ReviewSummary from './ReviewSummary';
-import { getActionLabel } from '../utils';
+import { getActionLabels } from '../utils';
 
 const Container = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -67,6 +67,10 @@ const BottomControls = styled(Box)(({ theme }) => ({
 }));
 
 export default function AltTextReview() {
+  const approveActionLabel = getActionLabels('approve').actionLabel;
+  const skipActionLabel = getActionLabels('skip').actionLabel;
+  const decorativeActionLabel = getActionLabels('decorative').actionLabel;
+
   const location = useLocation();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
@@ -230,7 +234,7 @@ export default function AltTextReview() {
     // Handle announcement separately (not inside updater)
     const changedCount = paginatedImages.length;
     if (changedCount > 0) {
-      const actionLabel = getActionLabel(action);
+      const { actionLabel } = getActionLabels(action);
       const msg = `${changedCount} alt text label${changedCount !== 1 ? 's' : ''} set as ${actionLabel}`;
       setAnnouncementMessage(msg);
     }
@@ -333,9 +337,9 @@ export default function AltTextReview() {
                     onChange={(e) => handleSetPageAs(e.target.value as ActionType)}
                     aria-describedby="bulk-action-description"
                   >
-                    <MenuItem value="approve">Approve</MenuItem>
-                    <MenuItem value="skip">Skip for now</MenuItem>
-                    <MenuItem value="decorative">Decorative</MenuItem>
+                    <MenuItem value="approve">{approveActionLabel}</MenuItem>
+                    <MenuItem value="skip">{skipActionLabel}</MenuItem>
+                    <MenuItem value="decorative">{decorativeActionLabel}</MenuItem>
                   </Select>
                 </FormControl>
                 <Typography id="bulk-action-description" variant="body2" color="text.secondary" sx={{ mt: 1 }}>

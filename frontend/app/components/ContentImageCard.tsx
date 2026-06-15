@@ -4,7 +4,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import type { ActionType, ContentImageEnriched } from '../interfaces';
-import { getActionLabel } from '../utils';
+import { getActionLabels } from '../utils';
 
 const StyledCard = styled(Card)(({ theme }) => ({
   display: 'flex',
@@ -65,6 +65,10 @@ export default function ContentImageCard({
   onActionChange,
   onAltTextChange
 }: ContentImageCardProps) {
+  const approveActionLabel = getActionLabels('approve').actionLabel;
+  const skipActionLabel = getActionLabels('skip').actionLabel;
+  const decorativeActionLabel = getActionLabels('decorative').actionLabel;
+
   const handleActionChange = (newAction: ActionType) => {
     if (onActionChange) {
       onActionChange(newAction);
@@ -85,15 +89,15 @@ export default function ContentImageCard({
   };
 
   const getStatusChip = () => {
-    const label = getActionLabel(action);
+    const { statusLabel } = getActionLabels(action);
     if (action === 'approve') {
-      return <StatusChip icon={<CheckIcon />} label={label} color="primary" size="small" />;
+      return <StatusChip icon={<CheckIcon />} label={statusLabel} color="primary" size="small" />;
     } else if (action === 'skip') {
-      return <StatusChip icon={<AccessTimeIcon />} label={label} size="small" />;
+      return <StatusChip icon={<AccessTimeIcon />} label={statusLabel} size="small" />;
     } else if (action === 'decorative') {
-      return <StatusChip icon={<VisibilityOffIcon />} label={label} size="small" />;
+      return <StatusChip icon={<VisibilityOffIcon />} label={statusLabel} size="small" />;
     }
-    return <StatusChip label={label} size="small" />;
+    return <StatusChip label={statusLabel} size="small" />;
   };
 
   const getContentTitle = () => {
@@ -167,26 +171,26 @@ export default function ContentImageCard({
           color="primary"
           aria-label="Image action"
         >
-          <ToggleButton value="approve" aria-label="Approve">
+          <ToggleButton value="approve" aria-label={approveActionLabel}>
             <CheckIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
-            Approve
+            {approveActionLabel}
           </ToggleButton>
           <Tooltip
             title="Skip for now — this image will be resurfaced on the next scan and is not updated."
             placement="top"
           >
-            <ToggleButton value="skip" aria-label="Skip">
+            <ToggleButton value="skip" aria-label={skipActionLabel}>
               <AccessTimeIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
-              Skip
+              {skipActionLabel}
             </ToggleButton>
           </Tooltip>
           <Tooltip
             title="Decorative images have no alt text and will be ignored by assistive technology."
             placement="top"
           >
-            <ToggleButton value="decorative" aria-label="Decorative">
+            <ToggleButton value="decorative" aria-label={decorativeActionLabel}>
               <VisibilityOffIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
-              Decorative
+              {decorativeActionLabel}
             </ToggleButton>
           </Tooltip>
         </StyledToggleButtonGroup>
