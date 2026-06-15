@@ -4,6 +4,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import type { ActionType, ContentImageEnriched } from '../interfaces';
+import { getActionLabel } from '../utils';
 
 const StyledCard = styled(Card)(({ theme }) => ({
   display: 'flex',
@@ -84,14 +85,15 @@ export default function ContentImageCard({
   };
 
   const getStatusChip = () => {
+    const label = getActionLabel(action);
     if (action === 'approve') {
-      return <StatusChip icon={<CheckIcon />} label="Approved" color="primary" size="small" />;
+      return <StatusChip icon={<CheckIcon />} label={label} color="primary" size="small" />;
     } else if (action === 'skip') {
-      return <StatusChip icon={<AccessTimeIcon />} label="Skipped for now" size="small" />;
+      return <StatusChip icon={<AccessTimeIcon />} label={label} size="small" />;
     } else if (action === 'decorative') {
-      return <StatusChip icon={<VisibilityOffIcon />} label="Decorative" size="small" />;
+      return <StatusChip icon={<VisibilityOffIcon />} label={label} size="small" />;
     }
-    return <StatusChip label="Not yet reviewed" size="small" />;
+    return <StatusChip label={label} size="small" />;
   };
 
   const getContentTitle = () => {
@@ -142,7 +144,7 @@ export default function ContentImageCard({
           </Box>
           <TextField
             label="Alt Text"
-            value={localAltText}
+            value={altText}
             onChange={handleAltTextChange}
             size="small"
             fullWidth

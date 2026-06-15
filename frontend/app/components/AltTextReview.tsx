@@ -9,6 +9,7 @@ import { getContentImages } from '../api';
 import { ContentItem, ContentImage, ContentImageEnriched, ActionType, ContentImageReviewState } from '../interfaces';
 import ErrorsDisplay from './ErrorsDisplay';
 import ReviewSummary from './ReviewSummary';
+import { getActionLabel } from '../utils';
 
 const Container = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -75,6 +76,8 @@ export default function AltTextReview() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   // Tracks the current bulk action selection for "Set X as" dropdown
   const [pageActionSelection, setPageActionSelection] = useState<ActionType | ''>('');
+  // Track announcement message to manage aria-live region
+  const [announcementMessage, setAnnouncementMessage] = useState<string>('');
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
   const { categoryForReview, scanIdFromUrl } = useMemo(() => {
@@ -147,6 +150,20 @@ export default function AltTextReview() {
 
   const blocker = useBlocker(hasUnsavedReview && !isSubmitted);
 
+  // Manage persistent aria-live region for announcements
+  useEffect(() => {
+    if (announcementMessage) {
+      // Update the persistent aria-live region
+      const liveRegion = document.getElementById('bulk-action-announcement');
+      if (liveRegion) {
+        liveRegion.textContent = announcementMessage;
+      }
+      // Clear the message after announcement is read
+      const timer = setTimeout(() => setAnnouncementMessage(''), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [announcementMessage]);
+
   const handleDoneAfterSubmit = () => {
     navigate('/alt-text-helper');
   };
@@ -197,6 +214,7 @@ export default function AltTextReview() {
     });
   };
   const handleSetPageAs = (action: ActionType) => {
+    // Pure state updater with no side effects
     setReviewStates(prev => {
       const newStates = { ...prev };
       paginatedImages.forEach(img => {
@@ -206,21 +224,17 @@ export default function AltTextReview() {
           action,
         };
       });
-      // Announce to screen readers how many items were affected
-      const changedCount = paginatedImages.length;
-      if (changedCount > 0) {
-        const msg = `${changedCount} alt text label${changedCount !== 1 ? 's' : ''} set as ${action}`;
-        const announcement = document.createElement('div');
-        announcement.setAttribute('role', 'status');
-        announcement.setAttribute('aria-live', 'polite');
-        announcement.textContent = msg;
-        announcement.style.position = 'absolute';
-        announcement.style.left = '-10000px';
-        document.body.appendChild(announcement);
-        setTimeout(() => announcement.remove(), 1000);
-      }
       return newStates;
     });
+    
+    // Handle announcement separately (not inside updater)
+    const changedCount = paginatedImages.length;
+    if (changedCount > 0) {
+      const actionLabel = getActionLabel(action);
+      const msg = `${changedCount} alt text label${changedCount !== 1 ? 's' : ''} set as ${actionLabel}`;
+      setAnnouncementMessage(msg);
+    }
+    
     setPageActionSelection(action);
   };
 
@@ -243,6 +257,20 @@ export default function AltTextReview() {
 
   return (
     <Container>
+      {/* Persistent aria-live region for bulk action announcements */}
+      <Box
+        id="bulk-action-announcement"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        sx={{
+          position: 'absolute',
+          left: '-10000px',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+        }}
+      />
       {showSummary ? (
         <ReviewSummary 
           reviewStates={reviewStates}
