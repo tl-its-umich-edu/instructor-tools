@@ -238,10 +238,15 @@ export default function AltTextReview() {
     setPageActionSelection(action);
   };
 
+  useEffect(() => {
+    // Keep the bulk action dropdown in sync with the visible page.
+    // This covers every navigation path, including buttons that may call
+    // setCurrentPage directly instead of routing through handlePageChange.
+    setPageActionSelection('');
+  }, [currentPage]);
+
   const handlePageChange = (_: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
-    // Reset bulk action selection when moving to a new page
-    setPageActionSelection('');
   };
 
   const errors = [error].filter(e => e !== null) as Error[];
