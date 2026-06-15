@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 
-import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan, ContentItem, ContentReviewRequest} from './interfaces';
+import { Tool, ToolCategory, AltTextLastScanDetail, AltTextScan, ContentItem, ContentReviewRequest, CourseScanError} from './interfaces';
 import { SIGNED_PAYLOAD_STORAGE_KEY } from './constants';
 
 const API_BASE = '/api';
@@ -126,9 +126,10 @@ async function updateAltTextStartScan(): Promise<AltTextScan> {
 
 interface AltTextLastScanResponse {
   found: boolean,
-  scan_detail?: AltTextLastScanDetail 
+  scan_details?: AltTextLastScanDetail,
+  scan_error_details?: CourseScanError[]
 }
-async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLastScanDetail | false> {
+async function getAltTextLastScan(data: AltTextScanRequest): Promise<{ scan_details: AltTextLastScanDetail, scan_error_details: CourseScanError[] } | false> {
   const { courseId } = data;
   const url = `${API_BASE}/alt-text/scan`;
   const res = await fetch(url, {
@@ -142,14 +143,16 @@ async function getAltTextLastScan(data: AltTextScanRequest): Promise<AltTextLast
   if (!resData.found) {
     return false;
   } 
-  // scan_detail must be defined if found
-  if (resData.scan_detail === undefined) {
+  // scan_details must be defined if found
+  if (resData.scan_details === undefined) {
     const message = `Scan details for ${courseId} not found`;
     console.error(message);
     throw new Error(message);
   } else {
-    const response = resData.found ? resData.scan_detail : false;
-    return response;
+    return {
+      scan_details: resData.scan_details,
+      scan_error_details: resData.scan_error_details || []
+    };
   }
 }
 

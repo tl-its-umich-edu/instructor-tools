@@ -10,14 +10,15 @@ from rest_framework import authentication, permissions, viewsets
 from rest_framework.request import Request
 from rest_framework.response import Response
 from django.urls import reverse
+from django.db.models import Count, Q
 from rest_framework_tracking.mixins import LoggingMixin
 from django_q.tasks import async_task
 from django.db.utils import DatabaseError
-from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem
+from backend.canvas_app_explorer.models import ContentItem, CourseScan, CourseScanStatus, ImageItem, CourseScanErrorLog
 from backend import settings
 from backend.canvas_app_explorer.canvas_lti_manager.django_factory import DjangoCourseLtiManagerFactory
 from backend.canvas_app_explorer.models import CourseScan, CourseScanStatus
-from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer
+from backend.canvas_app_explorer.serializers import ContentQuerySerializer, ReviewContentItemSerializer, CourseScanErrorLogSerializer
 from backend.canvas_app_explorer.alt_text_helper.alt_text_update import AltTextUpdate, ContentPayload
 from backend.canvas_app_explorer.utils import generate_canvas_content_url
 
@@ -35,6 +36,8 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = None
+    
+    _CONTENT_TYPE_ERROR = frozenset({'quiz_question', 'assignment', 'page', 'quiz', 'image_process_error', 'alt_text_process_error'})
 
     def start_scan(self, request: Request) -> Response:
         """Create a new course scan record and enqueue the background scan task.
@@ -97,18 +100,22 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
                 return Response(resp, status=HTTPStatus.OK)
             
             scan_obj = scan_queryset.first()
-            scan_detail = {
+            scan_details = {
                     'id': scan_obj.id,
                     'course_id': scan_obj.course_id,
                     'status': scan_obj.status,
                     'created_at': scan_obj.created_at,
                     'updated_at': scan_obj.updated_at,
+                    'total_image_count': scan_obj.total_image_count,
                     'course_content': self.__get_scan_course_content(scan_obj.id)
                 }
+            scan_error_details = self.__get_scan_error_details(scan_obj.id)
+            
             logger.info(f"Returning scan {scan_obj.id} for course id {course_id} and user {request.user.id}")
             resp = {
                 'found': True,
-                'scan_detail': scan_detail
+                'scan_details': scan_details,
+                'scan_error_details': scan_error_details
             }
             return Response(resp, status=HTTPStatus.OK)
         except (DatabaseError, Exception) as e:
@@ -119,21 +126,80 @@ class AltTextScanViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     def __get_scan_course_content(self, course_scan_id: int) -> object:
         try:
             content_by_type = {}
-            for content_type,_ in ContentItem.CONTENT_TYPE_CHOICES:
-                content_queryset = ContentItem.objects.filter(course_scan_id=course_scan_id, content_type=content_type).all()
-                content_by_type[f'{content_type}_list'] = [
-                    {
-                        'id': content_item.id,
-                        'canvas_id': content_item.content_id,
-                        'canvas_name': content_item.content_name,
-                        'image_count': ImageItem.objects.filter(content_item=content_item).count()
-                    }
-                    for content_item in content_queryset
-                ]
+            for content_type, _content_type_label in ContentItem.CONTENT_TYPE_CHOICES:
+                content_queryset = (
+                    ContentItem.objects
+                    .filter(course_scan_id=course_scan_id, content_type=content_type)
+                    .annotate(
+                        successful_image_count=Count(
+                            'images',
+                            filter=Q(images__image_process_state=ImageItem.IMAGE_STATE_SUCCESS),
+                        )
+                    )
+                    .filter(successful_image_count__gt=0)
+                )
+                content_type_list = []
+                for content_item in content_queryset:
+                    content_type_list.append(
+                        {
+                            'id': content_item.id,
+                            'canvas_id': content_item.content_id,
+                            'canvas_name': content_item.content_name,
+                            'image_count': content_item.successful_image_count,
+                        }
+                    )
+                content_by_type[f'{content_type}_list'] = content_type_list
             return content_by_type
         except (Exception) as e:
             logger.error(f"Problem appending course content to scan for course scan id {course_scan_id}")
             raise e
+
+
+
+    def _get_remediation_message(self, error_type: str) -> str:
+        """
+        Return a short user-facing remediation hint based on error classification.
+
+        Item-level errors (specific assignment/page/quiz/question/image/alt_text failed) →
+            suggest editing or removing the image in Canvas.
+        System-level errors (whole fetch failed or infrastructure error) →
+            suggest retrying, refreshing browser, or contacting support.
+        """
+        is_content = (
+            error_type in self._CONTENT_TYPE_ERROR
+        )
+        if is_content:
+            return 'Edit or delete the image in this content'
+        return 'Try again, refresh browser, or contact support'
+
+    def __get_scan_error_details(self, course_scan_id: int) -> list:
+        """
+        Retrieve all errors logged for a given course scan.
+
+        Returns a list of error objects with type, title, message, canvas URL,
+        and a computed remediation_message for display in the UI.
+        If no errors exist, returns an empty list.
+        """
+        try:
+            error_logs = CourseScanErrorLog.objects.filter(course_scan_id=course_scan_id).order_by('-created_at')
+            serializer = CourseScanErrorLogSerializer(error_logs, many=True)
+            return [
+                {
+                    'id': error.get('id'),
+                    'error_type': error.get('error_type'),
+                    'error_title': error.get('error_title'),
+                    'error_message': error.get('error_message'),
+                    'canvas_url': error.get('canvas_url'),
+                    # Computed in the view — not stored in DB — so it stays flexible
+                    'remediation_message': self._get_remediation_message(
+                        error.get('error_type', ''),
+                    ),
+                }
+                for error in serializer.data
+            ]
+        except Exception as e:
+            logger.error(f"Problem retrieving error details for course scan id {course_scan_id}: {e}")
+            return []
 
 class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, viewsets.ViewSet):
     authentication_classes = [authentication.SessionAuthentication]
@@ -260,6 +326,8 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
             for content_item in items_qs:
                 images = []
                 for img in content_item.images.all():
+                    if img.image_process_state != ImageItem.IMAGE_STATE_SUCCESS:
+                        continue
                     image_url = img.image_url
                     # Generate Canvas link URL based on content type and IDs
                     canvas_link_url = generate_canvas_content_url(
@@ -282,6 +350,9 @@ class AltTextContentGetAndUpdateViewSet(LoggingMixin, CourseIdRequiredMixin, vie
 
                 # Set default content_name if missing
                 content_name = content_item.content_name or f"Untitled : {content_item.content_type.title()}"
+
+                if not images:
+                    continue
 
                 content_items.append({
                     'id': content_item.id,

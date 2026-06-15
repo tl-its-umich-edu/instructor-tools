@@ -70,12 +70,23 @@ interface AltTextLastScanCourseContentByType {
   quiz_list: AltTextLastScanCourseContentItem[],
   quiz_question_list: AltTextLastScanCourseContentItem[]
 }
+
+interface CourseScanError {
+  id: number
+  error_type: string
+  error_title: string | null
+  error_message: string
+  canvas_url: string | null
+  remediation_message: string
+}
+
 interface AltTextLastScanDetail {
   id: number
   course_id: number,
   status: string,
   created_at: string,
   updated_at: string,
+  total_image_count: number,
   course_content: AltTextLastScanCourseContentByType,
 }
 
@@ -130,6 +141,6 @@ interface ContentReviewRequest {
 }
 
 export type { Globals, Tool, User, ToolCategory, ToolFiltersState, 
-  AltTextScan, AltTextLastScanDetail, AltTextLastScanCourseContentItem, 
-  ContentImage, ContentItem, ContentImageEnriched, ActionType, ContentImageReviewState,
+  AltTextScan, AltTextLastScanDetail, AltTextLastScanCourseContentItem, AltTextLastScanCourseContentByType,
+  CourseScanError, ContentImage, ContentItem, ContentImageEnriched, ActionType, ContentImageReviewState,
   ContentReviewRequest };

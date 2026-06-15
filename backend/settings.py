@@ -253,7 +253,7 @@ DRF_TRACKING_LOGGING = {
 
 TINYMCE_DEFAULT_CONFIG = {
     'menubar': True,
-    "plugins": "advlist,autolink,code,lists,link,anchor,insertdatetime,media,table,paste,wordcount",
+    "plugins": "advlist,autolink,code,lists,link,anchor,insertdatetime,media,table,wordcount",
     "toolbar": "bold italic backcolor | "
         "bullist numlist outdent indent | removeformat | code | help",
     "default_link_target": "_blank",
@@ -384,7 +384,7 @@ UM_CONSENT_MANAGER_SCRIPT_DOMAIN = os.getenv('UM_CONSENT_MANAGER_SCRIPT_DOMAIN',
 #Django Q2 using default Django ORM
 Q_CLUSTER = {
     'name': os.getenv('Q_CLUSTER_NAME', 'IT_Cluster'),
-    'workers': int(os.getenv('Q_CLUSTER_WORKERS', 4)),
+    'workers': int(os.getenv('Q_CLUSTER_WORKERS', 1)),
     'timeout': int(os.getenv('Q_CLUSTER_TIMEOUT', 1800)), # 30 minutes
     'retry': int(os.getenv('Q_CLUSTER_RETRY', 3600)), # 1hr
     'bulk': int(os.getenv('Q_CLUSTER_BULK', 5)),

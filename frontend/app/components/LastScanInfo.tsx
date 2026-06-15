@@ -1,10 +1,11 @@
 import { Accordion, AccordionActions, AccordionDetails, AccordionSummary, Box, Button, Grid, LinearProgress, Stack, Typography } from '@mui/material';
 import React, { useMemo } from 'react';
 import { styled } from '@mui/material/styles';
-import { AltTextLastScanDetail as ScanDetail } from '../interfaces';
+import { AltTextLastScanDetail as ScanDetail, CourseScanError } from '../interfaces';
 import Refresh from '@mui/icons-material/Refresh';
 import theme from '../theme';
 import { imageSum } from '../utils';
+import ScanErrors from './ScanErrors';
 
 const ScanInfoContainer = styled(Box)(() => ({
   marginTop: theme.spacing(3),
@@ -17,11 +18,12 @@ const ScanInfoContainer = styled(Box)(() => ({
 interface LastScanInfoProps {
     scanPending: boolean;
     lastScan: ScanDetail;
+    scanErrors: CourseScanError[];
     handleStartScan: () => void;
 }
 
 export default function LastScanInfo(props: LastScanInfoProps) {
-  const { scanPending, lastScan, handleStartScan } = props;
+  const { scanPending, lastScan, scanErrors, handleStartScan } = props;
 
   const scanUpdated = new Date(lastScan.updated_at);
   const scanCreated = new Date(lastScan.created_at);
@@ -63,6 +65,10 @@ export default function LastScanInfo(props: LastScanInfoProps) {
   return (
     <>
       <ScanInfoContainer>
+        <ScanErrors
+          scanErrors={scanErrors}
+          totalImageCount={lastScan.total_image_count}
+        />
         <Stack direction="row" spacing={2}>
           <Typography variant='body1'>
             Below is your most recent scan for images in the course. To retrieve changes made since the last run, <b>start a new scan</b> :

@@ -3,8 +3,8 @@ import { styled } from '@mui/material/styles';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ErrorsDisplay from './ErrorsDisplay';
-import { Globals } from '../interfaces';
-import LastScanInfo from './CourseScanComponent';
+import { Globals, CourseScanError } from '../interfaces';
+import LastScanInfo from './LastScanInfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getAltTextLastScan, updateAltTextStartScan } from '../api';
 import ReviewSelectForm from './ReviewSelectForm';
@@ -24,6 +24,7 @@ function AltTextHome(props: AltTextHomeProps) {
   const navigate = useNavigate();
   const [scanPending, setScanPending] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategoryForReview>(CONTENT_CATEGORY_FOR_REVIEW.ASSIGNMENTS);
+  const [scanErrors, setScanErrors] = useState<CourseScanError[]>([]);
 
   const { data: lastScan, 
     isLoading: lastScanIsLoading, 
@@ -35,8 +36,8 @@ function AltTextHome(props: AltTextHomeProps) {
       return await getAltTextLastScan({ courseId: course_id }); 
     },
     refetchInterval: (data) => {
-      if (!!data && 
-        (data.status == 'running' || data.status == 'pending')
+      if (data && typeof data === 'object' && 'scan_details' in data &&
+        (data.scan_details.status == 'running' || data.scan_details.status == 'pending')
       ) {
         console.log('Last scan is in progress, waiting to refetch');
         return COURSE_SCAN_POLL_DURATION;
@@ -45,8 +46,9 @@ function AltTextHome(props: AltTextHomeProps) {
       }
     },
     onSuccess: (data) => {
-      if (data) {
-        setScanPending(data.status == 'running' || data.status == 'pending');
+      if (data && typeof data === 'object') {
+        setScanPending(data.scan_details.status == 'running' || data.scan_details.status == 'pending');
+        setScanErrors(data.scan_error_details || []);
       }
     }
   });
@@ -84,8 +86,8 @@ function AltTextHome(props: AltTextHomeProps) {
         </Typography>
         <Typography variant='body2'>
           <Link href={ai_services_url} target="_blank" rel="noopener">
-            Click here to learn more
-          </Link> about ITS Generative AI services. 
+            Learn more about ITS AI Services
+          </Link>
         </Typography>
       </TitleBlock>
       <Divider sx={{ marginBottom: 3}}/>
@@ -123,14 +125,15 @@ function AltTextHome(props: AltTextHomeProps) {
             <>
               <LastScanInfo
                 scanPending={scanPending}
-                lastScan={lastScan}
+                lastScan={lastScan.scan_details}
+                scanErrors={scanErrors}
                 handleStartScan={handleStartScan}
               />
               {lastScan && (
                 <ReviewSelectForm
                   scanPending={scanPending}
                   selectedCategory={selectedCategory}
-                  lastScan={lastScan}
+                  lastScan={lastScan.scan_details}
                   handleStartReview={handleStartReview}
                   handleChangeCategory={(category) => setSelectedCategory(category)}
                 />

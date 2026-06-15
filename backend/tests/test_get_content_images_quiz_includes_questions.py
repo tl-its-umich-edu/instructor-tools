@@ -24,7 +24,8 @@ class TestGetContentImagesQuiz(TestCase):
         )
         ImageItem.objects.create(
             content_item=quiz,
-            image_url='https://example.com/quiz.png'
+            image_url='https://example.com/quiz.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
 
         quiz_question = ContentItem.objects.create(
@@ -36,7 +37,8 @@ class TestGetContentImagesQuiz(TestCase):
         )
         ImageItem.objects.create(
             content_item=quiz_question,
-            image_url='https://example.com/q1.png'
+            image_url='https://example.com/q1.png',
+            image_process_state=ImageItem.IMAGE_STATE_SUCCESS,
         )
 
         request = self.factory.get('/alt-text/content-images', {'content_type': ContentItem.CONTENT_TYPE_QUIZ, 'course_scan_id': cs.id})

@@ -77,6 +77,8 @@ class CourseScan(models.Model):
     course_id = models.BigIntegerField()
     # Simple status string (pending, running, completed, failed)
     status = models.CharField(max_length=50, default=CourseScanStatus.PENDING, choices=CourseScanStatus.choices)
+    # Total number of images found in the course scan (defaults to 0 for previous scans)
+    total_image_count = models.IntegerField(default=0)
     # When the scan was created
     created_at = models.DateTimeField(auto_now_add=True)
     # When the scan was last updated
@@ -128,6 +130,15 @@ class ContentItem(models.Model):
 
 
 class ImageItem(models.Model):
+    IMAGE_STATE_PENDING = 'pending'
+    IMAGE_STATE_SUCCESS = 'success'
+    IMAGE_STATE_FAILED = 'failed'
+    IMAGE_STATE_CHOICES = [
+        (IMAGE_STATE_PENDING, 'Pending'),
+        (IMAGE_STATE_SUCCESS, 'Success'),
+        (IMAGE_STATE_FAILED, 'Failed'),
+    ]
+
     id = models.BigAutoField(primary_key=True)
     # FK to ContentItem primary key
     content_item = models.ForeignKey(
@@ -139,9 +150,56 @@ class ImageItem(models.Model):
     image_url = models.URLField(max_length=2048)
     # optional alt text produced by AI or provided by user; limit to ~2000 characters
     image_alt_text = models.TextField(blank=True, null=True, validators=[MaxLengthValidator(2000)])
+    # Tracks image processing lifecycle. Failed items are excluded from review payloads.
+    image_process_state = models.CharField(
+        max_length=20,
+        choices=IMAGE_STATE_CHOICES,
+        default=IMAGE_STATE_PENDING,
+    )
 
     class Meta:
         db_table = 'canvas_app_explorer_image_item'
 
     def __str__(self):
         return f"ImageItem(id={self.id})"
+
+
+class CourseScanErrorLog(models.Model):
+    """
+    Stores errors that occur during a course scan.
+    
+    Related to CourseScan via FK, capturing error details including:
+    - Error type (assignment | page | quiz | question | quiz_question | image_process_error | alt_text_process_error | 
+        token_error | content_database_save | course_scan_update_error
+    - title = Content title if related to specific content item, otherwise 'Course' or other relevant descriptor
+    - Exception message/traceback
+    - Canvas UI URL pointing to the failing content/course
+    """
+    id = models.BigAutoField(primary_key=True)
+    
+    course_scan = models.ForeignKey(
+        CourseScan,
+        on_delete=models.CASCADE,
+        db_column='course_scan_id',
+        related_name='scan_errors',
+    )
+    
+    error_type = models.CharField(max_length=50)
+
+    error_title = models.CharField(max_length=255, blank=True, null=True)
+    
+    error_message = models.TextField()
+    
+    canvas_url = models.URLField(max_length=2048, blank=True, null=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'canvas_app_explorer_course_scan_error_log'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['course_scan', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"CourseScanErrorLog(id={self.id}, course_scan_id={self.course_scan_id}, type={self.error_type})"

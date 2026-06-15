@@ -1,5 +1,4 @@
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
-from backend.canvas_app_explorer.canvas_lti_manager.exception import ImageContentExtractionException
 from backend.canvas_app_explorer.models import CourseScan, ContentItem, ImageItem
 from django.test import TestCase
 
@@ -34,14 +33,12 @@ class TestGetContentImages(TestCase):
         proc = DummyProcessImages(course_scan_id=self.course_scan.id, course_id=1)
         # stub alt_text_generator to deterministic value
         # The generate_alt_text receives a PIL Image object, not bytes
-        proc.alt_text_processor.generate_alt_text = lambda img: 'GENERATED'
+        proc.alt_text_processor.generate_alt_text = lambda img, img_url: 'GENERATED'
 
-        with self.assertRaises(ImageContentExtractionException) as cm:
-            proc.retrieve_images_with_alt_text()
-
-        exc = cm.exception
-        self.assertIsInstance(exc.errors, list)
-        self.assertEqual(len(exc.errors), 1)
+        results = proc.retrieve_images_with_alt_text()
+        self.assertIsInstance(results, list)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['type'], 'image_process_error')
 
         # the second ImageItem should be updated with the generated alt text
         img2 = ImageItem.objects.get(id=self.image_item_2.id)
