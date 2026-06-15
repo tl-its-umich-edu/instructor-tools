@@ -152,12 +152,12 @@ export default function AltTextReview() {
 
   // Manage persistent aria-live region for announcements
   useEffect(() => {
+    const liveRegion = document.getElementById('bulk-action-announcement');
+    if (liveRegion) {
+      liveRegion.textContent = announcementMessage;
+    }
+
     if (announcementMessage) {
-      // Update the persistent aria-live region
-      const liveRegion = document.getElementById('bulk-action-announcement');
-      if (liveRegion) {
-        liveRegion.textContent = announcementMessage;
-      }
       // Clear the message after announcement is read
       const timer = setTimeout(() => setAnnouncementMessage(''), 1000);
       return () => clearTimeout(timer);
@@ -249,6 +249,11 @@ export default function AltTextReview() {
     setCurrentPage(page);
   };
 
+  const handleNextPage = () => {
+    setCurrentPage(currentPage + 1);
+    setPageActionSelection('');
+  };
+
   const errors = [error].filter(e => e !== null) as Error[];
   let feedbackBlock;
   if (isFetching || errors.length > 0) {
@@ -323,7 +328,7 @@ export default function AltTextReview() {
                   <Select
                     id="bulk-alt-text-action-select"
                     labelId="bulk-alt-text-action-label"
-                    value=""
+                    value={pageActionSelection}
                     label={`Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} as`}
                     onChange={(e) => handleSetPageAs(e.target.value as ActionType)}
                     aria-describedby="bulk-action-description"
@@ -378,7 +383,7 @@ export default function AltTextReview() {
                   ) : (
                     <Button
                       variant="outlined"
-                      onClick={() => setCurrentPage(currentPage + 1)}
+                      onClick={handleNextPage}
                     >
                   Next Page
                     </Button>
