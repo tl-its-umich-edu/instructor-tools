@@ -116,10 +116,10 @@ def _get_db_options():
     - DB_SSL_CA: Path to CA certificate (optional, used for verification)
     """
     options = {'charset': 'utf8mb4'}
-    options['ssl_mode'] = os.getenv('DB_SSL_MODE', 'REQUIRED')
 
     ca_cert = os.getenv('DB_SSL_CA')
     if ca_cert:
+        options['ssl_mode'] = os.getenv('DB_SSL_MODE', 'VERIFY_CA')
         options['ssl'] = {'ca': ca_cert}
     
     return options
