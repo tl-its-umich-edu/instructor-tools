@@ -80,6 +80,27 @@ docker exec -it instructor_tools python manage.py test
     5. `Q_CLUSTER_MAX_ATTEMPTS` - Maximum number of retry attempts for a task after failure (default: 1)
     6. `Q_CLUSTER_NAME` - Cluster Name
 
+### Debugging Django Q tasks
+To hit breakpoints in background task modules (for example [backend/canvas_app_explorer/alt_text_helper/background_tasks/canvas_tools_alt_text_scan.py](backend/canvas_app_explorer/alt_text_helper/background_tasks/canvas_tools_alt_text_scan.py)), run the qworker with debugpy enabled.
+
+Set these environment variables (for local docker-compose):
+
+```sh
+QWORKER_DEBUGPY_ENABLE=true
+QWORKER_DEBUGPY_PORT=5021
+QWORKER_DEBUGPY_WAIT_FOR_CLIENT=true
+```
+
+Then:
+1. Rebuild/restart containers (`docker-compose down && docker-compose build && docker-compose up`).
+2. In VS Code Run and Debug, start `IPT Django Q Worker` (attach to localhost:5021).
+3. Queue a scan task from the UI.
+4. Breakpoints in the worker process should stop when task code executes.
+
+Notes:
+1. Port `5021` must be exposed on the web container.
+2. If `QWORKER_DEBUGPY_WAIT_FOR_CLIENT=true`, the worker waits for debugger attach before executing queued tasks.
+
 
 ## Acknowledgment:
 

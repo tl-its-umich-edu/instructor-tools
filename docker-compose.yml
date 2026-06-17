@@ -1,6 +1,6 @@
 services:
   mysql:
-    image: mysql:8-oracle
+    image: mysql:8.4-oracle
     restart: unless-stopped
     command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci', '--socket=/tmp/mysql.sock']
     environment:
@@ -30,6 +30,7 @@ services:
     ports:
       - "5000:5000"
       - "5020:5020"
+      - "5021:5021"
     container_name: instructor_tools
     env_file:
       - .env
@@ -37,6 +38,9 @@ services:
       - DEBUG=True
       - RUN_FRONTEND=true
       - RUN_QWORKER_DEV_MODE=true
+      - QWORKER_DEBUGPY_ENABLE=true
+      - QWORKER_DEBUGPY_PORT=5021
+      - QWORKER_DEBUGPY_WAIT_FOR_CLIENT=false
 
   redis:
     image: redis:7
