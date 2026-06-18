@@ -311,6 +311,7 @@ TINYMCE_DEFAULT_CONFIG = {
             ]
         }
     ],
+    "block_formats": "Paragraph=p",
     "removed_menuitems": "fontformats fontsizes lineheight forecolor backcolor",
 }
 
