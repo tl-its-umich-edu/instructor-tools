@@ -9,7 +9,7 @@ django-constance==4.3.5 # Dynamic settings in admin UI
 django-db-file-storage==0.5.6.1 # Support for storage in the database
 django-mysql==4.19.0
 django-redis==5.4.0
-django-tinymce==4.1.0 # Rich text editor
+django-tinymce==5.0.0 # Rich text editor
 django-watchman==1.5.0
 django-webpack-loader==3.2.4
 Pillow==12.2.0
