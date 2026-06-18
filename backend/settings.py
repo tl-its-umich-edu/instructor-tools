@@ -119,7 +119,7 @@ def _get_db_options():
 
     ca_cert = os.getenv('DB_SSL_CA')
     if ca_cert:
-        options['ssl_mode'] = os.getenv('DB_SSL_MODE', 'VERIFY_CA')
+        options['ssl_mode'] = os.getenv('DB_SSL_MODE', 'REQUIRED')
         options['ssl'] = {'ca': ca_cert}
     
     return options
