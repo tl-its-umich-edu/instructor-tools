@@ -9,6 +9,7 @@ import { getContentImages } from '../api';
 import { ContentItem, ContentImage, ContentImageEnriched, ActionType, ContentImageReviewState } from '../interfaces';
 import ErrorsDisplay from './ErrorsDisplay';
 import ReviewSummary from './ReviewSummary';
+import { getActionLabels } from '../utils';
 
 const Container = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -66,6 +67,10 @@ const BottomControls = styled(Box)(({ theme }) => ({
 }));
 
 export default function AltTextReview() {
+  const approveActionLabel = getActionLabels('approve').actionLabel;
+  const skipActionLabel = getActionLabels('skip').actionLabel;
+  const decorativeActionLabel = getActionLabels('decorative').actionLabel;
+
   const location = useLocation();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
@@ -73,6 +78,10 @@ export default function AltTextReview() {
   const [allImages, setAllImages] = useState<ContentImageEnriched[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  // Tracks the current bulk action selection for "Set X as" dropdown
+  const [pageActionSelection, setPageActionSelection] = useState<ActionType | ''>('');
+  // Track announcement message to manage aria-live region
+  const [announcementMessage, setAnnouncementMessage] = useState<string>('');
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
   const { categoryForReview, scanIdFromUrl } = useMemo(() => {
@@ -145,6 +154,20 @@ export default function AltTextReview() {
 
   const blocker = useBlocker(hasUnsavedReview && !isSubmitted);
 
+  // Manage persistent aria-live region for announcements
+  useEffect(() => {
+    const liveRegion = document.getElementById('bulk-action-announcement');
+    if (liveRegion) {
+      liveRegion.textContent = announcementMessage;
+    }
+
+    if (announcementMessage) {
+      // Clear the message after announcement is read
+      const timer = setTimeout(() => setAnnouncementMessage(''), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [announcementMessage]);
+
   const handleDoneAfterSubmit = () => {
     navigate('/alt-text-helper');
   };
@@ -195,10 +218,11 @@ export default function AltTextReview() {
     });
   };
   const handleSetPageAs = (action: ActionType) => {
+    // Pure state updater with no side effects
     setReviewStates(prev => {
       const newStates = { ...prev };
       paginatedImages.forEach(img => {
-        const key = img.image_id;
+        const key = String(img.image_id);
         newStates[key] = {
           ...newStates[key],
           action,
@@ -206,10 +230,34 @@ export default function AltTextReview() {
       });
       return newStates;
     });
+    
+    // Handle announcement separately (not inside updater)
+    const changedCount = paginatedImages.length;
+    if (changedCount > 0) {
+      const { actionLabel } = getActionLabels(action);
+      const msg = `${changedCount} alt text label${changedCount !== 1 ? 's' : ''} set as ${actionLabel}`;
+      setAnnouncementMessage(msg);
+    }
+    
+    setPageActionSelection(action);
   };
+
+  useEffect(() => {
+    // Keep the bulk action dropdown in sync with the visible page.
+    // This covers every navigation path, including buttons that may call
+    // setCurrentPage directly instead of routing through handlePageChange.
+    setPageActionSelection('');
+  }, [currentPage]);
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleNextPage = () => {
+    // Use functional updater to ensure correct page increment even if handler
+    // is called multiple times before React flushes state updates
+    setCurrentPage(prev => prev + 1);
+    setPageActionSelection('');
   };
 
   const errors = [error].filter(e => e !== null) as Error[];
@@ -225,6 +273,20 @@ export default function AltTextReview() {
 
   return (
     <Container>
+      {/* Persistent aria-live region for bulk action announcements */}
+      <Box
+        id="bulk-action-announcement"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        sx={{
+          position: 'absolute',
+          left: '-10000px',
+          width: 1,
+          height: 1,
+          overflow: 'hidden',
+        }}
+      />
       {showSummary ? (
         <ReviewSummary 
           reviewStates={reviewStates}
@@ -272,15 +334,19 @@ export default function AltTextReview() {
                   <Select
                     id="bulk-alt-text-action-select"
                     labelId="bulk-alt-text-action-label"
-                    value=""
+                    value={pageActionSelection}
                     label={`Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} as`}
                     onChange={(e) => handleSetPageAs(e.target.value as ActionType)}
+                    aria-describedby="bulk-action-description"
                   >
-                    <MenuItem value="approve">Approve</MenuItem>
-                    <MenuItem value="skip">Skip for now</MenuItem>
-                    <MenuItem value="decorative">Decorative</MenuItem>
+                    <MenuItem value="approve">{approveActionLabel}</MenuItem>
+                    <MenuItem value="skip">{skipActionLabel}</MenuItem>
+                    <MenuItem value="decorative">{decorativeActionLabel}</MenuItem>
                   </Select>
                 </FormControl>
+                <Typography id="bulk-action-description" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Applies to all items on this page.
+                </Typography>
               </TopControls>
               <Grid container spacing={3}>
                 {paginatedImages.map((imgData) => {
@@ -323,7 +389,7 @@ export default function AltTextReview() {
                   ) : (
                     <Button
                       variant="outlined"
-                      onClick={() => setCurrentPage(currentPage + 1)}
+                      onClick={handleNextPage}
                     >
                   Next Page
                     </Button>
