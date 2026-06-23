@@ -69,7 +69,7 @@ class Command(BaseCommand):
                             default=None)
         parser.add_argument('--client_id', dest='client_id', type=int, required=True, help="Canvas LTI Client ID")
         parser.add_argument('--title', dest='title', required=True, type=str, help="LTI Title")
-        parser.add_argument('--tool_key', '--key', dest='tool_key', required=True, type=str,
+        parser.add_argument('--tool_key', dest='tool_key', required=True, type=str,
                             help="Name of Tool Key to use, will create if new")
         parser.add_argument('--deployment_ids', dest='deployment_ids',
                             nargs='*', type=str, help="List of Deployment ID(s). Can be multiple.", default="")

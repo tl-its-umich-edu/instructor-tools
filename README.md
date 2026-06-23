@@ -27,14 +27,14 @@ docker exec -it instructor_tools python manage.py manage_pylti \
     --domain=prod \
     --client_id=<canvas_client_id> \
     --title="Instructor Productivity Tools" \
-    --key=<tool_key_name> \
+    --tool_key=<tool_key_name> \
     --deployment_ids <deployment_id_1> <deployment_id_2>
 ```
 
 Inputs:
 1. `client_id` - Canvas LTI client ID (required)
 2. `title` - Tool title saved in the PyLTI tool record (required)
-3. `key` - Tool key name to reuse or create (required)
+3. `tool_key` - Tool key name to reuse or create (required)
 4. `domain` - One of `prod`, `dev`, `beta`, or `test` (default: `prod`)
 5. `deployment_ids` - Optional deployment ID values
 
@@ -45,10 +45,9 @@ Domain mapping:
 
 Notes:
 1. `prod` is the default if `--domain` is omitted.
-2. `--key` and `--tool_key` are equivalent.
-3. `--deployment_ids` is optional. Omit it if you do not need to set deployment IDs.
-4. You can optionally override the generated issuer/auth domains using `--platform` and `--auth_domain`.
-5. Example override usage:
+2. `--deployment_ids` is optional. Omit it if you do not need to set deployment IDs.
+3. You can optionally override the generated issuer/auth domains using `--platform` and `--auth_domain`.
+4. Example override usage:
 
 ```sh
 docker exec -it instructor_tools python manage.py manage_pylti \
@@ -57,10 +56,10 @@ docker exec -it instructor_tools python manage.py manage_pylti \
     --auth_domain=sso.canvaslms.com \
     --client_id=<canvas_client_id> \
     --title="Instructor Productivity Tools" \
-    --key=<tool_key_name>
+    --tool_key=<tool_key_name>
 ```
 
-6. The command reuses an existing tool key if the name already exists; otherwise it generates a new RSA key pair.
+5. The command reuses an existing tool key if the name already exists; otherwise it generates a new RSA key pair.
 
 #### Using OpenAPI and Swagger
 

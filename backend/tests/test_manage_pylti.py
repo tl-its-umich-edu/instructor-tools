@@ -80,7 +80,7 @@ class TestManagePyltiCommandDatabaseUpdate(TestCase):
             '--domain=beta',
             '--client_id=98765',
             '--title=First Title',
-            '--key=ipt-test-key',
+            '--tool_key=ipt-test-key',
             '--deployment_ids',
             'dep-1',
             'dep-2',
@@ -99,7 +99,7 @@ class TestManagePyltiCommandDatabaseUpdate(TestCase):
             '--domain=beta',
             '--client_id=98765',
             '--title=Updated Title',
-            '--key=ipt-test-key',
+            '--tool_key=ipt-test-key',
             '--deployment_ids',
             'dep-updated',
         )
