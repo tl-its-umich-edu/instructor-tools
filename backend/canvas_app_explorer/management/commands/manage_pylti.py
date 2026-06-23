@@ -6,16 +6,67 @@ from django.core.management.base import BaseCommand, CommandParser
 from pylti1p3.contrib.django.lti1p3_tool_config.models import LtiToolKey, LtiTool
 
 
+CANVAS_DOMAIN_MAP = {
+    'prod': {
+        'platform': 'canvas.instructure.com',
+        'auth_domain': 'sso.canvaslms.com',
+    },
+    'dev': {
+        'platform': 'canvas.instructure.com',
+        'auth_domain': 'sso.canvaslms.com',
+    },
+    'beta': {
+        'platform': 'canvas.beta.instructure.com',
+        'auth_domain': 'sso.beta.canvaslms.com',
+    },
+    'test': {
+        'platform': 'canvas.test.instructure.com',
+        'auth_domain': 'sso.test.canvaslms.com',
+    },
+}
+
+
+def _normalize_domain_value(value: str) -> str:
+    normalized_value = value.strip().lower()
+    for scheme in ('https://', 'http://'):
+        if normalized_value.startswith(scheme):
+            normalized_value = normalized_value[len(scheme):]
+            break
+    return normalized_value.rstrip('/')
+
+
+def _resolve_canvas_urls(domain: str, platform_override: str | None = None, auth_domain_override: str | None = None) -> dict[str, str]:
+    domain_config = CANVAS_DOMAIN_MAP[domain]
+    platform_host = _normalize_domain_value(platform_override) if platform_override else domain_config['platform']
+    auth_domain_host = _normalize_domain_value(auth_domain_override) if auth_domain_override else domain_config['auth_domain']
+
+    issuer = f'https://{platform_host}'
+    auth_base = f'https://{auth_domain_host}'
+
+    return {
+        'issuer': issuer,
+        'auth_login_url': f'{auth_base}/api/lti/authorize_redirect',
+        'auth_token_url': f'{auth_base}/login/oauth2/token',
+        'key_set_url': f'{auth_base}/api/lti/security/jwks',
+    }
+
+
 class Command(BaseCommand):
     help = """Used to create & update the LTI keys in the database for this application.
     This will generate a key pair named as the "tool_key" arg and add them to the pylti13 database. 
-    This command can be re-run with the same "platform" & "client_id" to update a previous tool. 
+    This command can be re-run with the same Canvas domain selection and "client_id" to update a previous tool. 
     """
 
     def add_arguments(self, parser: CommandParser):
+        parser.add_argument('--domain', dest='domain', choices=sorted(CANVAS_DOMAIN_MAP.keys()),
+                            help='Canvas environment shortcut used to generate issuer and auth URLs.',
+                            default='prod')
         parser.add_argument('--platform', dest='platform', type=str,
-                            help="Canvas Platform for LTI Launch, with or without https://",
-                            default="canvas.instructure.com")
+                            help='Optional issuer domain override, with or without https://',
+                            default=None)
+        parser.add_argument('--auth_domain', dest='auth_domain', type=str,
+                            help='Optional auth/jwks domain override, with or without https://',
+                            default=None)
         parser.add_argument('--client_id', dest='client_id', type=int, required=True, help="Canvas LTI Client ID")
         parser.add_argument('--title', dest='title', required=True, type=str, help="LTI Title")
         parser.add_argument('--tool_key', dest='tool_key', required=True, type=str,
@@ -24,17 +75,15 @@ class Command(BaseCommand):
                             nargs='*', type=str, help="List of Deployment ID(s). Can be multiple.", default="")
 
     def handle(self, *args, **options: dict):
-
-        platform = options["platform"]
-        # If platform doesn't contain https add it
-        if not platform.startswith("https://"):
-            platform = f"https://{platform}"
-
-        # These are the values for Canvas
-        auth_login_url = f"{platform}/api/lti/authorize_redirect"
-        auth_token_url = f"{platform}/login/oauth2/token"
-        issuer = platform
-        key_set_url = f"{platform}/api/lti/security/jwks"
+        url_config = _resolve_canvas_urls(
+            options['domain'],
+            platform_override=options['platform'],
+            auth_domain_override=options['auth_domain'],
+        )
+        issuer = url_config['issuer']
+        auth_login_url = url_config['auth_login_url']
+        auth_token_url = url_config['auth_token_url']
+        key_set_url = url_config['key_set_url']
 
         # Attempt to retrieve the LtiToolKey, if it doesn't exist create it
         try:

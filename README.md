@@ -14,6 +14,53 @@ Then the app in development should be accessible on http://localhost:5000/
 Now you can make changes to files in `frontend` and the changes **should** show up in the browser automagically.
 
 This app can currently only be launched via LTI.  Please see the Wiki for instructions on configuring with LTI.
+For Canvas LTI launch background and platform behavior, see the [Canvas LTI launch overview](https://developerdocs.instructure.com/services/canvas/external-tools/lti/file.lti_launch_overview).
+
+#### Configure LTI From The Command Line
+
+You can create or update the PyLTI tool configuration from the command line without typing the full issuer and auth URLs each time.
+
+Run the command inside Docker:
+
+```sh
+docker exec -it instructor_tools python manage.py manage_pylti \
+    --domain=prod \
+    --client_id=<canvas_client_id> \
+    --title="Instructor Productivity Tools" \
+    --tool_key=<tool_key_name> \
+    --deployment_ids <deployment_id_1> <deployment_id_2>
+```
+
+Inputs:
+1. `client_id` - Canvas LTI client ID (required)
+2. `title` - Tool title saved in the PyLTI tool record (required)
+3. `tool_key` - Tool key name to reuse or create (required)
+4. `domain` - One of `prod`, `dev`, `beta`, or `test` (default: `prod`)
+5. `deployment_ids` - Optional deployment ID values
+
+Domain mapping:
+1. `prod` and `dev` use issuer `https://canvas.instructure.com` and auth domain `https://sso.canvaslms.com`
+2. `beta` uses issuer `https://canvas.beta.instructure.com` and auth domain `https://sso.beta.canvaslms.com`
+3. `test` uses issuer `https://canvas.test.instructure.com` and auth domain `https://sso.test.canvaslms.com`
+
+Notes:
+1. `prod` is the default if `--domain` is omitted.
+2. `--deployment_ids` is optional. Omit it if you do not need to set deployment IDs.
+3. You can optionally override the generated issuer/auth domains using `--platform` and `--auth_domain`.
+4. Example override usage:
+
+```sh
+docker exec -it instructor_tools python manage.py manage_pylti \
+    --domain=prod \
+    --platform=canvas.instructure.com \
+    --auth_domain=sso.canvaslms.com \
+    --client_id=<canvas_client_id> \
+    --title="Instructor Productivity Tools" \
+    --tool_key=<tool_key_name>
+```
+
+5. The command reuses an existing tool key if the name already exists; otherwise it generates a new RSA key pair.
+
 #### Using OpenAPI and Swagger
 
 The backend uses the [Django Rest Framework](https://www.django-rest-framework.org/) to build out a REST API. When `DEBUG` is equal to `True` in Django settings, the application leverages the [drf-spectacular](https://drf-spectacular.readthedocs.io/en/latest/index.html) library to document existing endpoints and provide for API testing using Swagger.
