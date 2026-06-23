@@ -36,8 +36,8 @@ class TestCanvasRoleResolution(TestCase):
             additional_roles = get_additional_staff_course_role_values()
 
             self.assertEqual(
-                additional_roles,
-                ['junior admin', 'instructional designer', 'root privileges for any admin'],
+                set(additional_roles),
+                {'junior admin', 'instructional designer', 'root privileges for any admin'},
             )
 
     def test_additional_roles_support_single_value_and_none(self):

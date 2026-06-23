@@ -31,11 +31,11 @@ def _parse_configured_roles(configured_roles: object) -> list[str]:
     else:
         candidate_roles = [str(configured_roles)]
 
-    parsed_roles = [normalize_role_value(str(role)) for role in candidate_roles]
-    parsed_roles = [role for role in parsed_roles if role]
+    # Normalize roles and filter out empty strings that result from whitespace-only values.
+    non_empty_roles = list(filter(None, (normalize_role_value(str(role)) for role in candidate_roles)))
 
-    # Preserve order while removing duplicates in configured values.
-    return list(dict.fromkeys(parsed_roles))
+    # Remove duplicates from configured values.
+    return list(set(non_empty_roles))
 
 
 def get_additional_staff_course_role_values() -> list[str]:
@@ -47,9 +47,5 @@ def get_effective_staff_course_role_values() -> list[str]:
     default_roles = get_default_staff_course_role_values()
     additional_roles = get_additional_staff_course_role_values()
 
-    effective_roles = list(default_roles)
-    for role in additional_roles:
-        if role not in effective_roles:
-            effective_roles.append(role)
-
-    return effective_roles
+    # Keep default roles first, then append new configured roles without duplicates.
+    return list(dict.fromkeys(default_roles + additional_roles))

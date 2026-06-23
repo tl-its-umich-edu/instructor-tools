@@ -174,7 +174,7 @@ def create_user_in_django(request: HttpRequest, launch_data: Dict[str, Any]):
 
     if not user_is_course_staff:
         logger.warning(f'User {username} does not have a staff role.')
-        error_message = 'You must be an instructor in this course or an administrator to access this tool.'
+        error_message = 'You must have an approved role to access this tool. Please contact support.'
         raise PermissionDenied(error_message)
 
     email = launch_data['email']
