@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardMedia, CardContent, TextField, Box, Typography, styled, Chip, Link, Tooltip, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import type { ActionType, ContentImageEnriched } from '../interfaces';
+import { getActionLabels } from '../utils';
 
 const StyledCard = styled(Card)(({ theme }) => ({
   display: 'flex',
@@ -64,14 +65,6 @@ export default function ContentImageCard({
   onActionChange,
   onAltTextChange 
 }: ContentImageCardProps) {
-  const [localAltText, setLocalAltText] = useState<string>(altText ?? '');
-
-  // Sync local state with prop when it changes
-  useEffect(() => {
-    if (altText !== undefined && altText !== null) {
-      setLocalAltText(altText);
-    }
-  }, [altText]);
 
   const handleActionChange = (newAction: ActionType) => {
     if (onActionChange) {
@@ -87,21 +80,23 @@ export default function ContentImageCard({
 
   const handleAltTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    setLocalAltText(newValue);
+
     if (onAltTextChange) {
       onAltTextChange(newValue);
     }
   };
 
   const getStatusChip = () => {
+    const { statusLabel } = getActionLabels(action);
+
     if (action === 'approve') {
-      return <StatusChip icon={<CheckIcon />} label="Approved" color="primary" size="small" />;
+      return <StatusChip icon={<CheckIcon />} label={statusLabel} color="primary" size="small" />;
     } else if (action === 'skip') {
-      return <StatusChip icon={<AccessTimeIcon />} label="Skipped for now" size="small" />;
+      return <StatusChip icon={<AccessTimeIcon />} label={statusLabel} size="small" />;
     } else if (action === 'decorative') {
-      return <StatusChip icon={<VisibilityOffIcon />} label="Decorative" size="small" />;
+      return <StatusChip icon={<VisibilityOffIcon />} label={statusLabel} size="small" />;
     }
-    return <StatusChip label="Not yet reviewed" size="small" />;
+    return <StatusChip label={statusLabel} size="small" />;
   };
 
   const getContentTitle = () => {
@@ -138,7 +133,7 @@ export default function ContentImageCard({
         <CardMedia
           component="img"
           image={contentImage.image_url}
-          alt={localAltText || String(contentImage.image_id)}
+          alt={altText || String(contentImage.image_id)}
           sx={{ width: '100%', height: 240, objectFit: 'contain' }}
         />
       </Box>
@@ -152,7 +147,7 @@ export default function ContentImageCard({
           </Box>
           <TextField
             label="Alt Text"
-            value={localAltText}
+            value={altText}
             onChange={handleAltTextChange}
             size="small"
             fullWidth
@@ -163,7 +158,7 @@ export default function ContentImageCard({
             disabled={action === 'decorative' || action === 'skip'}
           />
           <Typography variant="body2">
-            {localAltText.length} characters
+            {altText.length} characters
           </Typography>
         </Box>
         <StyledToggleButtonGroup
@@ -175,7 +170,7 @@ export default function ContentImageCard({
           color="primary"
           aria-label="Image action"
         >
-          <ToggleButton value="approve" aria-label="Approve">
+          <ToggleButton value="approve" aria-label={getActionLabels('approve').actionLabel}>
             <CheckIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
             Approve
           </ToggleButton>
@@ -183,7 +178,7 @@ export default function ContentImageCard({
             title="Skip for now — this image will be resurfaced on the next scan and is not updated."
             placement="top"
           >
-            <ToggleButton value="skip" aria-label="Skip">
+            <ToggleButton value="skip" aria-label={getActionLabels('skip').actionLabel}>
               <AccessTimeIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
               Skip
             </ToggleButton>
@@ -192,7 +187,7 @@ export default function ContentImageCard({
             title="Decorative images have no alt text and will be ignored by assistive technology."
             placement="top"
           >
-            <ToggleButton value="decorative" aria-label="Decorative">
+            <ToggleButton value="decorative" aria-label={getActionLabels('decorative').actionLabel}>
               <VisibilityOffIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />
               Decorative
             </ToggleButton>

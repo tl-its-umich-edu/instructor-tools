@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { announce } from '@react-aria/live-announcer';
 import { CATEGORY_TO_CONTENT_TYPE, ContentCategoryForReview } from '../constants';
+import { getActionLabels } from '../utils';
 import ArrowBack from '@mui/icons-material/ArrowBack';
 import { Button, Grid, Box, Pagination, LinearProgress, styled, FormControl, InputLabel, Select, MenuItem, Typography, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useBeforeUnload, useBlocker, useLocation, useNavigate } from 'react-router-dom';
 import ContentImageCard from './ContentImageCard';
 import { getContentImages } from '../api';
-import { ContentItem, ContentImage, ContentImageEnriched, ActionType, ContentImageReviewState } from '../interfaces';
+import { ContentItem, ContentImage, ContentImageEnriched, ContentImageReviewState, type ActionType } from '../interfaces';
 import ErrorsDisplay from './ErrorsDisplay';
 import ReviewSummary from './ReviewSummary';
 
@@ -69,10 +71,12 @@ export default function AltTextReview() {
   const location = useLocation();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageActionSelection, setPageActionSelection] = useState<ActionType | ''>('');
   const [reviewStates, setReviewStates] = useState<Record<string, ContentImageReviewState>>({});
   const [allImages, setAllImages] = useState<ContentImageEnriched[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const pendingAnnouncement = useRef<string | null>(null);
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
   const { categoryForReview, scanIdFromUrl } = useMemo(() => {
@@ -206,11 +210,24 @@ export default function AltTextReview() {
       });
       return newStates;
     });
+    setPageActionSelection(action);
+    const count = paginatedImages.length;
+
+    // Stashed here and announced once the Select popover has fully closed
+    pendingAnnouncement.current = `${getActionLabels(action).actionLabel} selected. Applied to ${count} alt text label${count !== 1 ? 's' : ''}.`;
   };
 
-  const handlePageChange = (_: React.ChangeEvent<unknown>, page: number) => {
+  const handlePageChange = (page: number) => {
     setCurrentPage(page);
+    setPageActionSelection('');
   };
+
+  const handleCloseSummary = () => {
+    setShowSummary(false);
+    setPageActionSelection('');
+  };
+
+  const bulkActionLabel = `Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} as`;
 
   const errors = [error].filter(e => e !== null) as Error[];
   let feedbackBlock;
@@ -229,7 +246,7 @@ export default function AltTextReview() {
         <ReviewSummary 
           reviewStates={reviewStates}
           imagesById={imagesById}
-          closeSummary={() => setShowSummary(false)}
+          closeSummary={handleCloseSummary}
           onSubmitComplete={handleSubmitComplete}
           handleDone={handleDoneAfterSubmit}
         />
@@ -268,19 +285,36 @@ export default function AltTextReview() {
             <>
               <TopControls>
                 <FormControl fullWidth size="small">
-                  <InputLabel id="bulk-alt-text-action-label">Set {paginatedImages.length} alt text label{paginatedImages.length !== 1 ? 's' : ''} as</InputLabel>
+                  <InputLabel id="bulk-alt-text-action-label">{bulkActionLabel}</InputLabel>
                   <Select
                     id="bulk-alt-text-action-select"
                     labelId="bulk-alt-text-action-label"
-                    value=""
-                    label={`Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} as`}
+                    value={pageActionSelection}
+                    label={bulkActionLabel}
                     onChange={(e) => handleSetPageAs(e.target.value as ActionType)}
+                    aria-describedby="bulk-action-description"
+                    // Announce on popover exit: until then MUI sets aria-hidden on body's children
+                    //   (incl. the live region), so a screen reader would ignore an earlier announce.
+                    MenuProps={{
+                      TransitionProps: {
+                        onExited: () => {
+                          if (pendingAnnouncement.current) {
+                            // LiveAnnouncer handles creating the aria-live region 
+                            announce(pendingAnnouncement.current);
+                            pendingAnnouncement.current = null;
+                          }
+                        },
+                      },
+                    }}
                   >
-                    <MenuItem value="approve">Approve</MenuItem>
-                    <MenuItem value="skip">Skip for now</MenuItem>
-                    <MenuItem value="decorative">Decorative</MenuItem>
+                    <MenuItem value="approve">{getActionLabels('approve').actionLabel}</MenuItem>
+                    <MenuItem value="skip">{getActionLabels('skip').actionLabel}</MenuItem>
+                    <MenuItem value="decorative">{getActionLabels('decorative').actionLabel}</MenuItem>
                   </Select>
                 </FormControl>
+                <Typography id="bulk-action-description" variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Applies to all items on this page.
+                </Typography>
               </TopControls>
               <Grid container spacing={3}>
                 {paginatedImages.map((imgData) => {
@@ -306,7 +340,7 @@ export default function AltTextReview() {
                     <Pagination 
                       count={totalPages} 
                       page={currentPage} 
-                      onChange={handlePageChange}
+                      onChange={(_, page) => handlePageChange(page)}
                       siblingCount={0}
                     />
                   </Box>
@@ -323,7 +357,7 @@ export default function AltTextReview() {
                   ) : (
                     <Button
                       variant="outlined"
-                      onClick={() => setCurrentPage(currentPage + 1)}
+                      onClick={() => handlePageChange(currentPage + 1)}
                     >
                   Next Page
                     </Button>
