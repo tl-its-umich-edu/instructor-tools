@@ -118,16 +118,16 @@ Access to the tool is controlled by Canvas course role values sent in the LTI cu
 
 The following base roles are always treated as staff:
 1. `Account Admin`
-2. `Sub-Account Admin`
 3. `TeacherEnrollment`
 
 To add institution-specific roles without code changes:
 1. Open Django Admin.
 2. Go to `Constance`.
-3. Edit `ADDITIONAL_STAFF_COURSE_ROLES` with a comma-separated list of exact role strings.
+3. Edit `ADDITIONAL_STAFF_COURSE_ROLES` with a comma-separated list of exact role strings. 
 
 Default additional roles:
-1. none (empty value)
+1. `Sub-Account Admin`
+
 
 Notes:
 1. Role matching is case-insensitive after trimming whitespace.
