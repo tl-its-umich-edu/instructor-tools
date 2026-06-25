@@ -10,6 +10,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from constance import config
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from pylti1p3.contrib.django import (
@@ -174,7 +175,7 @@ def create_user_in_django(request: HttpRequest, launch_data: Dict[str, Any]):
 
     if not user_is_course_staff:
         logger.warning(f'User {username} does not have a staff role.')
-        error_message = 'You must have an approved role to access this tool. Please contact support.'
+        error_message = 'You must have an approved role to access this tool. Please contact your campus Canvas support.'
         raise PermissionDenied(error_message)
 
     email = launch_data['email']

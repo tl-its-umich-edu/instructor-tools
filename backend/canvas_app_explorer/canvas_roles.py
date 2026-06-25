@@ -1,15 +1,13 @@
 from enum import Enum
-
 from constance import config
 
 
 class CanvasRole(Enum):
     ACCOUNT_ADMIN = 'Account Admin'
-    SUB_ACCOUNT_ADMIN = 'Sub-Account Admin'
     TEACHER = 'TeacherEnrollment'
 
 
-STAFF_COURSE_ROLES = [CanvasRole.ACCOUNT_ADMIN, CanvasRole.SUB_ACCOUNT_ADMIN, CanvasRole.TEACHER]
+STAFF_COURSE_ROLES = [CanvasRole.ACCOUNT_ADMIN, CanvasRole.TEACHER]
 
 
 def normalize_role_value(role_value: str) -> str:
@@ -39,7 +37,7 @@ def _parse_configured_roles(configured_roles: object) -> list[str]:
 
 
 def get_additional_staff_course_role_values() -> list[str]:
-    configured_roles = getattr(config, 'ADDITIONAL_STAFF_COURSE_ROLES', '')
+    configured_roles = config.ADDITIONAL_STAFF_COURSE_ROLES
     return _parse_configured_roles(configured_roles)
 
 

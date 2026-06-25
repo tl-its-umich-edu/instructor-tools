@@ -14,8 +14,9 @@ from backend.canvas_app_explorer.lti1p3 import create_user_in_django
 
 class TestCanvasRoleResolution(TestCase):
     def test_effective_roles_always_include_default_roles(self):
+        # Simulate the constance default value for ADDITIONAL_STAFF_COURSE_ROLES ('Sub-Account Admin').
         with patch('backend.canvas_app_explorer.canvas_roles.config') as mock_config:
-            mock_config.ADDITIONAL_STAFF_COURSE_ROLES = ''
+            mock_config.ADDITIONAL_STAFF_COURSE_ROLES = 'Sub-Account Admin'
 
             effective_roles = get_effective_staff_course_role_values()
             default_roles = get_default_staff_course_role_values()
@@ -24,8 +25,8 @@ class TestCanvasRoleResolution(TestCase):
                 self.assertIn(role, effective_roles)
 
             self.assertIn('account admin', effective_roles)
-            self.assertIn('sub-account admin', effective_roles)
             self.assertIn('teacherenrollment', effective_roles)
+            self.assertIn('sub-account admin', effective_roles)
 
     def test_additional_roles_are_trimmed_and_deduplicated(self):
         with patch('backend.canvas_app_explorer.canvas_roles.config') as mock_config:
@@ -48,15 +49,23 @@ class TestCanvasRoleResolution(TestCase):
             mock_config.ADDITIONAL_STAFF_COURSE_ROLES = None
             self.assertEqual(get_additional_staff_course_role_values(), [])
 
+    def test_subaccount_admin_is_default_additional_role(self):
+        with patch('backend.canvas_app_explorer.canvas_roles.config') as mock_config:
+            mock_config.ADDITIONAL_STAFF_COURSE_ROLES = 'Sub-Account Admin'
+
+            additional_roles = get_additional_staff_course_role_values()
+
+            self.assertIn('sub-account admin', additional_roles)
+
     def test_effective_roles_merge_default_and_additional(self):
         with patch('backend.canvas_app_explorer.canvas_roles.config') as mock_config:
-            mock_config.ADDITIONAL_STAFF_COURSE_ROLES = 'Junior Admin,Instructional Designer'
+            mock_config.ADDITIONAL_STAFF_COURSE_ROLES = 'Sub-Account Admin,Junior Admin,Instructional Designer'
 
             effective_roles = get_effective_staff_course_role_values()
 
             self.assertIn('account admin', effective_roles)
-            self.assertIn('sub-account admin', effective_roles)
             self.assertIn('teacherenrollment', effective_roles)
+            self.assertIn('sub-account admin', effective_roles)
             self.assertIn('junior admin', effective_roles)
             self.assertIn('instructional designer', effective_roles)
 
@@ -137,5 +146,28 @@ class TestLtiRoleAuthorizationWithConfigurableRoles(TestCase):
             'backend.canvas_app_explorer.lti1p3.get_effective_staff_course_role_values',
             return_value=['account admin', 'sub-account admin', 'teacherenrollment'],
         ):
+            with self.assertRaises(PermissionDenied):
+                create_user_in_django(request, launch_data)
+
+    def test_subaccount_admin_authorized_with_default_constance_config(self):
+        # Verify that a Sub-Account Admin can launch when ADDITIONAL_STAFF_COURSE_ROLES
+        # is set to the constance default ('Sub-Account Admin') and no env var override is present.
+        request = self._request_with_session()
+        launch_data = self._launch_data('subaccount-admin-user', 'Sub-Account Admin')
+
+        with patch('backend.canvas_app_explorer.canvas_roles.config') as mock_config:
+            mock_config.ADDITIONAL_STAFF_COURSE_ROLES = 'Sub-Account Admin'
+            create_user_in_django(request, launch_data)
+
+        self.assertEqual(request.session['course_id'], 123)
+
+    def test_subaccount_admin_denied_when_default_is_cleared(self):
+        # Verify that a Sub-Account Admin is denied when ADDITIONAL_STAFF_COURSE_ROLES
+        # is explicitly cleared (no roles configured).
+        request = self._request_with_session()
+        launch_data = self._launch_data('subaccount-admin-user', 'Sub-Account Admin')
+
+        with patch('backend.canvas_app_explorer.canvas_roles.config') as mock_config:
+            mock_config.ADDITIONAL_STAFF_COURSE_ROLES = ''
             with self.assertRaises(PermissionDenied):
                 create_user_in_django(request, launch_data)
