@@ -118,7 +118,7 @@ Access to the tool is controlled by Canvas course role values sent in the LTI cu
 
 The following base roles are always treated as staff:
 1. `Account Admin`
-3. `TeacherEnrollment`
+2. `TeacherEnrollment`
 
 To add institution-specific roles without code changes:
 1. Open Django Admin.
