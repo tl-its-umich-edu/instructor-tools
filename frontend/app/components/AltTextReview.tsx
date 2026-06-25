@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { announce } from '@react-aria/live-announcer';
 import { CATEGORY_TO_CONTENT_TYPE, ContentCategoryForReview } from '../constants';
 import { getActionLabels } from '../utils';
@@ -76,6 +76,7 @@ export default function AltTextReview() {
   const [allImages, setAllImages] = useState<ContentImageEnriched[]>([]);
   const [showSummary, setShowSummary] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const pendingAnnouncement = useRef<string | null>(null);
   const imagesPerPage = 6; // 2 images per row × 3 rows (6 total)
 
   const { categoryForReview, scanIdFromUrl } = useMemo(() => {
@@ -211,16 +212,12 @@ export default function AltTextReview() {
     });
     setPageActionSelection(action);
     const count = paginatedImages.length;
-    
-    // Timer needed to account for the MUI Select popover to close, otherwise aria-hidden="true" will remain
-    //    for all sibling elements in body and interfere with screen reader alert
-    setTimeout(() => {
-      // LiveAnnouncer handles creating the aria-live region 
-      announce(`${getActionLabels(action).actionLabel} selected. Applied to ${count} alt text label${count !== 1 ? 's' : ''}.`);
-    }, 200);
+
+    // Stashed here and announced once the Select popover has fully closed
+    pendingAnnouncement.current = `${getActionLabels(action).actionLabel} selected. Applied to ${count} alt text label${count !== 1 ? 's' : ''}.`;
   };
 
-  const handlePageChange = (_: React.ChangeEvent<unknown>, page: number) => {
+  const handlePageChange = (page: number) => {
     setCurrentPage(page);
     setPageActionSelection('');
   };
@@ -229,6 +226,8 @@ export default function AltTextReview() {
     setShowSummary(false);
     setPageActionSelection('');
   };
+
+  const bulkActionLabel = `Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} as`;
 
   const errors = [error].filter(e => e !== null) as Error[];
   let feedbackBlock;
@@ -286,14 +285,27 @@ export default function AltTextReview() {
             <>
               <TopControls>
                 <FormControl fullWidth size="small">
-                  <InputLabel id="bulk-alt-text-action-label">Set {paginatedImages.length} alt text label{paginatedImages.length !== 1 ? 's' : ''} as</InputLabel>
+                  <InputLabel id="bulk-alt-text-action-label">{bulkActionLabel}</InputLabel>
                   <Select
                     id="bulk-alt-text-action-select"
                     labelId="bulk-alt-text-action-label"
                     value={pageActionSelection}
-                    label={`Set ${paginatedImages.length} alt text label${paginatedImages.length !== 1 ? 's' : ''} to`}
+                    label={bulkActionLabel}
                     onChange={(e) => handleSetPageAs(e.target.value as ActionType)}
                     aria-describedby="bulk-action-description"
+                    // Announce on popover exit: until then MUI sets aria-hidden on body's children
+                    //   (incl. the live region), so a screen reader would ignore an earlier announce.
+                    MenuProps={{
+                      TransitionProps: {
+                        onExited: () => {
+                          if (pendingAnnouncement.current) {
+                            // LiveAnnouncer handles creating the aria-live region 
+                            announce(pendingAnnouncement.current);
+                            pendingAnnouncement.current = null;
+                          }
+                        },
+                      },
+                    }}
                   >
                     <MenuItem value="approve">{getActionLabels('approve').actionLabel}</MenuItem>
                     <MenuItem value="skip">{getActionLabels('skip').actionLabel}</MenuItem>
@@ -328,7 +340,7 @@ export default function AltTextReview() {
                     <Pagination 
                       count={totalPages} 
                       page={currentPage} 
-                      onChange={handlePageChange}
+                      onChange={(_, page) => handlePageChange(page)}
                       siblingCount={0}
                     />
                   </Box>
@@ -345,7 +357,7 @@ export default function AltTextReview() {
                   ) : (
                     <Button
                       variant="outlined"
-                      onClick={(e) => handlePageChange(e, currentPage + 1)}
+                      onClick={() => handlePageChange(currentPage + 1)}
                     >
                   Next Page
                     </Button>

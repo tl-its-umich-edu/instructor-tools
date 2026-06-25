@@ -10,7 +10,7 @@ export const getActionLabels = (action: ActionType): { actionLabel: string; stat
   case 'skip':
     return { actionLabel: 'Skip for now', statusLabel: 'Skipped for now' };
   case 'decorative':
-    return { actionLabel: 'Mark as decorative', statusLabel: 'Marked decorative' };
+    return { actionLabel: 'Mark as decorative', statusLabel: 'Marked as decorative' };
   case 'unreviewed':
   default:
     return { actionLabel: 'Mark as unreviewed', statusLabel: 'Not yet reviewed' };
