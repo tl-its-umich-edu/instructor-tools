@@ -467,6 +467,11 @@ option with no further explanation.""").strip(),
     'USE_CANVAS_TOKEN': (
         os.getenv('USE_CANVAS_TOKEN', 'false').lower() in ('true', '1', 't'),
         'Whether to use Canvas authentication token when fetching images from Canvas'
+    ),
+    'ADDITIONAL_STAFF_COURSE_ROLES': (
+        os.getenv('ADDITIONAL_STAFF_COURSE_ROLES','Sub-Account Admin'),
+        'Additional Canvas roles that gives access to the tool beyond default base roles (Account Admin, TeacherEnrollment). '
+        'Supports a single value (no comma) or CSV list.'
     )
 }
 # Use in-memory backend for constance during tests to avoid database migration issues

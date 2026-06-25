@@ -10,6 +10,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
+from constance import config
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from pylti1p3.contrib.django import (
@@ -17,7 +18,7 @@ from pylti1p3.contrib.django import (
 )
 from pylti1p3.exception import LtiException
 
-from .canvas_roles import STAFF_COURSE_ROLES
+from .canvas_roles import get_effective_staff_course_role_values
 
 
 logger = logging.getLogger(__name__)
@@ -157,20 +158,24 @@ def create_user_in_django(request: HttpRequest, launch_data: Dict[str, Any]):
     term_name = custom_params[COURSE_TERM_NAME_KEY] if COURSE_TERM_NAME_KEY in custom_params else None
     account_id = custom_params[COURSE_ACCOUNT_ID_KEY] if COURSE_ACCOUNT_ID_KEY in custom_params else None
     account_name = custom_params[COURSE_ACCOUNT_NAME_KEY] if COURSE_ACCOUNT_NAME_KEY in custom_params else None
-    course_roles = custom_params[COURSE_ROLES_KEY].split(',')
+    course_roles = [
+        course_role.strip().lower()
+        for course_role in custom_params[COURSE_ROLES_KEY].split(',')
+        if course_role.strip()
+    ]
 
     if 'email' not in launch_data.keys():
         logger.warning('An instructor/admin likely launched the tool using Student View (Test Student).')
         error_message = 'Student View is not available for Canvas App Explorer.'
         raise PermissionDenied(error_message)
 
-    staff_course_role_values = [role.value for role in STAFF_COURSE_ROLES]
+    staff_course_role_values = get_effective_staff_course_role_values()
     user_staff_course_roles = [course_role for course_role in course_roles if course_role in staff_course_role_values]
     user_is_course_staff = len(user_staff_course_roles) > 0
 
     if not user_is_course_staff:
         logger.warning(f'User {username} does not have a staff role.')
-        error_message = 'You must be an instructor in this course or an administrator to access this tool.'
+        error_message = 'You must have an approved role to access this tool. Please contact your campus Canvas support.'
         raise PermissionDenied(error_message)
 
     email = launch_data['email']
