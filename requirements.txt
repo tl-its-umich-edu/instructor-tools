@@ -3,7 +3,7 @@ uvicorn-worker==0.4.0
 mysqlclient==2.2.8
 
 # Django and related
-Django==5.2.15
+Django==5.2.16
 django-csp==3.8 # For Content Security Policy
 django-constance==4.3.5 # Dynamic settings in admin UI
 django-db-file-storage==0.5.6.1 # Support for storage in the database
@@ -12,7 +12,7 @@ django-redis==5.4.0
 django-tinymce==5.0.0 # Rich text editor
 django-watchman==1.5.0
 django-webpack-loader==3.2.4
-Pillow==12.2.0
+Pillow==12.3.0
 servestatic==3.1.0 # For serving static files
 beautifulsoup4==4.15.0 # For HTML parsing
 
@@ -20,7 +20,7 @@ beautifulsoup4==4.15.0 # For HTML parsing
 # DRF
 djangorestframework==3.17.1
 django-filter==25.2 
-drf-spectacular==0.29.0
+drf-spectacular==0.30.0
 markdown==3.10.2 # Markdown support for the browsable API
 
 # LTI
@@ -41,7 +41,7 @@ drf-api-tracking==1.8.4 # API tracking for DRF
 
 django-q2==1.10.0
 openai==2.44.0
-blessed==1.45.0
+blessed==1.46.0
 
 # httpx should be pulled in by openai, but adding explicitly to avoid issues
 # If the version goes above 1.0 will need to verify compatibility with openai package
