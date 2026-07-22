@@ -412,36 +412,28 @@ Q_CLUSTER = {
 
 # Constance configuration for dynamic settings
 CONSTANCE_CONFIG = {
-    'AZURE_API_KEY': (
-        os.getenv('AZURE_API_KEY', ''),
-        'Azure OpenAI API Key'
+    'AI_API_KEY': (
+        os.getenv('AI_API_KEY', ''),
+        'OpenAI-compatible gateway API key'
     ),
-    'AZURE_API_VERSION': (
-        os.getenv('AZURE_API_VERSION', '2025-04-01-preview'),
-        'Azure OpenAI API Version'
+    'AI_API_BASE': (
+        os.getenv('AI_API_BASE', 'https://api.toolkit.umgpt.umich.edu/v1'),
+        'OpenAI-compatible gateway base URL'
     ),
-    'AZURE_API_BASE': (
-        os.getenv('AZURE_API_BASE', 'https://api.umgpt.umich.edu/azure-openai-api'),
-        'Azure OpenAI API Base URL'
+    'AI_MODEL': (
+        os.getenv('AI_MODEL', 'gpt-4.1-mini'),
+        'OpenAI-compatible gateway model name'
     ),
-    'AZURE_ORGANIZATION': (
-        os.getenv('AZURE_ORGANIZATION', ''),
-        'Azure Organization ID'
-    ),
-    'AZURE_MODEL': (
-        os.getenv('AZURE_MODEL', 'gpt-4o'),
-        'Azure OpenAI Model Name'
-    ),
-    'AZURE_ALT_TEXT_PROMPT': (
-        os.getenv('AZURE_ALT_TEXT_PROMPT', """As an AI tool specialized in image recognition, generate concise and descriptive alt text for this image.
+    'AI_ALT_TEXT_PROMPT': (
+        os.getenv('AI_ALT_TEXT_PROMPT', """As an AI tool specialized in image recognition, generate concise and descriptive alt text for this image.
 The description should be suitable for a student with a
 vision impairment taking a quiz. Do not include phrases
 like 'This is an image of...'. Provide only one concise
 option with no further explanation.""").strip(),
         'Prompt for generating alt text'
     ),
-    'AZURE_ALT_TEXT_TEMPERATURE': (
-        float(os.getenv('AZURE_ALT_TEXT_TEMPERATURE', 0.0)),
+    'AI_ALT_TEXT_TEMPERATURE': (
+        float(os.getenv('AI_ALT_TEXT_TEMPERATURE', 0.0)),
         'Temperature for alt text generation: 0 = deterministic/consistent responses, 2 = maximum creativity/randomness'
     ),
     'IMAGE_MAX_DIMENSION': (
