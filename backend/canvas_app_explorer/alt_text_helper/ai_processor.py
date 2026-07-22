@@ -1,9 +1,7 @@
 import logging
-import time
 import base64
 import io
 from typing import Optional
-from django.conf import settings
 from constance import config
 from openai import OpenAI
 from PIL import Image

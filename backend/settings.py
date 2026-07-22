@@ -417,7 +417,7 @@ CONSTANCE_CONFIG = {
         'OpenAI-compatible gateway API key'
     ),
     'AI_API_BASE': (
-        os.getenv('AI_API_BASE', 'https://api.umgpt.umich.edu/azure-openai-api'),
+        os.getenv('AI_API_BASE', 'https://api.toolkit.umgpt.umich.edu/v1'),
         'OpenAI-compatible gateway base URL'
     ),
     'AI_MODEL': (
