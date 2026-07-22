@@ -5,7 +5,7 @@ import io
 from typing import Optional
 from django.conf import settings
 from constance import config
-from openai import AzureOpenAI
+from openai import OpenAI
 from PIL import Image
 from backend.canvas_app_explorer.decorators import log_execution_time
 from backend.canvas_app_explorer.canvas_lti_manager.exception import AltTextGenerationException
@@ -14,22 +14,20 @@ logger = logging.getLogger(__name__)
 
 
 class AltTextProcessor:
-    """Handles AI-based alt text generation for images using Azure OpenAI."""
+    """Handles AI-based alt text generation through an OpenAI-compatible gateway."""
     
     def __init__(self):
-        """Initialize the AltTextProcessor with Azure OpenAI client configuration."""
-        self.client = AzureOpenAI(
-            api_key=config.AZURE_API_KEY,
-            api_version=config.AZURE_API_VERSION,
-            azure_endpoint=config.AZURE_API_BASE,
-            organization=config.AZURE_ORGANIZATION
+        """Initialize the AltTextProcessor with generic AI gateway configuration."""
+        self.client = OpenAI(
+            api_key=config.AI_API_KEY,
+            base_url=config.AI_API_BASE,
         )
-        self.model = config.AZURE_MODEL
+        self.model = config.AI_MODEL
     
     @log_execution_time
     def generate_alt_text(self, image: Image.Image, image_url: str) -> Optional[str]:
         """
-        Generate alt text for an image using Azure OpenAI.
+        Generate alt text for an image using an OpenAI-compatible gateway.
         
         Args:
             image: PIL Image object (will be converted to JPEG)
@@ -44,7 +42,7 @@ class AltTextProcessor:
             image.save(img_buffer, format='JPEG')
             imagedata = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
             
-            prompt = config.AZURE_ALT_TEXT_PROMPT
+            prompt = config.AI_ALT_TEXT_PROMPT
             
             messages = [
                 {"role": "system", "content": prompt},
@@ -57,7 +55,7 @@ class AltTextProcessor:
             response = self.client.chat.completions.with_raw_response.create(
                 model=self.model,
                 messages=messages,
-                temperature=config.AZURE_ALT_TEXT_TEMPERATURE,
+                temperature=config.AI_ALT_TEXT_TEMPERATURE,
             )
             
             completion = response.parse()
