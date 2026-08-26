@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from django.db import transaction
-from urllib.parse import urlparse, parse_qs, urlencode
 from typing import List, Dict, Any, Optional, TypeVar, Callable, Union, TypeGuard
 from asgiref.sync import async_to_sync
 from django.test import RequestFactory
@@ -27,7 +26,6 @@ from backend.canvas_app_explorer.utils import generate_canvas_content_url
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.types import (
     ContentItemWithImages,
     CourseScanError,
-    ExtractedImageResult,
     ScanExtractionResult,
 )
 
