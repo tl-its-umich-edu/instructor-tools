@@ -393,16 +393,10 @@ def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseS
                 images_from_assignments,
                 assignment.id,
                 assignment.name,
-                extract_images_from_html(
-                    assignment.description,
-                    course.id,
-                    'assignment',
-                    content_title=assignment.name,
-                    content_id=assignment.id,
-                    content_parent_id=None,
-                ),
+                extract_images_from_html(assignment.description),
                 'assignment',
                 None)
+        logger.info(f" Total images extracted assignment-wise: {(images_from_assignments)}")
         return images_from_assignments
     except (CanvasException, Exception) as e:
         logger.error(f"Error fetching assignments for course {course.id}: {e}")
@@ -432,16 +426,10 @@ def get_pages(course: Course) -> List[Union[ContentItemWithImages, CourseScanErr
                 images_from_pages,
                 page.page_id,
                 page.title,
-                extract_images_from_html(
-                    page.body,
-                    course.id,
-                    'page',
-                    content_title=page.title,
-                    content_id=page.page_id,
-                    content_parent_id=None,
-                ),
+                extract_images_from_html(page.body),
                 'page',
                 None)
+        logger.info(f"Total images extracted page-wise: {images_from_pages}")
         return images_from_pages
     except (CanvasException, Exception) as e:
         logger.error(f"Error fetching pages for course {course.id}: {e}")
@@ -470,17 +458,10 @@ def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, CourseScanE
                 images_from_quizzes,
                 quiz.id,
                 quiz.title,
-                extract_images_from_html(
-                    getattr(quiz, 'description', ''),
-                    course.id,
-                    'quiz',
-                    content_title=quiz.title,
-                    content_id=quiz.id,
-                    content_parent_id=None,
-                ),
+                extract_images_from_html(getattr(quiz, 'description', '')),
                 'quiz',
                 None)
-        logger.info(f"Fetched {len(quizzes)} quizzes. Now fetching questions for quizzes.")
+        logger.info(f"Fetched {len(quizzes)} quizzes. Total images extracted quiz-wise: {images_from_quizzes}. Now fetching questions for quizzes.")
         quiz_question_results = async_to_sync(get_quiz_questions)(quizzes)
 
         mapped_quiz_question_results: List[List[Union[ContentItemWithImages, CourseScanError]]] = []
@@ -544,177 +525,40 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
                 images_from_questions,
                 question.id,
                 question.question_name,
-                extract_images_from_html(
-                    getattr(question, 'question_text', ''),
-                    quiz.course_id,
-                    'quiz_question',
-                    content_title=getattr(quiz, 'title', 'Quiz'),
-                    content_id=question.id,
-                    content_parent_id=quiz.id,
-                ),
+                extract_images_from_html(getattr(question, 'question_text', '')),
                 'quiz_question',
                 quiz.id)
-
+        logger.info(f"Total images extracted question-wise for quiz title {quiz.title}: {images_from_questions}")
         return images_from_questions
     except (CanvasException, Exception) as e:
         logger.error(f"Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
         raise e
 
-def _is_image_from_current_course(img_src: str, current_course_id: int) -> bool:
-    """
-    Check if a Canvas image URL belongs to the current course.
-    
-    Always includes:
-    - Public Canvas images (e.g., /images/play_overlay.png, /images/book_stro/icon.png)
-    - User files (e.g., /users/{id}/files/{file_id})
-    
-    Only validates course_id for URLs with /courses/{course_id}/ pattern.
-    
-    :param img_src: The image source URL
-    :param current_course_id: The ID of the current course being processed
-    :return: True if the image belongs to the current course or is a public/user file, False otherwise
-    """
-    try:
-        parsed = urlparse(img_src)
-        parts = [p for p in parsed.path.split('/') if p]
-        
-        # Public Canvas images with any subdirectory depth - always include
-        # e.g., /images/play_overlay.png, /images/book_stro/icon.png, /images/foo/poo/bar.png
-        if 'images' in parts and 'courses' not in parts:
-            logger.info(f"Including public Canvas image: {img_src}")
-            return True
-        
-        # User files (e.g., /users/{id}/files/{file_id}) - always include
-        if 'users' in parts and 'files' in parts:
-            logger.info(f"Including user file: {img_src}")
-            return True
-        
-        # Look for /courses/{course_id}/ pattern and validate
-        if 'courses' in parts:
-            courses_idx = parts.index('courses')
-            if courses_idx + 1 < len(parts):
-                url_course_id = int(parts[courses_idx + 1])
-                if url_course_id != current_course_id:
-                    logger.info(f"Skipping image from different course: URL has course_id={url_course_id}, current course_id={current_course_id}")
-                    return False
-        return True
-    except (ValueError, IndexError) as e:
-        logger.warning(f"Could not parse course_id from URL {img_src}: {e}")
-        raise type(e)(f" parsing error {img_src} due to {e}") from e
 
-def _parse_canvas_file_src(img_src: str) ->  Optional[str]:
-    """
-    Parse Canvas file preview URLs and convert to download URLs.
-    
-    Handles:
-    - Course files: /courses/{id}/files/{file_id}/preview
-    - User files: /users/{id}/files/{file_id}/preview
-    - Public images: /images/play_overlay.png (returned as-is)
-    
-    Extracts file_id and constructs download URL with verifier params preserved.
-    Returns download_url or original URL if not parseable.
-    """
-    if not img_src:
-        return None
-    try:
-        parsed = urlparse(img_src)
-        # Path segments: ['', 'courses', '403334', 'files', '42932047', 'preview']
-        parts = [p for p in parsed.path.split('/') if p]
-        
-        # Public Canvas images - return as-is without parsing
-        if 'images' in parts and 'courses' not in parts:
-            logger.debug(f"Using public Canvas image URL as-is: {img_src}")
-            return img_src
-        
-        file_id = None
-        for i, part in enumerate(parts):
-            if part == 'files' and i + 1 < len(parts):
-                file_id = parts[i + 1]
-                break
-        if not file_id:
-            logger.error(f"Could not find file_id in Canvas file URL path: {img_src}")
-            raise ValueError(f"File ID not found in URL path: {img_src}")
-
-        # preserve original query params (verifier, etc.)
-        qs = parse_qs(parsed.query, keep_blank_values=True)
-        # flatten qs back to query string (parse_qs gives lists)
-        flat_qs = {}
-        for k, v in qs.items():
-            # preserve first value
-            if isinstance(v, list) and v:
-                flat_qs[k] = v[0]
-            else:
-                flat_qs[k] = v
-
-        # ensure download_frd=1 is appended
-        flat_qs['download_frd'] = '1'
-
-        download_path = f"/files/{file_id}/download"
-        download_url = f"{parsed.scheme}://{parsed.netloc}{download_path}?{urlencode(flat_qs)}"
-        return download_url
-    except Exception as e:
-        logger.error(f"Error parsing img src URL '{img_src}': {e}")
-        raise e
-
-def extract_images_from_html(
-    html_content: str,
-    course_id: int,
-    content_type: str = 'unknown',
-    content_title: Optional[str] = None,
-    content_id: Optional[int] = None,
-    content_parent_id: Optional[int] = None,
-) -> ExtractedImageResult:
+def extract_images_from_html(html_content: str) -> List[str]:
     if not html_content:
         return []
     soup = BeautifulSoup(html_content, "html.parser")
     extracted_image_urls: List[str] = []
-    extracted_image_errors: List[CourseScanError] = []
     image_extensions = IMAGE_EXTENSIONS
     for img in soup.find_all("img"):
-        try:
-            logger.info(f"Processing img tag: {img}")
-            img_src = img.get("src")
-            img_alt = (img.get("alt") or "").strip()
-            img_role = (img.get("role") or "").strip().lower()
+        logger.info(f"Processing img tag: {img}")
+        img_src = img.get("src")
+        img_alt = (img.get("alt") or "").strip()
+        img_role = (img.get("role") or "").strip().lower()
 
-            # ignore images without src
-            if not img_src:
-                logger.info("Skipping img tag without src attribute.")
-                continue
+        # ignore images without src
+        if not img_src:
+            logger.info("Skipping img tag without src attribute.")
+            continue
+        # Skip decorative/presentation images
+        if img_role == "presentation":
+            continue
+        # Skip when alt appears to be a filename (ends with an image extension)
+        if img_alt and not img_alt.lower().endswith(image_extensions):
+            continue
 
-            # Skip decorative/presentation images
-            if img_role == "presentation":
-                continue
-            # Skip when alt appears to be a filename (ends with an image extension)
-            if img_alt and not img_alt.lower().endswith(image_extensions):
-                continue
-
-            domain = urlparse(img_src).netloc
-            if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain:
-                # Check if the image belongs to the current course
-                if not _is_image_from_current_course(img_src, course_id):
-                    continue
-
-                logger.info(f"Parsing Canvas file URL: {img_src}")
-                download_url = _parse_canvas_file_src(img_src)
-            else:
-                logger.info(f"Non-Canvas image URL found: {img_src}")
-                download_url = img_src
-            if download_url:
-                extracted_image_urls.append(download_url)
-        except Exception as e:
-            logger.error(f"Error processing image tag for course_id {course_id}: {e}")
-            error_entry: CourseScanError = {
-                "type": content_type,
-                "title": content_title,
-                "error": e,
-                "canvas_url": generate_canvas_content_url(course_id, content_type, content_id, content_parent_id),
-            }
-            extracted_image_errors.append(error_entry)
-
-    if extracted_image_errors:
-        logger.info(extracted_image_errors)
-        return extracted_image_errors
+        extracted_image_urls.append(img_src)
 
     if extracted_image_urls:
         logger.info(extracted_image_urls)
@@ -725,7 +569,7 @@ def append_image_items(
         images_list: List[ContentItemWithImages],
         content_id: int,
         content_name: str,
-    images: ExtractedImageResult,
+        images: List[str],
         content_type: str,
         content_parent_id: Optional[int]) -> List[ContentItemWithImages]:
     """
