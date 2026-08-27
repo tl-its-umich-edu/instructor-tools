@@ -209,7 +209,7 @@ class ProcessContentImages:
                 # Validate content-type header
                 content_type = resp.headers.get('content-type', '')
                 if 'image' not in content_type:
-                    raise ValueError(f"Invalid content-type header received: {content_type}")
+                    raise ValueError(f"Invalid content-type header received: '{content_type}' for '{img_url}'")
                 image_content = resp.content
                 optimized_image_content = self.get_optimized_images(image_content, img_url)
                 return optimized_image_content
