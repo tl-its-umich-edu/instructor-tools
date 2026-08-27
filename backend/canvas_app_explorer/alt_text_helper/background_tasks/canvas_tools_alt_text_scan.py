@@ -394,7 +394,6 @@ def get_assignments(course: Course) -> List[Union[ContentItemWithImages, CourseS
                 extract_images_from_html(assignment.description),
                 'assignment',
                 None)
-        logger.info(f" Total images extracted assignment-wise: {(images_from_assignments)}")
         return images_from_assignments
     except (CanvasException, Exception) as e:
         logger.error(f"Error fetching assignments for course {course.id}: {e}")
@@ -427,7 +426,6 @@ def get_pages(course: Course) -> List[Union[ContentItemWithImages, CourseScanErr
                 extract_images_from_html(page.body),
                 'page',
                 None)
-        logger.info(f"Total images extracted page-wise: {images_from_pages}")
         return images_from_pages
     except (CanvasException, Exception) as e:
         logger.error(f"Error fetching pages for course {course.id}: {e}")
@@ -459,7 +457,7 @@ def get_quizzes(course: Course) -> List[Union[ContentItemWithImages, CourseScanE
                 extract_images_from_html(getattr(quiz, 'description', '')),
                 'quiz',
                 None)
-        logger.info(f"Fetched {len(quizzes)} quizzes. Total images extracted quiz-wise: {images_from_quizzes}. Now fetching questions for quizzes.")
+        logger.info(f"Fetched {len(quizzes)} quizzes. Now fetching questions for quizzes.")
         quiz_question_results = async_to_sync(get_quiz_questions)(quizzes)
 
         mapped_quiz_question_results: List[List[Union[ContentItemWithImages, CourseScanError]]] = []
@@ -526,7 +524,7 @@ def get_quiz_questions_sync(quiz: Quiz) -> List[ContentItemWithImages]:
                 extract_images_from_html(getattr(question, 'question_text', '')),
                 'quiz_question',
                 quiz.id)
-        logger.info(f"Total images extracted question-wise for quiz title {quiz.title}: {images_from_questions}")
+
         return images_from_questions
     except (CanvasException, Exception) as e:
         logger.error(f"Errors fetching quiz {quiz.id}:{quiz.title} questions due {e}")
