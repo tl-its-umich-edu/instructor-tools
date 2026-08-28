@@ -550,7 +550,7 @@ def extract_images_from_html(html_content: str) -> List[str]:
         # Skip decorative/presentation images
         if img_role == "presentation":
             continue
-        # Skip when alt appears to be a filename (ends with an image extension)
+        # Skip images that already have descriptive alt text (non-empty alt that doesn't look like a filename)
         if img_alt and not img_alt.lower().endswith(image_extensions):
             continue
 
