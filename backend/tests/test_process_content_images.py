@@ -1,5 +1,7 @@
+import asyncio
+import httpx
 from django.test import TestCase
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import (
     retrieve_and_store_alt_text,
@@ -238,3 +240,59 @@ class TestProcessContentImages(TestCase):
         # Second image should remain without alt text because generator returned None
         img2 = ImageItem.objects.get(id=image_item_2.id)
         self.assertIsNone(img2.image_alt_text)
+
+    def _mock_async_client(self, mock_async_client_cls, response):
+        """Configure a patched httpx.AsyncClient() to behave as an async context
+        manager whose client.get(...) resolves to the given response."""
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=response)
+        mock_async_client_cls.return_value = mock_client
+        return mock_client
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.httpx.AsyncClient')
+    def test_get_image_content_async_returns_plain_message_on_http_status_error(self, mock_async_client_cls):
+        """A 404 (or other 4xx/5xx) should come back as a plain Exception with a
+        human-readable message, not httpx's default HTTPStatusError text (which
+        includes an MDN link and reads as HTTP jargon to the instructor viewing it)."""
+        img_url = 'http://example.com/missing.png'
+        fake_request = httpx.Request('GET', img_url)
+        fake_response = httpx.Response(404, request=fake_request)
+        self._mock_async_client(mock_async_client_cls, fake_response)
+
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
+        result = asyncio.run(proc.get_image_content_async(img_url))
+
+        self.assertIsInstance(result, Exception)
+        self.assertNotIsInstance(result, httpx.HTTPStatusError)
+        message = str(result)
+        self.assertIn('Image processing failed for', message)
+        self.assertIn(img_url, message)
+        self.assertIn('Not Found', message)
+        self.assertNotIn('For more information check', message)
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.httpx.AsyncClient')
+    def test_get_image_content_async_returns_plain_message_on_non_image_content_type(self, mock_async_client_cls):
+        """A 200 response whose body is HTML (e.g. a Canvas sign-in page returned
+        instead of the actual image, per USE_CANVAS_TOKEN gating) should be rejected
+        with a message that says what was received, not an opaque header name."""
+        img_url = 'http://example.com/redirected-to-login.png'
+        fake_request = httpx.Request('GET', img_url)
+        fake_response = httpx.Response(
+            200,
+            request=fake_request,
+            headers={'content-type': 'text/html'},
+            content=b'<html>sign in</html>',
+        )
+        self._mock_async_client(mock_async_client_cls, fake_response)
+
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
+        result = asyncio.run(proc.get_image_content_async(img_url))
+
+        self.assertIsInstance(result, ValueError)
+        message = str(result)
+        self.assertIn('Image processing failed for', message)
+        self.assertIn(img_url, message)
+        self.assertIn('text/html', message)
+        self.assertIn('instead of an image', message)

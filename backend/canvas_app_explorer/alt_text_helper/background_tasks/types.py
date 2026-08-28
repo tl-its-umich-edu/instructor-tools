@@ -28,15 +28,11 @@ class CourseScanError(TypedDict):
     title: Optional[str] 
     error: Exception  
     canvas_url: str    
-
-
-ExtractedImageResult = Union[List[str], List[CourseScanError]]
-
 class ContentItemWithImages(TypedDict):
     """Represents content item with extracted images and their processing results."""
     id: int
     name: str
-    images: ExtractedImageResult
+    images: List[str]
     type: str
     content_parent_id: Optional[int]
 
