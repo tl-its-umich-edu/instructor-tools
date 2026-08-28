@@ -574,7 +574,7 @@ def append_image_items(
     :param images_list: Accumulating list of content items with images
     :param content_id: Content item ID (assignment/page/quiz/question ID)
     :param content_name: Content item name (title/description)
-    :param images: Either List[str] for successful extraction or List[CourseScanError] on error
+    :param images: List[str]
     :param content_type: Type of content ('assignment', 'page', 'quiz', 'quiz_question')
     :param content_parent_id: Optional parent content ID (e.g., quiz_id for quiz_question)
     :return: Updated images_list with new content item appended if images non-empty
