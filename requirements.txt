@@ -18,7 +18,7 @@ beautifulsoup4==4.15.0 # For HTML parsing
 
 
 # DRF
-djangorestframework==3.17.1
+djangorestframework==3.17.2
 django-filter==25.2 
 drf-spectacular==0.30.0
 markdown==3.10.2 # Markdown support for the browsable API
