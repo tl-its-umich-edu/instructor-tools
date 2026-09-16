@@ -223,7 +223,7 @@ class ProcessContentImages:
                 f"Image processing failed for {http_err.response.url} due to {http_err.response.reason_phrase}"
             )
         except Exception as req_err:
-            logger.error(f"Error fetching image content for image_url {img_url} : {req_err}")
+            logger.error(f"Error fetching image content for image_url {img_url}, course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {req_err}")
             return req_err
 
     @log_execution_time
