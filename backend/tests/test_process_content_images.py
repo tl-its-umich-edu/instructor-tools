@@ -296,3 +296,81 @@ class TestProcessContentImages(TestCase):
         self.assertIn(img_url, message)
         self.assertIn('text/html', message)
         self.assertIn('instead of an image', message)
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.httpx.AsyncClient')
+    def test_get_image_content_async_exact_domain_match(self, mock_async_client_cls):
+        """Exact hostname match (== not 'in') prevents domain spoofing attacks like canvas.instructure.com.attacker.example.
+
+        Test that:
+        1. Legitimate Canvas domain gets auth header
+        2. Spoofed domain does NOT get auth header
+        """
+        from PIL import Image
+        import io
+        from unittest.mock import patch as mock_patch
+
+        # Create a valid image response
+        img = Image.new('RGB', (10, 10), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        image_bytes = buf.getvalue()
+
+        # Test 1: Legitimate domain should get auth header
+        with mock_patch('django.conf.settings.CANVAS_OAUTH_CANVAS_DOMAIN', 'canvas.instructure.com'):
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=httpx.Response(
+                200,
+                request=httpx.Request('GET', 'https://canvas.instructure.com/img.jpg'),
+                headers={'content-type': 'image/jpeg'},
+                content=image_bytes,
+            ))
+            mock_async_client_cls.return_value = mock_client
+
+            proc = ProcessContentImages(
+                course_scan_id=self.course_scan.id,
+                course_id=self.course_id,
+                bearer_token='test_token'
+            )
+            proc.use_canvas_token = True
+
+            result = asyncio.run(proc.get_image_content_async('https://canvas.instructure.com/img.jpg'))
+
+            # Should succeed and return image bytes
+            self.assertIsInstance(result, bytes)
+            # Verify auth header WAS sent
+            mock_client.get.assert_called_once()
+            call_args = mock_client.get.call_args
+            self.assertIn('Authorization', call_args.kwargs.get('headers', {}))
+
+        # Test 2: Spoofed domain should NOT get auth header
+        with mock_patch('django.conf.settings.CANVAS_OAUTH_CANVAS_DOMAIN', 'canvas.instructure.com'):
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=httpx.Response(
+                200,
+                request=httpx.Request('GET', 'https://canvas.instructure.com.attacker.example/img.jpg'),
+                headers={'content-type': 'image/jpeg'},
+                content=image_bytes,
+            ))
+            mock_async_client_cls.return_value = mock_client
+
+            proc = ProcessContentImages(
+                course_scan_id=self.course_scan.id,
+                course_id=self.course_id,
+                bearer_token='test_token'
+            )
+            proc.use_canvas_token = True
+
+            result = asyncio.run(proc.get_image_content_async('https://canvas.instructure.com.attacker.example/img.jpg'))
+
+            # Should succeed but WITHOUT auth header being sent
+            self.assertIsInstance(result, bytes)
+            mock_client.get.assert_called_once()
+            call_args = mock_client.get.call_args
+            # Verify auth header was NOT included
+            headers = call_args.kwargs.get('headers')
+            self.assertIsNone(headers)
