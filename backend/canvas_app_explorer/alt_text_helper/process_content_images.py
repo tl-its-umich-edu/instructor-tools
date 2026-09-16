@@ -220,7 +220,7 @@ class ProcessContentImages:
             logger.error(f"HTTP error fetching image {img_url}: {http_err}")
             # readable user-facing error message.
             return Exception(
-                f"Image processing failed for {http_err.response.url} due to {http_err.response.reason_phrase}"
+                f"Image processing failed for {img_url} due to {http_err.response.reason_phrase}"
             )
         except Exception as req_err:
             logger.error(f"Error fetching image content for image_url {img_url}, course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {req_err}")
