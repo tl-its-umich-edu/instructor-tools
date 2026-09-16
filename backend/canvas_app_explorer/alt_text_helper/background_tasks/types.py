@@ -1,4 +1,4 @@
-from typing import List, Optional, TypedDict, Union, NotRequired
+from typing import List, Optional, TypedDict, NotRequired
 
 class CourseScanError(TypedDict):
     """An image that could not be extracted due to an exception.
