@@ -218,8 +218,7 @@ class ProcessContentImages:
                 return optimized_image_content
         except httpx.HTTPStatusError as http_err:
             logger.error(f"HTTP error fetching image {img_url}: {http_err}")
-            # str() of a raw HTTPStatusError includes an MDN link and reads as HTTP jargon
-            # to the instructor viewing this in the UI, so build a plain-English message here.
+            # readable user-facing error message.
             return Exception(
                 f"Image processing failed for {http_err.response.url} due to {http_err.response.reason_phrase}"
             )
