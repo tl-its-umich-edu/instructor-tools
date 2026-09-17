@@ -1,7 +1,6 @@
 from collections.abc import Callable
 import logging
-import asyncio 
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import asyncio
 from canvasapi import Canvas
 from canvasapi.course import Course
 from canvasapi.page import Page
@@ -14,7 +13,6 @@ from django.db.utils import DatabaseError
 from typing import Any, Dict, List, Literal, NotRequired, TypedDict, Union
 from bs4 import BeautifulSoup
 
-from django.conf import settings
 from backend.canvas_app_explorer.models import ImageItem, ContentItem
 
 logger = logging.getLogger(__name__)
@@ -24,7 +22,6 @@ class ImagePayload(TypedDict):
     image_id: str
     action: Literal["approve", "skip", "decorative"]
     approved_alt_text: str
-    image_url_for_update: str
     is_alt_text_updated: NotRequired[bool | None]
     alt_text_failed_error_message: NotRequired[str | None]
 
@@ -41,7 +38,7 @@ class AltTextUpdate:
     def __init__(self, course_id: int, canvas_api: Canvas, content_with_alt_text: List[Dict[str, Any]], content_types: List[str]) -> None:
         self.course: Course = Course(canvas_api._Canvas__requester, {'id': course_id})
         self.canvas_api = canvas_api
-        self.content_with_alt_text: List[ContentPayload] = self._enrich_content_with_ui_urls(content_with_alt_text)
+        self.content_with_alt_text: List[ContentPayload] = content_with_alt_text
         self.content_alt_text_update_report: List[ContentPayload] = self.content_with_alt_text
         self.content_types: List[str] = content_types
         self.semaphore = asyncio.Semaphore(10)
@@ -422,11 +419,12 @@ class AltTextUpdate:
     def _update_alt_text_html(self, content_id, content_html: str) -> str:
         """
         Return HTML content updated with alt text changes for images that have been approved or marked as decorative.
-        
-        Matching logic:
-        - For Canvas file URLs (image_url_for_update is a file_id): checks if file_id is contained in img src
-        - For public Canvas images and external URLs: exact match on full URL
-        
+
+        Matching logic: exact string comparison between the ``src`` on the Canvas ``img`` tag and
+        the ``image_url`` echoed back by the frontend. The scan stores ``img src`` verbatim (no URL
+        rewriting), and the review payload returns that same value, so Canvas file URLs, public
+        Canvas images, and external URLs are all matched identically.
+
         :param content_html: Original HTML string for the content item to be processed.
         :param content_id: Identifier of the content item whose HTML is being updated; used to
             look up the corresponding image approval data in ``self.content_with_alt_text``.
@@ -435,48 +433,30 @@ class AltTextUpdate:
         """
         soup = BeautifulSoup(content_html, 'html.parser')
         images = soup.find_all('img')
+        if not images:
+            return str(soup)
+
+        # Looked up once per content item rather than per img tag; the payload for this
+        # content_id is guaranteed present by the caller's approved/decorative filtering.
+        image_payloads = next(c for c in self.content_with_alt_text if c['content_id'] == content_id)['images']
+
         for img in images:
             img_src = img.get('src', '')
-            for image_payload in next(c for c in self.content_with_alt_text if c['content_id'] == content_id)['images']:
-                url_for_update = image_payload['image_url_for_update']
-                
-                # Skip if URL transformation failed (should not happen in normal flow)
-                if url_for_update is None:
-                    logger.warning(f"Skipping image with None url_for_update in content {content_id}")
+            for image_payload in image_payloads:
+                if img_src != image_payload['image_url']:
                     continue
-                
-                # Determine if url_for_update is a file_id (numeric string) or full URL
-                is_file_id = url_for_update.isdigit()
-                
-                matched = False
-                if is_file_id:
-                    # For file_id, check if it's contained in the img src
-                    # Matches /files/{file_id} followed by /, ?, or end of string
-                    file_pattern = f'/files/{url_for_update}'
-                    if (file_pattern + '/' in img_src or 
-                        file_pattern + '?' in img_src or 
-                        img_src.endswith(file_pattern)):
-                        matched = True
-                        logger.debug(f"Matched file_id {url_for_update} in img src {img_src}")
-                else:
-                    # For full URLs (public images, external images), exact match
-                    if img_src == url_for_update:
-                        matched = True
-                        logger.debug(f"Exact matched URL {url_for_update}")
-                
-                # Handle alt text update for approved and decorative actions
-                if matched:
-                    if image_payload['action'] == 'approve':
-                        img['alt'] = image_payload['approved_alt_text']
-                        logger.info(f"Updated alt text for image in content {content_id}")
-                    elif image_payload['action'] == 'decorative':
-                        # Decorative images should be marked presentation with empty alt
-                        img['alt'] = ''
-                        img['role'] = 'presentation'
-                        logger.info(f"Marked decorative image in content {content_id}")
-                    # skip action does nothing here
-        updated_description = str(soup)
-        return updated_description
+
+                logger.debug(f"Matched image URL {img_src} in content {content_id}")
+                if image_payload['action'] == 'approve':
+                    img['alt'] = image_payload['approved_alt_text']
+                    logger.info(f"Updated alt text for image in content {content_id}")
+                elif image_payload['action'] == 'decorative':
+                    # Decorative images should be marked presentation with empty alt
+                    img['alt'] = ''
+                    img['role'] = 'presentation'
+                    logger.info(f"Marked decorative image in content {content_id}")
+                # skip action does nothing here
+        return str(soup)
     
     
     def _get_approved_decorative_content_ids(self) -> List[dict]:
@@ -501,73 +481,3 @@ class AltTextUpdate:
         ]
         logger.info(f"Approved or Decorative content IDs: {approved_decorative_content_ids}")
         return approved_decorative_content_ids
-    
-    def _enrich_content_with_ui_urls(self, content_list: List[ContentPayload]) -> List[ContentPayload]:
-        """
-        this method enriches each image in the content list with a URL that mimics how Canvas UI would display it.
-        If the image is approved/decpratove it transforms the URL to a format suitable for Canvas UI preview. otherwise, it sets the original URL (doesn't matter what URL is it's skipped ).
-        
-        :param self: Description
-        :param content_list: Description
-        :type content_list: List[ContentPayload]
-        :return: Description
-        :rtype: List[ContentPayload]
-        """
-        for content in content_list:
-            for image in content['images']:
-                image['image_url_for_update'] = None
-                
-                parsed = None
-                # Check domain type
-                try:
-                    parsed = urlparse(image['image_url'])
-                    if parsed.netloc == settings.CANVAS_OAUTH_CANVAS_DOMAIN:
-                        # For both approve and decorative we will modify the image on the Canvas side.
-                        if image.get('action') in ('approve', 'decorative'):
-                            image['image_url_for_update'] = self._transform_image_url(parsed)
-                        else:
-                            # If action is skip, retain original URL for reference
-                            image['image_url_for_update'] = image['image_url']
-                    else:
-                        # External image when we update we always image_url_for_update to match and update alt text there
-                        image['image_url_for_update'] = image['image_url']
-                except Exception as e:
-                    logger.error(f"Failed to parse image URL {image['image_url']}: {e}")
-                    raise e
-
-        return content_list
-    
-    def _transform_image_url(self, parsed) -> str | None:
-        """
-        Transforms Canvas file URLs to extract just the file_id.
-        
-        For file URLs (e.g., /files/{id}/download, /courses/{id}/files/{id}/preview, /users/{id}/files/{id}/preview):
-        Returns just the file_id as a string (e.g., "44125891")
-        
-        For public Canvas images (e.g., /images/play_overlay.png):
-        Returns the full URL as-is for exact matching
-        
-        For other URLs:
-        Returns the full URL as-is
-        """
-        try:
-            parts = parsed.path.split('/')
-            # Remove empty strings from split
-            parts = [p for p in parts if p]
-            
-            # Check if it's a file URL pattern
-            if 'files' in parts:
-                # Find the file_id (comes right after 'files')
-                files_idx = parts.index('files')
-                if files_idx + 1 < len(parts):
-                    file_id = parts[files_idx + 1]
-                    # Return just the file_id for matching
-                    logger.debug(f"Extracted file_id {file_id} from URL {parsed.geturl()}")
-                    return file_id
-            
-            # For public Canvas images or other URLs, return full URL
-            return parsed.geturl()
-        except Exception as e:
-            logger.error(f"Failed to transform image URL {parsed.geturl()}: {e}")
-            raise e
-        

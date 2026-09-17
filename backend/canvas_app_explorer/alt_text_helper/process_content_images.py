@@ -186,9 +186,11 @@ class ProcessContentImages:
             return err
 
         # Determine if we need auth headers based on domain and config
-        domain = urlparse(img_url).netloc
+        parsed_url = urlparse(img_url)
+        netloc = parsed_url.netloc
         logger.debug(f"Fetching image from img_url: {img_url}, use_canvas_token: {self.use_canvas_token}")
-        if settings.CANVAS_OAUTH_CANVAS_DOMAIN in domain and self.use_canvas_token:
+        # Exact hostname match against allowed Canvas domain to prevent domain spoofing
+        if netloc == settings.CANVAS_OAUTH_CANVAS_DOMAIN and self.use_canvas_token:
             headers = self._auth_header
             if not headers:
                 err = ValueError(f"Auth header missing for image {img_url}")
@@ -209,13 +211,19 @@ class ProcessContentImages:
                 # Validate content-type header
                 content_type = resp.headers.get('content-type', '')
                 if 'image' not in content_type:
-                    raise ValueError(f"Invalid content-type header received: {content_type}")
+                    received = content_type or 'an unrecognized file type'
+                    raise ValueError(
+                        f"Image processing failed for {img_url} due to receiving {received} instead of an image"
+                    )
                 image_content = resp.content
                 optimized_image_content = self.get_optimized_images(image_content, img_url)
                 return optimized_image_content
         except httpx.HTTPStatusError as http_err:
             logger.error(f"HTTP error fetching image {img_url}: {http_err}")
-            return http_err
+            # readable user-facing error message.
+            return Exception(
+                f"Image processing failed for {img_url} due to {http_err.response.reason_phrase}"
+            )
         except Exception as req_err:
             logger.error(f"Error fetching image content for image_url {img_url}, course_scan_id {self.course_scan_id}, course_id: {self.course_id}: {req_err}")
             return req_err

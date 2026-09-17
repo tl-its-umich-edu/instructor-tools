@@ -18,7 +18,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html, course_id=403334)
+        images = extract_images_from_html(html)
         self.assertIsInstance(images, list)
         self.assertEqual(len(images), 2)
 
@@ -39,7 +39,7 @@ class TestParsingImageContentHTML(TestCase):
         )
 
         # By default presentation images are skipped
-        images_default = extract_images_from_html(html, course_id=403334)
+        images_default = extract_images_from_html(html)
         # Only normal-image should be returned (presentation skipped)
         self.assertEqual(len(images_default), 0)
 
@@ -52,7 +52,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html, course_id=403334)
+        images = extract_images_from_html(html)
         self.assertIsInstance(images, list)
         # presentation-role image should not be included by default
         self.assertEqual(len(images), 0)
@@ -67,7 +67,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html, course_id=403334)
+        images = extract_images_from_html(html)
         self.assertIsInstance(images, list)
         # presentation-role image should not be included by default
         self.assertEqual(len(images), 1)
@@ -87,7 +87,7 @@ class TestParsingImageContentHTML(TestCase):
             '</p>'
         )
 
-        images = extract_images_from_html(html, course_id=403334)
+        images = extract_images_from_html(html)
         self.assertIsInstance(images, list)
         # All three images should be picked up since they have filenames with image extensions
         self.assertEqual(len(images), 3)
@@ -98,6 +98,29 @@ class TestParsingImageContentHTML(TestCase):
         
         self.assertIn("99999999", images[2])
     
+    def test_extract_images_from_html_handles_missing_or_empty_attributes_without_exception(self):
+        # Canvas HTML is external, untrusted input, so img tags can arrive with
+        # attributes missing entirely, present-but-valueless, or present-but-empty.
+        # BeautifulSoup/html.parser normalizes a valueless attribute (e.g. `src`
+        # with no `=value`) to an empty string, same as an explicit `src=""`.
+        cases = [
+            ("no img tag at all", "<p></p>", []),
+            ("img tag with no attributes", "<p><img/></p>", []),
+            ("src/alt/role present but valueless", "<p><img src alt role></p>", []),
+            ("src/alt/role present but explicitly empty", '<p><img src="" alt="" role=""></p>', []),
+            (
+                "real src with valueless alt/role",
+                '<p><img src="https://umich.test.instructure.com/courses/403334/files/12345678/preview" alt role></p>',
+                ["https://umich.test.instructure.com/courses/403334/files/12345678/preview"],
+            ),
+        ]
+
+        for description, html, expected in cases:
+            with self.subTest(description):
+                images = extract_images_from_html(html)
+                self.assertIsInstance(images, list)
+                self.assertEqual(images, expected)
+
     def test_no_async_to_sync_warnings_on_async_functions(self):
         """Ensure async_to_sync functions don't raise warnings about non-async callables."""
         import warnings

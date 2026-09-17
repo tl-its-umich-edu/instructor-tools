@@ -1,5 +1,7 @@
+import asyncio
+import httpx
 from django.test import TestCase
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from backend.canvas_app_explorer.alt_text_helper.process_content_images import ProcessContentImages
 from backend.canvas_app_explorer.alt_text_helper.background_tasks.canvas_tools_alt_text_scan import (
     retrieve_and_store_alt_text,
@@ -238,3 +240,137 @@ class TestProcessContentImages(TestCase):
         # Second image should remain without alt text because generator returned None
         img2 = ImageItem.objects.get(id=image_item_2.id)
         self.assertIsNone(img2.image_alt_text)
+
+    def _mock_async_client(self, mock_async_client_cls, response):
+        """Configure a patched httpx.AsyncClient() to behave as an async context
+        manager whose client.get(...) resolves to the given response."""
+        mock_client = MagicMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get = AsyncMock(return_value=response)
+        mock_async_client_cls.return_value = mock_client
+        return mock_client
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.httpx.AsyncClient')
+    def test_get_image_content_async_returns_plain_message_on_http_status_error(self, mock_async_client_cls):
+        """A 404 (or other 4xx/5xx) should come back as a plain Exception with a
+        human-readable message, not httpx's default HTTPStatusError text (which
+        includes an MDN link and reads as HTTP jargon to the instructor viewing it)."""
+        img_url = 'http://example.com/missing.png'
+        fake_request = httpx.Request('GET', img_url)
+        fake_response = httpx.Response(404, request=fake_request)
+        self._mock_async_client(mock_async_client_cls, fake_response)
+
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
+        result = asyncio.run(proc.get_image_content_async(img_url))
+
+        self.assertIsInstance(result, Exception)
+        self.assertNotIsInstance(result, httpx.HTTPStatusError)
+        message = str(result)
+        self.assertIn('Image processing failed for', message)
+        self.assertIn(img_url, message)
+        self.assertIn('Not Found', message)
+        self.assertNotIn('For more information check', message)
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.httpx.AsyncClient')
+    def test_get_image_content_async_returns_plain_message_on_non_image_content_type(self, mock_async_client_cls):
+        """A 200 response whose body is HTML (e.g. a Canvas sign-in page returned
+        instead of the actual image, per USE_CANVAS_TOKEN gating) should be rejected
+        with a message that says what was received, not an opaque header name."""
+        img_url = 'http://example.com/redirected-to-login.png'
+        fake_request = httpx.Request('GET', img_url)
+        fake_response = httpx.Response(
+            200,
+            request=fake_request,
+            headers={'content-type': 'text/html'},
+            content=b'<html>sign in</html>',
+        )
+        self._mock_async_client(mock_async_client_cls, fake_response)
+
+        proc = ProcessContentImages(course_scan_id=self.course_scan.id, course_id=self.course_id)
+        result = asyncio.run(proc.get_image_content_async(img_url))
+
+        self.assertIsInstance(result, ValueError)
+        message = str(result)
+        self.assertIn('Image processing failed for', message)
+        self.assertIn(img_url, message)
+        self.assertIn('text/html', message)
+        self.assertIn('instead of an image', message)
+
+    @patch('backend.canvas_app_explorer.alt_text_helper.process_content_images.httpx.AsyncClient')
+    def test_get_image_content_async_exact_domain_match(self, mock_async_client_cls):
+        """Exact hostname match (== not 'in') prevents domain spoofing attacks like canvas.instructure.com.attacker.example.
+
+        Test that:
+        1. Legitimate Canvas domain gets auth header
+        2. Spoofed domain does NOT get auth header
+        """
+        from PIL import Image
+        import io
+        from unittest.mock import patch as mock_patch
+
+        # Create a valid image response
+        img = Image.new('RGB', (10, 10), color=(255, 0, 0))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG')
+        buf.seek(0)
+        image_bytes = buf.getvalue()
+
+        # Test 1: Legitimate domain should get auth header
+        with mock_patch('django.conf.settings.CANVAS_OAUTH_CANVAS_DOMAIN', 'canvas.instructure.com'):
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=httpx.Response(
+                200,
+                request=httpx.Request('GET', 'https://canvas.instructure.com/img.jpg'),
+                headers={'content-type': 'image/jpeg'},
+                content=image_bytes,
+            ))
+            mock_async_client_cls.return_value = mock_client
+
+            proc = ProcessContentImages(
+                course_scan_id=self.course_scan.id,
+                course_id=self.course_id,
+                bearer_token='test_token'
+            )
+            proc.use_canvas_token = True
+
+            result = asyncio.run(proc.get_image_content_async('https://canvas.instructure.com/img.jpg'))
+
+            # Should succeed and return image bytes
+            self.assertIsInstance(result, bytes)
+            # Verify auth header WAS sent
+            mock_client.get.assert_called_once()
+            call_args = mock_client.get.call_args
+            self.assertIn('Authorization', call_args.kwargs.get('headers', {}))
+
+        # Test 2: Spoofed domain should NOT get auth header
+        with mock_patch('django.conf.settings.CANVAS_OAUTH_CANVAS_DOMAIN', 'canvas.instructure.com'):
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.get = AsyncMock(return_value=httpx.Response(
+                200,
+                request=httpx.Request('GET', 'https://canvas.instructure.com.attacker.example/img.jpg'),
+                headers={'content-type': 'image/jpeg'},
+                content=image_bytes,
+            ))
+            mock_async_client_cls.return_value = mock_client
+
+            proc = ProcessContentImages(
+                course_scan_id=self.course_scan.id,
+                course_id=self.course_id,
+                bearer_token='test_token'
+            )
+            proc.use_canvas_token = True
+
+            result = asyncio.run(proc.get_image_content_async('https://canvas.instructure.com.attacker.example/img.jpg'))
+
+            # Should succeed but WITHOUT auth header being sent
+            self.assertIsInstance(result, bytes)
+            mock_client.get.assert_called_once()
+            call_args = mock_client.get.call_args
+            # Verify auth header was NOT included
+            headers = call_args.kwargs.get('headers')
+            self.assertIsNone(headers)
