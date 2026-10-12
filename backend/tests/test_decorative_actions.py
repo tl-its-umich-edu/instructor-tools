@@ -43,7 +43,6 @@ class TestDecorativeActions(TestCase):
                     'image_url': 'http://example.com/img',
                     'action': 'decorative',
                     'approved_alt_text': 'ignored',
-                    'image_url_for_update': 'http://example.com/img',
                 }
             ]
         }]
@@ -96,7 +95,6 @@ class TestDecorativeActions(TestCase):
                     'image_url': 'http://example.com/img',
                     'action': 'approve',
                     'approved_alt_text': 'alt text',
-                    'image_url_for_update': 'http://example.com/img',
                 }
             ]
         }]
@@ -124,7 +122,6 @@ class TestDecorativeActions(TestCase):
                     'image_url': 'http://example.com/img',
                     'action': 'decorative',
                     'approved_alt_text': 'ignored',
-                    'image_url_for_update': 'http://example.com/img',
                 }
             ]
         }]
@@ -152,14 +149,12 @@ class TestDecorativeActions(TestCase):
                     'image_url': 'http://example.com/img1',
                     'action': 'skip',
                     'approved_alt_text': 'ignored',
-                    'image_url_for_update': 'http://example.com/img1',
                 },
                 {
                     'image_id': '101',
                     'image_url': 'http://example.com/img2',
                     'action': 'approve',
                     'approved_alt_text': 'alt text',
-                    'image_url_for_update': 'http://example.com/img2',
                 }
             ]
         }]

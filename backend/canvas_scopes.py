@@ -16,4 +16,7 @@ DEFAULT_CANVAS_SCOPES = [
     # Quiz Questions
     'url:GET|/api/v1/courses/:course_id/quizzes/:quiz_id/questions',
     'url:PUT|/api/v1/courses/:course_id/quizzes/:quiz_id/questions/:id',
+    # Files Download
+    'url:GET|/courses/:course_id/files/:file_id/download',
+    'url:GET|/users/:user_id/files/:file_id/download',
 ]

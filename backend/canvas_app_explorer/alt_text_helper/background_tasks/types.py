@@ -1,4 +1,4 @@
-from typing import List, Optional, TypedDict, Union, NotRequired
+from typing import List, Optional, TypedDict, NotRequired
 
 class CourseScanError(TypedDict):
     """An image that could not be extracted due to an exception.
@@ -28,15 +28,11 @@ class CourseScanError(TypedDict):
     title: Optional[str] 
     error: Exception  
     canvas_url: str    
-
-
-ExtractedImageResult = Union[List[str], List[CourseScanError]]
-
 class ContentItemWithImages(TypedDict):
     """Represents content item with extracted images and their processing results."""
     id: int
     name: str
-    images: ExtractedImageResult
+    images: List[str]
     type: str
     content_parent_id: Optional[int]
 
