@@ -94,6 +94,9 @@ RUN if [ "$RUN_FRONTEND" != "true" ]; then \
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+# Disable frozen modules to enable proper debugpy breakpoint support
+ENV PYTHON_FLAGS="-Xfrozen_modules=off"
+
 # EXPOSE port 5000 to allow communication to/from server
 EXPOSE 5000
 
