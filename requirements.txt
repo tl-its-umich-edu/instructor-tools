@@ -12,7 +12,7 @@ django-redis==5.4.0
 django-tinymce==5.0.0 # Rich text editor
 django-watchman==1.5.0
 django-webpack-loader==3.2.4
-Pillow==12.3.0
+Pillow==13.0.0
 servestatic==3.1.0 # For serving static files
 beautifulsoup4==4.15.0 # For HTML parsing
 
